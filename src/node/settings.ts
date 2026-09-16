@@ -12,6 +12,8 @@ export interface NodeSettings {
   knownBuilds: string[];
   /** Connected mode (design doc §4.3): the hub this node is linked to, or null in local mode. */
   hub: HubLink | null;
+  /** Logins only ever go through a proxy; with none listed, nothing logs in (design doc §2). */
+  proxies: { required: boolean };
 }
 
 export interface HubLink {
@@ -28,7 +30,7 @@ export interface HubLink {
 export const NODE_SETTINGS_FILE = "node.json";
 
 function defaults(): NodeSettings {
-  return { telemetry: { enabled: false, hubUrl: "", salt: randomBytes(16).toString("base64url") }, knownBuilds: [], hub: null };
+  return { telemetry: { enabled: false, hubUrl: "", salt: randomBytes(16).toString("base64url") }, knownBuilds: [], hub: null, proxies: { required: true } };
 }
 
 export class NodeSettingsStore {
@@ -41,6 +43,7 @@ export class NodeSettingsStore {
         telemetry: { ...this.value.telemetry, ...(raw.telemetry ?? {}) },
         knownBuilds: Array.isArray(raw.knownBuilds) ? raw.knownBuilds.filter((b): b is string => typeof b === "string") : [],
         hub: raw.hub && typeof raw.hub === "object" && typeof raw.hub.nodeId === "string" ? raw.hub : null,
+        proxies: { required: raw.proxies?.required !== false },
       };
     } catch {
       // absent or unreadable: defaults, written on the first change

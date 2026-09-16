@@ -40,7 +40,7 @@ installWishlistScanner();
 
 // Optional: run the bot fleet inside this process. The site's pyrelay client
 // then talks to it in memory, and the two share one lifecycle.
-let fleet: { stop(): void; proxies: import("@/relay/fleet/proxyPool").ProxyPool } | null = null;
+let fleet: { stop(): void; proxies: import("@/relay/fleet/proxyPool").ProxyPool; nodeSettings: import("@/node/settings").NodeSettingsStore } | null = null;
 if (process.env.RELAY_EMBEDDED === "1") {
   const [{ Fleet }, { createControlPlane, poolPayload }, { registerEmbeddedRelay, registerEmbeddedPool }, { LocalSiteApi }, { notifyPoolChanged }] = await Promise.all([
     import("@/relay/fleet/fleet"),
@@ -70,7 +70,7 @@ if (process.env.ACCOUNTGEN_EMBEDDED === "1") {
     import("@/accountgen/walker/liveFeed"),
   ]);
   // One exit-IP pool for the whole process when the fleet is embedded too.
-  const svc = new AccountgenService(process.env.ACCOUNTGEN_DATA_DIR || process.env.DATA_DIR || "./data", undefined, fleet ? { gameProxies: fleet.proxies } : {});
+  const svc = new AccountgenService(process.env.ACCOUNTGEN_DATA_DIR || process.env.DATA_DIR || "./data", undefined, fleet ? { gameProxies: fleet.proxies, requireProxy: () => fleet!.nodeSettings.get().proxies.required } : {});
   registerLocalAccountSource(async (seasonal) => {
     const a = await svc.dispense(seasonal === null ? undefined : seasonal);
     return a ? { email: a.email, password: a.password, name: a.name, server: a.server, seasonal: a.seasonal } : null;

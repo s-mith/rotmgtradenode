@@ -52,9 +52,8 @@ export interface ProxySourceStatus {
 /** PROXIES_URL / PROXIES_FILE as the fleet and accountgen both read them. */
 export function proxySourceFromEnv(dataDir: string): ProxySource {
   const url = (process.env.PROXIES_URL ?? "").trim() || null;
-  const explicit = process.env.PROXIES_FILE;
-  const inData = path.join(dataDir, "proxies.txt");
-  const file = explicit ?? (url || fs.existsSync(inData) ? inData : "proxies.txt");
+  // The list the console's Proxies tab writes lives in the data dir.
+  const file = process.env.PROXIES_FILE ?? path.join(dataDir, "proxies.txt");
   return { url, file, stateFile: path.join(dataDir, "proxy_settings.json") };
 }
 
@@ -149,6 +148,30 @@ export class ProxyPool {
       }
     }
     return { ok: true, count: this.byHost.size, error: null };
+  }
+
+  /**
+   * A list the owner pasted in (one proxy per line, host:port or
+   * host:port:user:pass, optional socks5:// prefix). Replaces the live pool
+   * and the file, so it survives a restart. Returns how many lines parsed.
+   */
+  setList(text: string): { count: number; error: string | null } {
+    const proxies = parseProxyList(text);
+    if (!proxies.length && text.trim()) return { count: 0, error: "no usable proxy lines (expected host:port or host:port:user:pass, one per line)" };
+    this.replace(proxies, proxies.length ? "file" : "none");
+    if (this.source.file) {
+      try {
+        fs.mkdirSync(path.dirname(this.source.file), { recursive: true });
+        fs.writeFileSync(this.source.file, text.trim() ? text.replace(/\r\n/g, "\n").trim() + "\n" : "", { mode: 0o600 });
+      } catch (e) {
+        return { count: proxies.length, error: `saved in memory only: ${String(e)}` };
+      }
+    }
+    return { count: proxies.length, error: null };
+  }
+  /** The list as text, credentials included (the console runs on loopback). */
+  listText(): string {
+    return [...this.byHost.values()].map((p) => `${p.type === 4 ? "socks4://" : ""}${p.host}:${p.port}${p.username ? `:${p.username}:${p.password}` : ""}`).join("\n");
   }
 
   /** Swap the host list. Pins are recomputed; health, occupancy and the

@@ -10,6 +10,7 @@ import FeaturesTab from "./FeaturesTab";
 import WishlistsTab from "./WishlistsTab";
 import VaultCapsTab from "./VaultCapsTab";
 import NodeTab from "./NodeTab";
+import ProxiesTab from "./ProxiesTab";
 
 // Dev — operator console. Each tool lives in exactly one category; the
 // categories run across the top and the category's tools down the left.
@@ -18,6 +19,7 @@ const STORAGE_KEY = "dev_password";
 
 type DevTab =
   | "node"
+  | "proxies"
   | "inventories"
   | "accounts"
   | "backpacks"
@@ -36,6 +38,7 @@ const CATEGORIES: { id: DevCategory; label: string; tabs: { id: DevTab; label: s
     label: "Fleet",
     tabs: [
       { id: "node", label: "Node" },
+      { id: "proxies", label: "Proxies" },
       { id: "inventories", label: "Inventories" },
       { id: "accounts", label: "Accounts" },
       { id: "backpacks", label: "Backpacks" },
@@ -219,6 +222,7 @@ export default function DevSettingsPage() {
 
           {/* Mounted only while selected, so switching away stops its poll loop. */}
           {tab === "node" && <NodeTab password={password} />}
+          {tab === "proxies" && <ProxiesTab password={password} />}
           {tab === "inventories" && <InventoriesTab password={password} />}
           {tab === "accounts" && <AccountsTab password={password} />}
           {tab === "backpacks" && <BackpacksTab password={password} />}

@@ -157,8 +157,25 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
       const p = fleet.proxies.entry(h.host);
       return { ...h, usedBy: acc?.alias ?? h.usedBy, username: p?.username ?? "", password: p?.password ?? "" };
     });
-    return { ok: true, source: fleet.proxies.sourceStatus(), capacity: fleet.proxies.exclusiveCapacity(), inUse: fleet.proxies.occupiedCount(), proxies: hosts };
+    return { ok: true, source: fleet.proxies.sourceStatus(), capacity: fleet.proxies.exclusiveCapacity(), inUse: fleet.proxies.occupiedCount(), proxies: hosts, required: fleet.nodeSettings.get().proxies.required, text: fleet.proxies.listText() };
   };
+  // The owner's pasted list (design doc §2: logins go through a proxy only).
+  app.post("/proxies/list", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    if (!body || typeof body.text !== "string") return c.json({ error: "text must be a string" }, 400);
+    if (body.text.length > 200_000) return c.json({ error: "list too long" }, 400);
+    const r = fleet.proxies.setList(body.text);
+    if (r.error && !r.count) return c.json({ error: r.error }, 400);
+    fleet.log(`proxies: owner saved a list of ${r.count} exit IP(s)${r.error ? ` (${r.error})` : ""}`);
+    return c.json({ ...proxiesPayload(), saved: r });
+  });
+  app.post("/proxies/required", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    if (!body || typeof body.required !== "boolean") return c.json({ error: "required must be a boolean" }, 400);
+    fleet.nodeSettings.update((s) => { s.proxies.required = body.required; });
+    fleet.log(`proxies: logins ${body.required ? "go through a proxy only" : "may go direct when no proxy is listed"}`);
+    return c.json(proxiesPayload());
+  });
   app.get("/proxies", (c) => c.json(proxiesPayload()));
   app.post("/proxies", async (c) => {
     const body = await c.req.json().catch(() => null);

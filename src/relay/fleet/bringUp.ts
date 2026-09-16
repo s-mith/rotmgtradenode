@@ -32,6 +32,8 @@ export interface FleetDeps {
   onLogin?: (acc: BotAccount, client: GameClient) => void;
   /** Realm's server addresses; refreshed with the fresh token before the socket opens when stale. */
   servers?: ServerList;
+  /** When true, a login with no proxy to use is refused rather than made from this host's IP. */
+  requireProxy?: () => boolean;
 }
 
 export class BringUpRefused extends Error {
@@ -70,8 +72,13 @@ export async function bringUp(deps: FleetDeps, acc: BotAccount, server: string, 
   if (clients.has(acc.guid)) throw new BringUpRefused("failed", `account ${acc.guid} already added`);
 
   // Proxy: the pool wins whenever there is one; an account's own proxy is
-  // the fallback only when nothing is configured.
+  // the fallback only when nothing is configured. With the proxy rule on,
+  // no pool means no login at all.
   let proxy: Proxy | null = null;
+  if (deps.requireProxy?.() && !proxies.configured && !acc.info.proxy?.host) {
+    if (gate.notePauseRefusal()) log("BringUp: no proxies listed and logins are set to go through a proxy only — paste some in the console's Proxies tab");
+    throw new BringUpRefused("failed", "no proxy: proxies are required");
+  }
   if (proxies.configured) {
     proxy = proxies.claim(acc.guid);
     if (!proxy) {
