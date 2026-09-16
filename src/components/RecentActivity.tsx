@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { ItemSprite } from "./ItemSprite";
 import PlayerName from "./PlayerName";
-import type { NameStyle } from "@/lib/cosmetics";
 
 // One row of the ledger, straight from /api/recent. The route resolves the
 // catalog code to `itemName`, which ItemSprite normalizes into a sprite.
@@ -10,7 +9,6 @@ type Event = {
   id: number;
   kind: "deposit" | "withdraw";
   ign: string;
-  nameStyle: NameStyle | null;
   itemName: string;
   qty: number;
   server: string | null;
@@ -78,7 +76,7 @@ export default function RecentActivity({ refreshKey }: { refreshKey: number }) {
               {relTime(e.createdAt)}
             </span>
             <span style={{ color: "var(--muted)", fontSize: 12 }}>
-              <PlayerName ign={e.ign} style={e.nameStyle} />
+              <PlayerName ign={e.ign} />
             </span>
           </div>
         </li>

@@ -22,7 +22,6 @@ import { enchantName } from "./enchants";
 import type { PyrelayPool } from "./devauth";
 import { emitTx, notifyPoolChanged } from "./liveBus";
 import { checkWithdrawAllowance } from "./playerLimits";
-import { isSkinItem } from "./skins";
 
 /** Slots move between the halves this many at a time: one bot's inventory. */
 export const VAULT_BLOCK = 8;
@@ -337,7 +336,6 @@ export function claimInstances(db: Database.Database, actor: Actor, picks: Claim
     for (const p of picks) {
       if (owned.get(p.instanceId)) return { ok: false, status: 409, error: "One of those items was just claimed by someone else. Refresh and try again." };
       if (reserved.has(p.instanceId)) return { ok: false, status: 409, error: "One of those items is reserved by an open withdraw. Refresh and try again." };
-      if (isSkinItem(p.itemId)) return { ok: false, status: 400, error: "Skins are earned through missions, not claimed." };
     }
     const allowance = checkWithdrawAllowance(db, actor.ignLower, picks.length);
     if (!allowance.ok) return { ok: false, status: 429, error: allowance.error };

@@ -67,9 +67,6 @@ function init(db: Database.Database) {
       claimed_by TEXT,
       group_id TEXT,
       target_bot_guid TEXT,
-      -- 1 = queued by the operator for character skins; the bot accepts
-      -- skins on this trade and nowhere else (see lib/skins.ts).
-      skins_allowed INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -122,22 +119,6 @@ function init(db: Database.Database) {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
-
-    -- Donator name cosmetics (see lib/cosmetics.ts). One row per IGN.
-    -- The enabled flag is the operator's grant and is the only thing that
-    -- makes a style render; style_json is the player's own pick from the
-    -- in-page menu. Kept apart so revoking a grant doesn't discard the
-    -- pick — a re-grant restores it. Rows are only made by the operator,
-    -- so an absent row means "not a donator", not "default style".
-    CREATE TABLE IF NOT EXISTS player_cosmetics (
-      ign_lower TEXT PRIMARY KEY,
-      ign TEXT NOT NULL,
-      enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
-      style_json TEXT NOT NULL DEFAULT '{}',
-      granted_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_cosmetics_enabled ON player_cosmetics(enabled);
 
     -- Leaderboard disqualifications (see lib/leaderboardDq.ts). A row means
     -- "this IGN is not shown on the boards and holds no rank" — a moderation
@@ -214,20 +195,6 @@ function init(db: Database.Database) {
       updated_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_blog_date ON blog_posts(published, date DESC);
-
-    -- Skin redemptions: a mission reward spent on one skin. The delivery is
-    -- the linked withdraw_requests row (per-instance, pinned to the bot that
-    -- holds the skin); this row ties it to the player's mission balance.
-    -- Cancelled deliveries don't count as spent (lib/skinRedeem.ts).
-    CREATE TABLE IF NOT EXISTS skin_redemptions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      ign TEXT NOT NULL,
-      ign_lower TEXT NOT NULL,
-      skin_id TEXT NOT NULL,
-      withdraw_request_id INTEGER NOT NULL,
-      created_at INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_skin_redemptions_ign ON skin_redemptions(ign_lower, id DESC);
   `);
 
   // Additive migrations for older DBs
@@ -360,10 +327,6 @@ function init(db: Database.Database) {
   if (!reqCols2.some((c) => c.name === "items_json")) {
     console.log("[db.init] adding deposit_requests.items_json");
     db.exec("ALTER TABLE deposit_requests ADD COLUMN items_json TEXT");
-  }
-  if (!reqCols2.some((c) => c.name === "skins_allowed")) {
-    console.log("[db.init] adding deposit_requests.skins_allowed");
-    db.exec("ALTER TABLE deposit_requests ADD COLUMN skins_allowed INTEGER NOT NULL DEFAULT 0");
   }
 
   const wreqCols = db.prepare("PRAGMA table_info(withdraw_requests)").all() as { name: string }[];

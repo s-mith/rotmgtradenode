@@ -53,15 +53,12 @@ export async function createDepositRequest(
     /** What the player says they are bringing; routes the deposit to the
      *  bot already gathering those potions. Optional, never enforced. */
     items?: { itemId: string; qty: number }[];
-    /** Operator only: the bot may take character skins on this trade. */
-    skinsAllowed?: boolean;
     /** Into this account's personal storage: only its vault bot may claim,
      *  the cap is the slots it has left, and nothing hits the ledger. */
     vaultUserId?: number;
   },
 ): Promise<CreateDepositResult> {
   const { ign, ignLower, server, seasonal } = args;
-  const skinsAllowed = args.skinsAllowed ? 1 : 0;
   const itemsJson = args.items?.length ? JSON.stringify(args.items) : null;
   const vaultUserId = args.vaultUserId ?? null;
   let slots = args.slots;
@@ -239,10 +236,10 @@ export async function createDepositRequest(
     const result = db
       .prepare(
         `INSERT INTO deposit_requests
-           (ign, ign_lower, server, item_count, remaining_count, status, group_id, seasonal, items_json, skins_allowed, vault_user_id, created_at, updated_at)
+           (ign, ign_lower, server, item_count, remaining_count, status, group_id, seasonal, items_json, vault_user_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(ign, ignLower, server, slots, slots, groupId, seasonal, itemsJson, skinsAllowed, vaultUserId, now, now);
+      .run(ign, ignLower, server, slots, slots, groupId, seasonal, itemsJson, vaultUserId, now, now);
     return { kind: "ok" as const, requestId: Number(result.lastInsertRowid) };
   }).immediate();
 

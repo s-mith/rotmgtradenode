@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import NameCustomizer from "./NameCustomizer";
 
 // Login by copy-pasted /tell. The player clicks Log in, we mint a code and show
 // "/tell <bot> <code>"; they paste it in game, and the tell landing at the bot
@@ -19,12 +18,9 @@ type Linked = { ign: string; linkedAt: number };
 export default function LoginPanel({
   ign,
   onChange,
-  onCosmeticsChange,
 }: {
   ign: string | null;
   onChange: (ign: string | null) => void;
-  /** The player saved a new name effect — repaint the panels that show names. */
-  onCosmeticsChange?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [challenge, setChallenge] = useState<{ code: string; botIgn: string; link: boolean } | null>(null);
@@ -303,9 +299,6 @@ export default function LoginPanel({
         </button>
         {notice && <p className="login-status">{notice}</p>}
         {err && <p className="login-err">{err}</p>}
-        {/* Renders nothing unless this account has been granted name
-            effects in /dev/settings → Cosmetics. */}
-        <NameCustomizer ign={ign} onSaved={onCosmeticsChange} />
       </div>
     );
   }
@@ -322,8 +315,8 @@ export default function LoginPanel({
   return (
     <div className="login">
       <p className="login-intro">
-        Log in with your in-game character to deposit, withdraw, and redeem
-        skins. You&rsquo;ll paste one <code>/tell</code> command — no password.
+        Log in with your in-game character to deposit and withdraw.
+        You&rsquo;ll paste one <code>/tell</code> command — no password.
       </p>
       <button type="button" className="login-primary" onClick={() => start(false)} disabled={busy}>
         {busy ? "Starting…" : "Log in"}

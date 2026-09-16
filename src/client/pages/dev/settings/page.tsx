@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
 import InventoriesTab from "./InventoriesTab";
 import DepositsTab from "./DepositsTab";
-import CosmeticsTab from "./CosmeticsTab";
 import AccountsTab from "./AccountsTab";
 import BackpacksTab from "./BackpacksTab";
 import ItemPointsTab from "./ItemPointsTab";
 import ServerControlTab from "./ServerControlTab";
 import TutorialsTab from "./TutorialsTab";
-import SkinsTab from "./SkinsTab";
 import FeaturesTab from "./FeaturesTab";
 import WishlistsTab from "./WishlistsTab";
 import VaultCapsTab from "./VaultCapsTab";
@@ -25,15 +23,13 @@ type DevTab =
   | "backpacks"
   | "deposits"
   | "itempoints"
-  | "cosmetics"
   | "servercontrols"
   | "tutorials"
-  | "skins"
   | "features"
   | "wishlists"
   | "vaultcaps";
 
-type DevCategory = "fleet" | "economy" | "players" | "content";
+type DevCategory = "fleet" | "economy" | "players";
 const CATEGORIES: { id: DevCategory; label: string; tabs: { id: DevTab; label: string }[] }[] = [
   {
     id: "fleet",
@@ -59,16 +55,10 @@ const CATEGORIES: { id: DevCategory; label: string; tabs: { id: DevTab; label: s
     id: "players",
     label: "Players",
     tabs: [
-      { id: "cosmetics", label: "Cosmetics" },
       { id: "features", label: "Feature access" },
       { id: "wishlists", label: "Wishlists" },
       { id: "vaultcaps", label: "Vault caps" },
     ],
-  },
-  {
-    id: "content",
-    label: "Content",
-    tabs: [{ id: "skins", label: "Skins" }],
   },
 ];
 const categoryOf = (tab: DevTab): DevCategory => CATEGORIES.find((c) => c.tabs.some((t) => t.id === tab))?.id ?? "fleet";
@@ -234,10 +224,8 @@ export default function DevSettingsPage() {
           {tab === "backpacks" && <BackpacksTab password={password} />}
           {tab === "deposits" && <DepositsTab password={password} />}
           {tab === "itempoints" && <ItemPointsTab password={password} />}
-          {tab === "cosmetics" && <CosmeticsTab password={password} />}
           {tab === "servercontrols" && <ServerControlTab password={password} />}
           {tab === "tutorials" && <TutorialsTab password={password} />}
-          {tab === "skins" && <SkinsTab password={password} />}
           {tab === "features" && <FeaturesTab password={password} />}
           {tab === "wishlists" && <WishlistsTab password={password} />}
           {tab === "vaultcaps" && <VaultCapsTab password={password} />}

@@ -17,7 +17,6 @@ import {
 } from "@/lib/potionPlan";
 import { pyrelay } from "@/lib/devauth";
 import { MAX_OPEN_WITHDRAWS, openRequestsFor } from "@/lib/cancelCode";
-import { isSkinItem } from "@/lib/skins";
 import { sessionFromRequest } from "@/lib/session";
 import { blockMessage, withdrawBlock } from "@/lib/serverControls";
 import { ownedInstanceIds, releaseVaultBotIfEmpty, reservedInstanceIds } from "@/lib/vault";
@@ -432,11 +431,6 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
       { error: `Item no longer available: ${missing}` },
       { status: 409 },
     );
-  }
-  // Skins are mission rewards, never a pick from the grid (the grid doesn't
-  // show them; this stops a hand-built request).
-  if (instRows.some((r) => isSkinItem(r.item_id))) {
-    return json({ error: "Skins are earned through missions — use the Redeem skin tab." }, { status: 400 });
   }
 
   // For ONLINE bots holding selected items, all must be on the server the

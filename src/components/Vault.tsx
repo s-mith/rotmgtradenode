@@ -16,7 +16,6 @@ import { TagSearch, matchesTags, effectsOfEnchant, type SearchTag, type Suggesti
 import itemIndex from "@/lib/item-index.json";
 import itemTooltips from "@/lib/item-tooltips.json";
 import enchantMods from "@/lib/enchant-mods.json";
-import { MISSION_DEFS, earnedRewards, maxRewards, type MissionStat } from "@/lib/missions";
 import { WITHDRAW_SERVERS } from "@/lib/servers";
 import { serverOffLabel, useServerControls } from "@/lib/useServerControls";
 
@@ -301,10 +300,7 @@ export type Tab = "deposit" | "withdraw" | "potions" | "claim" | "donate";
 // from here.
 export type { PoolInstance, Rarity };
 
-// A skin currently in stock (supply > 0), from GET /api/skins.
-type SkinStock = { realmId: string; name: string; image: string; count: number };
-
-export type PoolKind = "seasonal" | "nonseasonal" | "redeemskin" | "myvault" | "wishlist";
+export type PoolKind = "seasonal" | "nonseasonal" | "myvault" | "wishlist";
 
 // GET /api/vault: the logged-in account's personal storage.
 export type VaultItemView = {
@@ -465,15 +461,6 @@ export default function Vault() {
   // Search tags (item / enchantment / effect chips) picked from the search
   // box's suggestions. Free text in `query` still narrows on top of them.
   const [tags, setTags] = useState<SearchTag[]>([]);
-  // Redeem-skin mode lets the player pick one skin to claim against a
-  // completed mission. Single selection, independent of the trade tray.
-  const [selectedSkinId, setSelectedSkinId] = useState<string | null>(null);
-  // Skins are non-seasonal items: only what non-seasonal bots hold is
-  // offered. Fetched when the Redeem-skin tab is opened, and again whenever
-  // a redemption starts or ends (skinsKey).
-  const [stockSkins, setStockSkins] = useState<SkinStock[]>([]);
-  const [skinsKey, setSkinsKey] = useState(0);
-  const bumpSkins = useCallback(() => setSkinsKey((k) => k + 1), []);
   // Class + slot filters driven by the left-side filter rail. null = no filter;
   // when both are set they combine (class AND slot).
   const [classFilter, setClassFilter] = useState<string | null>(null);
@@ -791,34 +778,6 @@ export default function Vault() {
   const ctxSeasonal = pool === "myvault" ? vaultHalf === "seasonal" : pool === "seasonal";
   const ctxHalf = vault ? (ctxSeasonal ? vault.seasonal : vault.nonseasonal) : null;
 
-  // Load the in-stock skins whenever the Redeem-skin tab is shown, so freshly
-  // seeded (or depleted) supply is reflected on tab switch.
-  useEffect(() => {
-    if (pool !== "redeemskin") return;
-    let cancelled = false;
-    fetch("/api/skins", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d: { skins?: SkinStock[] }) => {
-        if (!cancelled) setStockSkins(d.skins ?? []);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [pool, skinsKey]);
-
-  // Redeem-skin grid: only stocked skins, filtered by a plain name search.
-  const filteredSkins = useMemo(() => {
-    if (pool !== "redeemskin") return [];
-    const q = query.trim().toLowerCase();
-    return q ? stockSkins.filter((s) => s.name.toLowerCase().includes(q)) : stockSkins;
-  }, [pool, query, stockSkins]);
-
-  const selectedSkin = useMemo(
-    () => stockSkins.find((s) => s.realmId === selectedSkinId) ?? null,
-    [stockSkins, selectedSkinId],
-  );
-
   // Adds one not-yet-picked member of a stack. The pick happens inside
   // the functional update so back-to-back clicks each grab a DIFFERENT
   // instance even before React re-renders between them. Stacks can span
@@ -1116,9 +1075,7 @@ export default function Vault() {
         <div className="pool-head">
           <h2>{pool === "myvault" ? "My Vault" : pool === "wishlist" ? "My Wishlist" : "The Pool"}</h2>
           <span className="pool-count">
-            {pool === "redeemskin"
-              ? `${filteredSkins.length} skin${filteredSkins.length === 1 ? "" : "s"}`
-              : pool === "wishlist"
+            {pool === "wishlist"
                 ? ""
                 : pool === "myvault"
                 ? ctxHalf
@@ -1144,12 +1101,6 @@ export default function Vault() {
               onClick={() => switchPool("nonseasonal")}
             >
               Non-seasonal
-            </button>
-            <button
-              className={"nav-link" + (pool === "redeemskin" ? " active" : "")}
-              onClick={() => switchPool("redeemskin")}
-            >
-              Redeem skin
             </button>
           </div>
         )}
@@ -1241,25 +1192,15 @@ export default function Vault() {
         ) : (
         <>
         <div className="pool-controls">
-          {pool === "redeemskin" ? (
-            <input
-              type="search"
-              className="pool-search"
-              placeholder="Search skins…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          ) : (
-            <TagSearch
-              tags={tags}
-              onTagsChange={setTags}
-              text={query}
-              onTextChange={setQuery}
-              suggestions={suggestions}
-              placeholder="Search items, enchantments or effects…"
-            />
-          )}
-          {pool !== "redeemskin" && <label className="pool-sort">
+          <TagSearch
+            tags={tags}
+            onTagsChange={setTags}
+            text={query}
+            onTextChange={setQuery}
+            suggestions={suggestions}
+            placeholder="Search items, enchantments or effects…"
+          />
+          <label className="pool-sort">
             <span>Sort</span>
             <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
               {(Object.keys(SORT_LABELS) as (keyof typeof SORT_LABELS)[])
@@ -1278,17 +1219,16 @@ export default function Vault() {
                 ))}
               </optgroup>
             </select>
-          </label>}
+          </label>
         </div>
-        {/* Item filters mean nothing for the skin gallery. */}
-        {pool !== "redeemskin" && <div className="mat-filters">
+        <div className="mat-filters">
           <MaterialSliders value={matFilter} exact={matExact} onToggleExact={toggleMatExact} onChange={onMatChange} />
           <div className="side-sliders">
             <FeedSlider value={feedMin} steps={feedSteps} exact={feedExact} onToggleExact={toggleFeedExact} onChange={setFeedMin} />
             <EnchantSlider value={enchMin} exact={enchExact} onToggleExact={toggleEnchExact} onChange={setEnchMin} />
           </div>
-        </div>}
-        {pool !== "redeemskin" && <div className="pool-options">
+        </div>
+        <div className="pool-options">
           <label className="pool-option">
             <input
               type="checkbox"
@@ -1298,44 +1238,19 @@ export default function Vault() {
             <span>Collapse by rarity</span>
             <span className="pool-option-hint">one tile per item and rarity, enchants ignored</span>
           </label>
-        </div>}
-        <div className={"pool-body" + (pool === "redeemskin" ? " no-rail" : "")}>
-        {pool !== "redeemskin" && <FilterRail
+        </div>
+        <div className="pool-body">
+        <FilterRail
           selectedClass={classFilter}
           onSelectClass={selectClass}
           selectedSlot={slotFilter}
           onSelectSlot={selectSlot}
           selectedConsumable={consumableFilter}
           onSelectConsumable={selectConsumable}
-        />}
+        />
         <div className="pool-grid-col">
         <div className="pool-grid-wrap" ref={setScrollParent}>
-          {pool === "redeemskin" ? (
-            filteredSkins.length === 0 ? (
-              <p style={{ color: "var(--muted)" }}>
-                {stockSkins.length === 0
-                  ? "No skins in stock right now — check back later."
-                  : "No skins match your search."}
-              </p>
-            ) : (
-              <VirtuosoGrid
-                data={filteredSkins}
-                customScrollParent={scrollParent ?? undefined}
-                listClassName="pool-grid"
-                itemClassName="pool-cell"
-                computeItemKey={(_i, s) => s.realmId}
-                itemContent={(_i, s) => (
-                  <SkinTile
-                    skin={s}
-                    selected={s.realmId === selectedSkinId}
-                    onSelect={() =>
-                      setSelectedSkinId((cur) => (cur === s.realmId ? null : s.realmId))
-                    }
-                  />
-                )}
-              />
-            )
-          ) : loading ? (
+          {loading ? (
             <p style={{ color: "var(--muted)" }}>Loading…</p>
           ) : poolErr ? (
             <p style={{ color: "var(--bad)" }}>
@@ -1423,21 +1338,12 @@ export default function Vault() {
               "Login"
             )}
           </h2>
-          <LoginPanel
-            ign={sessionIgn}
-            onChange={onSessionChange}
-            onCosmeticsChange={reloadFeeds}
-          />
+          <LoginPanel ign={sessionIgn} onChange={onSessionChange} />
         </div>
         {/* Server-backed: whatever this character has queued or mid-trade,
             with a cancel per request, surviving reloads and tab switches. */}
         <OpenRequests ign={sessionIgn} refreshKey={feedKey + poolKey} onChanged={reload} />
-        {pool === "redeemskin" ? (
-          <div className="panel">
-            <h2>Missions</h2>
-            <MissionsPanel ign={sessionIgn} selectedSkin={selectedSkin} onChanged={bumpSkins} />
-          </div>
-        ) : pool === "wishlist" ? (
+        {pool === "wishlist" ? (
           <div className="panel">
             <h2>How it works</h2>
             <ul className="wish-help">
@@ -1817,297 +1723,6 @@ function RarityBadge({ rarity }: { rarity: Rarity }) {
       style={{ background: RARITY_COLOR[rarity] }}
       aria-hidden="true"
     />
-  );
-}
-
-// One skin in the Redeem-skin catalog: the scraped 40×40 sprite over its
-// name. Click to pick it as the skin to redeem against a completed mission;
-// reuses the pool-tile frame so it sits flush with the trade grids.
-const SkinTile = memo(function SkinTile({
-  skin,
-  selected,
-  onSelect,
-}: {
-  skin: { realmId: string; name: string; image: string };
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={"pool-tile skin-tile clickable" + (selected ? " in-tray" : "")}
-      title={skin.name}
-      aria-label={skin.name}
-      aria-pressed={selected}
-      onClick={onSelect}
-    >
-      <img className="pool-tile-sprite" src={skin.image} alt="" aria-hidden="true" />
-      <span className="skin-tile-name">{skin.name}</span>
-    </button>
-  );
-});
-
-// Replaces the Transact panel while Redeem-skin is the active pool. Shows
-// each mission's progress from /api/missions (net, from the ledger), and
-// once one is earned, spends it on the skin picked in the grid: POST
-// /api/redeem-skin queues a withdraw pinned to the bot holding that skin,
-// and the panel follows it like TxForm follows a withdraw.
-type Progress = {
-  stats: Record<MissionStat, number>;
-  earned: number;
-  used: number;
-  available: number;
-  open: { requestId: number; groupId: string; skinId: string; name: string; status: string } | null;
-};
-type TradeStep = { requestId: number; status: string; botIgn: string | null };
-type ActiveRedemption = { groupId: string; name: string; step: TradeStep | null; done: "fulfilled" | "cancelled" | null };
-
-function MissionsPanel({
-  ign,
-  selectedSkin,
-  onChanged,
-}: {
-  ign: string | null;
-  selectedSkin: { realmId: string; name: string; image: string } | null;
-  /** Stock changed (a redemption started or ended): the gallery should refetch. */
-  onChanged: () => void;
-}) {
-  const [progress, setProgress] = useState<Progress | null>(null);
-  const disabledServers = useServerControls();
-  const openServers = WITHDRAW_SERVERS.filter((s) => !disabledServers[s]?.withdraws);
-  const [server, setServer] = useState<string>(WITHDRAW_SERVERS[0] ?? "");
-  // Follow the list: a default or chosen server that closes moves the pick to
-  // the first open one, so the redeem button never targets a busy server.
-  useEffect(() => {
-    if (disabledServers[server]?.withdraws) setServer(openServers[0] ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [disabledServers]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [active, setActive] = useState<ActiveRedemption | null>(null);
-
-  const loadProgress = useCallback(() => {
-    if (!ign) {
-      setProgress(null);
-      setActive(null);
-      return;
-    }
-    fetch(`/api/missions?ign=${encodeURIComponent(ign)}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d) return;
-        const p: Progress = {
-          stats: { seasonalPotionsNet: Number(d.seasonalPotionsNet ?? 0) },
-          earned: Number(d.earned ?? 0),
-          used: Number(d.used ?? 0),
-          available: Number(d.available ?? 0),
-          open: d.open ?? null,
-        };
-        setProgress(p);
-        // A redemption already in flight (a reload mid-trade): pick it back up.
-        if (p.open) setActive((cur) => (cur && cur.groupId === p.open!.groupId ? cur : { groupId: p.open!.groupId, name: p.open!.name, step: null, done: null }));
-      })
-      .catch(() => {});
-  }, [ign]);
-  useEffect(() => {
-    loadProgress();
-  }, [loadProgress]);
-
-  // Follow the open redemption's withdraw until it ends.
-  useEffect(() => {
-    if (!active || active.done) return;
-    const groupId = active.groupId;
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const r = await fetch(`/api/request-status/withdraw-group/${groupId}`, { cache: "no-store" });
-        const d = await r.json();
-        if (cancelled) return;
-        const step = (d.trades?.[0] ?? null) as TradeStep | null;
-        const done = step?.status === "fulfilled" ? "fulfilled" : step?.status === "cancelled" ? "cancelled" : null;
-        setActive((a) => (a && a.groupId === groupId ? { ...a, step, done } : a));
-        if (done) {
-          loadProgress();
-          onChanged();
-        }
-      } catch {
-        // transient; next tick retries
-      }
-    };
-    tick();
-    const t = setInterval(tick, 2500);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [active?.groupId, active?.done, loadProgress, onChanged]);
-
-  async function redeem() {
-    if (!selectedSkin) return;
-    setBusy(true);
-    setError("");
-    try {
-      const r = await fetch("/api/redeem-skin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skinId: selectedSkin.realmId, server }),
-      });
-      const d = await r.json();
-      if (!r.ok) {
-        setError(d.error || `HTTP ${r.status}`);
-        if (d.hasOpen) loadProgress();
-        return;
-      }
-      setActive({ groupId: d.groupId, name: d.name, step: d.botIgn ? { requestId: d.requestId, status: "pending", botIgn: d.botIgn } : null, done: null });
-      loadProgress();
-      onChanged();
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function cancel() {
-    setBusy(true);
-    try {
-      await fetch("/api/cancel", { method: "POST" });
-      setActive((a) => (a ? { ...a, done: "cancelled" } : a));
-      loadProgress();
-      onChanged();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const missions = MISSION_DEFS.map((d) => ({ ...d, current: progress ? progress.stats[d.statKey] : 0 }));
-  const available = progress?.available ?? 0;
-  const inFlight = !!active && !active.done;
-  const botReady = inFlight && active?.step?.status === "claimed" && !!active.step.botIgn;
-
-  return (
-    <div className="missions">
-      <p className="missions-intro">
-        {ign
-          ? "Complete a mission to earn a skin redemption, then pick a skin from the pool and a bot brings it to you. Skins are non-seasonal: be on a non-seasonal character."
-          : "Log in to track your mission progress and redeem skins."}
-      </p>
-      <div className="missions-tokens">
-        <span className="missions-token-count">{available}</span>
-        <span>redemption{available === 1 ? "" : "s"} available{progress && progress.used > 0 ? ` · ${progress.used} used` : ""}</span>
-      </div>
-
-      <div className="missions-setup">
-        <label className="missions-server">
-          <span>Server</span>
-          <select value={server} onChange={(e) => setServer(e.target.value)}>
-            {WITHDRAW_SERVERS.map((s) => {
-              const off = Boolean(disabledServers[s]?.withdraws);
-              return (
-                <option key={s} value={s} disabled={off}>
-                  {s}{serverOffLabel(disabledServers[s], "withdraw")}
-                </option>
-              );
-            })}
-          </select>
-        </label>
-      </div>
-
-      {selectedSkin && (
-        <div className="missions-selected">
-          <img className="missions-selected-sprite" src={selectedSkin.image} alt="" aria-hidden="true" />
-          <span>
-            Selected: <strong>{selectedSkin.name}</strong>
-          </span>
-        </div>
-      )}
-
-      {active && (
-        <div className={"missions-active" + (active.done === "fulfilled" ? " done" : active.done === "cancelled" ? " cancelled" : "")}>
-          <div className="mission-head">
-            <span className="mission-title">{active.done === "fulfilled" ? "Delivered" : active.done === "cancelled" ? "Cancelled" : "Redeeming"}: {active.name}</span>
-            {inFlight && (
-              <button type="button" className="missions-cancel" onClick={cancel} disabled={busy}>
-                cancel
-              </button>
-            )}
-          </div>
-          {active.done === "fulfilled" ? (
-            <p className="mission-desc">Enjoy your skin.</p>
-          ) : active.done === "cancelled" ? (
-            <p className="mission-desc">The trade didn't happen; your redemption was not spent.</p>
-          ) : botReady && active.step ? (
-            <>
-              <p className="mission-desc">
-                Bot <strong>{active.step.botIgn}</strong> is on {server}. In game:
-              </p>
-              <code className="missions-cmd">/trade {active.step.botIgn}</code>
-            </>
-          ) : (
-            <p className="mission-desc">
-              <em>waiting for a bot to bring it to {server}…</em>
-            </p>
-          )}
-        </div>
-      )}
-
-      <ul className="mission-list">
-        {missions.map((m) => {
-          const done = m.current >= m.target;
-          // Net progress can go below zero (withdrawals count against it): the
-          // bar shows the deficit as a red fill and the readout carries the sign.
-          const negative = m.current < 0;
-          const pct = negative ? 0 : Math.min(100, Math.round((m.current / m.target) * 100));
-          const deficitPct = negative ? Math.min(100, Math.round((-m.current / m.target) * 100)) : 0;
-          const earned = earnedRewards(m, m.current);
-          const max = maxRewards(m);
-          const nextAt = m.rewardEvery ? (earned + 1) * m.rewardEvery : m.target;
-          return (
-            <li key={m.id} className={"mission-card" + (done ? " mission-done" : earned > 0 ? " mission-earned" : negative ? " mission-negative" : "")}>
-              <div className="mission-head">
-                <span className="mission-title">{m.title}</span>
-                {done ? <span className="mission-badge">Complete</span> : earned > 0 ? <span className="mission-badge">{earned}× earned</span> : negative && <span className="mission-badge">In deficit</span>}
-              </div>
-              <p className="mission-desc">{m.desc}</p>
-              <div className="mission-bar" role="progressbar" aria-valuenow={negative ? -deficitPct : pct} aria-valuemin={-100} aria-valuemax={100}>
-                <div className="mission-bar-fill" style={{ width: (negative ? deficitPct : pct) + "%" }} />
-              </div>
-              <div className="mission-meta">
-                <span>
-                  {negative ? "−" : ""}{Math.abs(m.current).toLocaleString()} / {m.target.toLocaleString()} {m.unit}
-                </span>
-                <span>{negative ? `−${deficitPct}%` : m.rewardEvery ? `${earned}/${max} skins · ${pct}%` : `${pct}%`}</span>
-              </div>
-              {negative ? (
-                <p className="mission-desc">
-                  You've withdrawn {Math.abs(m.current).toLocaleString()} more {m.unit} than you've deposited. Contribute {(m.target - m.current).toLocaleString()} to reach the goal.
-                </p>
-              ) : !done && m.rewardEvery && earned < max && (
-                <p className="mission-desc">Next skin at {nextAt.toLocaleString()} {m.unit}.</p>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-
-      <button
-        type="button"
-        className="mission-redeem"
-        disabled={!ign || busy || inFlight || available < 1 || !selectedSkin}
-        onClick={redeem}
-      >
-        {!ign
-          ? "Log in to redeem"
-          : inFlight
-            ? "Redemption in progress"
-            : available < 1
-              ? "Complete a mission to redeem"
-              : selectedSkin
-                ? `Redeem ${selectedSkin.name}`
-                : "Select a skin to redeem"}
-      </button>
-      {error && <p className="missions-error">{error}</p>}
-    </div>
   );
 }
 

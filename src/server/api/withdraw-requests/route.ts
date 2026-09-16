@@ -1,6 +1,6 @@
 import { json } from "@/server/http";
 import { getDb } from "@/lib/db";
-import { itemDisplayName } from "@/lib/skins";
+import { ITEM_BY_ID } from "@/lib/catalog";
 
 
 type ItemEntry = { itemId: string; qty: number };
@@ -32,7 +32,7 @@ export async function GET() {
         const parsed = JSON.parse(r.items_json) as ItemEntry[];
         items = parsed.map((it) => ({
           itemId: it.itemId,
-          itemName: itemDisplayName(it.itemId),
+          itemName: ITEM_BY_ID.get(it.itemId)?.name ?? it.itemId,
           qty: it.qty,
         }));
       } catch {

@@ -9,7 +9,6 @@
 // Bot presence comes from lib/fleetPresence.ts, not a table.
 import type Database from "better-sqlite3";
 import { ITEM_BY_ID } from "./catalog";
-import { isSkinItem } from "./skins";
 import { poolRoomForDeposits } from "./capacity";
 import { MAX_TRADE_SLOTS } from "./depositSizes";
 import { presence, type PresenceBot } from "./fleetPresence";
@@ -23,7 +22,7 @@ export type ItemQty = { itemId: string; qty: number };
 export type Unit = { itemId: string; enchants: number };
 
 export type Assignment =
-  | { kind: "deposit"; requestId: number; ign: string; server: string; itemCount: number; botIgn: string; skins: boolean; vault: number | null }
+  | { kind: "deposit"; requestId: number; ign: string; server: string; itemCount: number; botIgn: string; vault: number | null }
   | { kind: "withdraw"; requestId: number; ign: string; server: string; items: ItemQty[]; instanceIds: string[] | null; botIgn: string; vault: number | null };
 
 /** A physical item a vault deposit received, as the fleet's tracker identifies it. */
@@ -91,13 +90,13 @@ export function claimDeposit(db: Database.Database, botGuid: string, liveFreeSlo
       order = "created_at ASC";
     }
     const where = `status = 'pending' AND server = ? AND seasonal = ? AND ${vaultClause} AND ${isPlayersNextTrade("deposit_requests")}`;
-    type Row = { id: number; ign: string; server: string; group_id: string | null; skins_allowed: number; vault_user_id: number | null; item_count: number };
+    type Row = { id: number; ign: string; server: string; group_id: string | null; vault_user_id: number | null; item_count: number };
     let row: Row | undefined;
     if (preferRequestId != null) {
-      row = db.prepare(`SELECT id, ign, server, group_id, skins_allowed, vault_user_id, item_count FROM deposit_requests WHERE id = ? AND ${where}`).get(preferRequestId, bot.server, bot.seasonal ? 1 : 0, ...params) as Row | undefined;
+      row = db.prepare(`SELECT id, ign, server, group_id, vault_user_id, item_count FROM deposit_requests WHERE id = ? AND ${where}`).get(preferRequestId, bot.server, bot.seasonal ? 1 : 0, ...params) as Row | undefined;
     }
     row ??= db
-      .prepare(`SELECT id, ign, server, group_id, skins_allowed, vault_user_id, item_count FROM deposit_requests WHERE ${where} ORDER BY ${order} LIMIT 1`)
+      .prepare(`SELECT id, ign, server, group_id, vault_user_id, item_count FROM deposit_requests WHERE ${where} ORDER BY ${order} LIMIT 1`)
       .get(bot.server, bot.seasonal ? 1 : 0, ...params) as Row | undefined;
     if (!row) return;
     cap = half ? Math.min(row.item_count, liveFree, left) : row.item_count;
@@ -107,7 +106,7 @@ export function claimDeposit(db: Database.Database, botGuid: string, liveFreeSlo
     if (claimed.changes !== 1) return;
     recordEvent(db, "deposit", row.id, "claimed", botGuid, { cap });
     groupId = row.group_id;
-    out = { kind: "deposit", requestId: row.id, ign: row.ign, server: row.server, itemCount: cap, botIgn: bot.ign, skins: row.skins_allowed === 1, vault: row.vault_user_id };
+    out = { kind: "deposit", requestId: row.id, ign: row.ign, server: row.server, itemCount: cap, botIgn: bot.ign, vault: row.vault_user_id };
   }).immediate();
   if (out) {
     presence.setStatus(botGuid, "busy", now);
@@ -190,7 +189,7 @@ export interface DepositResult {
 export function fulfillDeposit(db: Database.Database, botGuid: string, requestId: number, items: ItemQty[], units: Unit[] | null = null, instances: ReceivedInstance[] | null = null): DepositResult {
   if (!items.length || items.length > 16) throw new QueueError("items must be 1-16 entries");
   for (const it of items) {
-    if (!ITEM_BY_ID.has(it.itemId) && !isSkinItem(it.itemId)) throw new QueueError(`Unknown item: ${it.itemId}`);
+    if (!ITEM_BY_ID.has(it.itemId)) throw new QueueError(`Unknown item: ${it.itemId}`);
     if (!Number.isInteger(it.qty) || it.qty < 1) throw new QueueError("Item qty must be >= 1");
   }
   if (units) {
@@ -203,14 +202,12 @@ export function fulfillDeposit(db: Database.Database, botGuid: string, requestId
   let groupId: string | null = null;
   const out = db.transaction((): DepositResult => {
     const row = db
-      .prepare("SELECT id, ign, ign_lower, server, item_count, remaining_count, current_cap, status, claimed_by, seasonal, group_id, skins_allowed, vault_user_id FROM deposit_requests WHERE id = ?")
-      .get(requestId) as { id: number; ign: string; ign_lower: string; server: string; item_count: number; remaining_count: number | null; current_cap: number | null; status: string; claimed_by: string | null; seasonal: number; group_id: string | null; skins_allowed: number; vault_user_id: number | null } | undefined;
+      .prepare("SELECT id, ign, ign_lower, server, item_count, remaining_count, current_cap, status, claimed_by, seasonal, group_id, vault_user_id FROM deposit_requests WHERE id = ?")
+      .get(requestId) as { id: number; ign: string; ign_lower: string; server: string; item_count: number; remaining_count: number | null; current_cap: number | null; status: string; claimed_by: string | null; seasonal: number; group_id: string | null; vault_user_id: number | null } | undefined;
     if (!row) throw new QueueError("Request not found");
     if (row.status === "fulfilled") throw new QueueError("Already fulfilled");
     if (row.status === "cancelled") throw new QueueError("Request cancelled");
     if (row.claimed_by !== botGuid) throw new QueueError("This request was claimed by a different bot");
-    // The bot refuses skins on a normal deposit; this is the site's copy of that rule.
-    if (row.skins_allowed !== 1 && items.some((it) => isSkinItem(it.itemId))) throw new QueueError("Skins are only accepted on an operator's skin deposit");
     // The fleet reports one entry per item type with a quantity; the slots
     // taken are about physical items, so count quantities. The trade window
     // is sized by the bot's free slots, which may exceed the size asked for
@@ -257,8 +254,7 @@ export function fulfillDeposit(db: Database.Database, botGuid: string, requestId
       vaultFull = left < 1;
     } else {
       const insert = db.prepare(`INSERT INTO transactions (kind, ign, ign_lower, item_id, qty, enchants, server, request_id, created_at) VALUES ('deposit', ?, ?, ?, ?, ?, ?, ?, ?)`);
-      // Skins never touch the ledger: no points, no activity, no record of who brought them.
-      for (const l of lines) if (!isSkinItem(l.itemId)) insert.run(row.ign, row.ign_lower, l.itemId, l.qty, l.enchants, row.server, requestId, now);
+      for (const l of lines) insert.run(row.ign, row.ign_lower, l.itemId, l.qty, l.enchants, row.server, requestId, now);
       vaultFull = poolRoomForDeposits(db, row.seasonal ? 1 : 0, requestId, got) < 1;
     }
     db.prepare(`UPDATE deposit_requests SET status = 'fulfilled', remaining_count = 0, current_cap = NULL, claimed_by = ?, end_reason = ?, updated_at = ? WHERE id = ?`)
@@ -281,7 +277,7 @@ export function fulfillDeposit(db: Database.Database, botGuid: string, requestId
  */
 export function fulfillWithdraw(db: Database.Database, botGuid: string, requestId: number, items: ItemQty[], deliveredInstances: string[] = []): { ign: string; server: string; count: number; partial: boolean; remaining: ItemQty[] } {
   if (!items.length || items.length > 16) throw new QueueError("items must be 1-16 entries");
-  for (const it of items) if (!ITEM_BY_ID.has(it.itemId) && !isSkinItem(it.itemId)) throw new QueueError(`Unknown item: ${it.itemId}`);
+  for (const it of items) if (!ITEM_BY_ID.has(it.itemId)) throw new QueueError(`Unknown item: ${it.itemId}`);
   let groupId: string | null = null;
   const out = db.transaction(() => {
     const row = db
@@ -320,13 +316,12 @@ export function fulfillWithdraw(db: Database.Database, botGuid: string, requestI
       }
     } else {
       const insert = db.prepare(`INSERT INTO transactions (kind, ign, ign_lower, item_id, qty, enchants, server, request_id, created_at) VALUES ('withdraw', ?, ?, ?, ?, ?, ?, ?, ?)`);
-      // A skin redemption is delivered here but recorded only in skin_redemptions.
       const enchantsOf = (itemId: string): number => {
         const r = requested.find((x) => x.itemId === itemId);
         return r && Number.isInteger(r.enchants) && r.enchants! > 0 ? r.enchants! : 0;
       };
       const credited: ItemQty[] = full ? requested : [...got].map(([itemId, qty]) => ({ itemId, qty }));
-      for (const it of credited) if (!isSkinItem(it.itemId)) insert.run(row.ign, row.ign_lower, it.itemId, it.qty, enchantsOf(it.itemId), row.server, requestId, now);
+      for (const it of credited) insert.run(row.ign, row.ign_lower, it.itemId, it.qty, enchantsOf(it.itemId), row.server, requestId, now);
     }
     let remaining: ItemQty[] = [];
     if (full) {

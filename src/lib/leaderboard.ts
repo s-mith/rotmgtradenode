@@ -21,7 +21,6 @@ import type Database from "better-sqlite3";
 import { ITEM_BY_ID } from "@/lib/catalog";
 import BASELINE from "@/lib/leaderboard-baseline.json";
 import { publishedPriceAt, pricingSnapshot } from "@/lib/itemPricing";
-import { notASkin } from "@/lib/skins";
 
 // ---- Pricing epochs --------------------------------------------------------
 // Ordered list of rule changes. A transaction scores by the LAST epoch whose

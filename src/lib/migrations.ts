@@ -64,7 +64,7 @@ export const MIGRATIONS: Migration[] = [
           -- a seasonal bot cannot trade a non-seasonal one.
           vault_seasonal INTEGER NOT NULL DEFAULT 1,
           -- Entitlement, per player rather than a constant so it can be
-          -- raised later (missions, points).
+          -- raised later.
           vault_slots INTEGER NOT NULL DEFAULT 8,
           -- The bot dedicated to this user's items while they hold any;
           -- released (NULL) once the vault is empty again.
