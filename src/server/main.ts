@@ -41,6 +41,7 @@ installWishlistScanner();
 // Optional: run the bot fleet inside this process. The site's pyrelay client
 // then talks to it in memory, and the two share one lifecycle.
 let fleet: { stop(): void; proxies: import("@/relay/fleet/proxyPool").ProxyPool; nodeSettings: import("@/node/settings").NodeSettingsStore } | null = null;
+let swapsRef: { stop(): void } | null = null;
 if (process.env.RELAY_EMBEDDED === "1") {
   const [{ Fleet }, { createControlPlane, poolPayload }, { registerEmbeddedRelay, registerEmbeddedPool }, { LocalSiteApi }, { notifyPoolChanged }] = await Promise.all([
     import("@/relay/fleet/fleet"),
@@ -56,6 +57,12 @@ if (process.env.RELAY_EMBEDDED === "1") {
   fleet = f;
   void f.start().catch((e) => console.error("[relay] fleet failed to start:", e));
   console.log("[relay] embedded fleet starting");
+  // Cross-node swaps (design doc §6.2): offers and rendezvous against the hub.
+  const [{ SwapCoordinator }, { registerEmbeddedSwaps }] = await Promise.all([import("@/node/swaps"), import("@/lib/devauth")]);
+  const swaps = new SwapCoordinator({ db: getDb, hub: f.hub, pool: () => poolPayload(f), log: (l) => console.log(l) });
+  registerEmbeddedSwaps(swaps);
+  swaps.start();
+  swapsRef = swaps;
 }
 
 // Optional: the onboarding service (tutorial walks for owner-added
@@ -92,6 +99,7 @@ function shutdown(signal: string) {
   shuttingDown = true;
   console.log(`[server] ${signal} received, shutting down`);
   stopScheduler();
+  swapsRef?.stop();
   fleet?.stop();
   // Open SSE streams keep connections alive; don't wait on them forever.
   const force = setTimeout(() => process.exit(0), 5_000);
