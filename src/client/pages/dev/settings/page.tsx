@@ -186,7 +186,7 @@ export default function DevSettingsPage() {
   return (
     <>
       <SiteHeader />
-      <div className="pool-tabs">
+      <div className="panel-categories" role="tablist" aria-label="Control panel sections">
         {CATEGORIES.map((c) => (
           <button
             key={c.id}

@@ -59,6 +59,8 @@ export class HubClient {
     return this.link !== null;
   }
   get outdated(): boolean {
+    // A version that is not a number ("dev") is a source checkout: never gate it.
+    if (!/^\d/.test(this.o.nodeVersion)) return false;
     return !!this.version && compareVersions(this.o.nodeVersion, this.version.minNodeVersion) < 0;
   }
 

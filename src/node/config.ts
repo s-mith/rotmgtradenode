@@ -55,6 +55,16 @@ export function applyNodeDefaults(): NodeConfig {
   // turns the "proxy only" rule off, and then only a few at once.
   setDefault("PROXIES_URL", "");
   setDefault("DIRECT_ONLINE_BOTS", "4");
+  // What the hub and telemetry see as this node's version: package.json's,
+  // unless the shell (or a release) set it.
+  if (!process.env.ROTMGTRADE_VERSION) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as { version?: string };
+      if (pkg.version) process.env.ROTMGTRADE_VERSION = pkg.version;
+    } catch {
+      // not run from the package root: leave it unset ("dev")
+    }
+  }
   return { mode: "local", dataDir, host: process.env.HOST!, port: Number(process.env.PORT) };
 }
 

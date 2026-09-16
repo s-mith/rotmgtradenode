@@ -132,6 +132,27 @@ header.site {
   image-rendering: pixelated;
 }
 
+/* The control panel's category row: real tabs, not a muted subtitle. */
+.panel-categories {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-categories .nav-link {
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  font-size: 15px;
+  margin-bottom: -1px;
+}
+.panel-categories .nav-link.active {
+  background: var(--panel);
+  border-color: var(--border);
+  color: var(--accent-hot);
+}
+
 header.site .site-nav {
   display: flex;
   gap: 18px;
