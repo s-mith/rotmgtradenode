@@ -91,6 +91,8 @@ export default function AccountsTab({ password }: { password: string }) {
   const [addWalked, setAddWalked] = useState(false);
   const [addBusy, setAddBusy] = useState(false);
   const [addMsg, setAddMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [retryBusy, setRetryBusy] = useState(false);
+  const [retryMsg, setRetryMsg] = useState<string | null>(null);
 
   const sprites = useRef<Map<number, Sprite>>(new Map());
   const spriteInflight = useRef<Set<number>>(new Set());
@@ -206,6 +208,23 @@ export default function AccountsTab({ password }: { password: string }) {
     }
   }, [addEmail, addPassword, addSeasonal, addWalked, password, search]);
 
+  const retrySuspended = useCallback(async (guids?: string[]) => {
+    setRetryBusy(true);
+    setRetryMsg(null);
+    try {
+      const res = await fetch("/api/dev/accounts", { method: "POST", headers: { "Content-Type": "application/json", "x-dev-password": password }, body: JSON.stringify({ action: "retry-suspended", guids }) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      const results = (body.results ?? []) as { alias: string; verdict: string; detail: string }[];
+      setRetryMsg(results.length ? results.map((r) => `${r.alias}: ${r.verdict === "cleared" ? "cleared, back in the roster" : `${r.verdict}${r.detail ? ` (${r.detail})` : ""}`}`).join(" · ") : "No suspended accounts to retry.");
+      void search(lastQuery.current);
+    } catch (err) {
+      setRetryMsg(err instanceof Error ? err.message : "retry failed");
+    } finally {
+      setRetryBusy(false);
+    }
+  }, [password, search]);
+
   const spriteFor = useCallback(
     (realmId: number | null): string | null =>
       realmId === null ? null : sprites.current.get(realmId)?.sprite ?? null,
@@ -237,6 +256,14 @@ export default function AccountsTab({ password }: { password: string }) {
         </div>
         {addMsg && <p style={{ color: addMsg.ok ? "var(--good, #5aa86a)" : "var(--bad)", fontSize: 12, margin: "8px 0 0" }}>{addMsg.text}</p>}
       </form>
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+        <button className="nav-link" type="button" disabled={retryBusy} onClick={() => void retrySuspended()} style={{ border: "1px solid var(--border)", borderRadius: 6, padding: "4px 10px" }}>
+          {retryBusy ? "checking…" : "Retry suspended accounts"}
+        </button>
+        <span style={{ color: "var(--muted)", fontSize: 12 }}>re-checks every suspended account against Realm over HTTP (no login) and puts back the ones it accepts</span>
+      </div>
+      {retryMsg && <p style={{ fontSize: 12, marginBottom: 12 }}>{retryMsg}</p>}
 
       <form
         onSubmit={(e) => {
@@ -291,6 +318,7 @@ export default function AccountsTab({ password }: { password: string }) {
                 <span style={{ color: "var(--muted)" }}>· {a.ign}</span>
               )}
               <span style={{ color: st.color, fontWeight: 600 }}>{st.text}</span>
+              {a.suspended && <button className="nav-link" type="button" disabled={retryBusy} onClick={() => void retrySuspended([a.guid])}>retry</button>}
               {a.server && <span style={{ color: "var(--muted)" }}>· {a.server}</span>}
               <span style={{ color: "var(--muted)" }}>
                 ·{" "}

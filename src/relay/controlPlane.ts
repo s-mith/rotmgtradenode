@@ -278,6 +278,15 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     return c.json({ ok: true, account: { alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, seasonal: acc.seasonal } });
   });
 
+  // Re-check suspended accounts against Realm (HTTP only) and un-retire the ones it accepts.
+  app.post("/accounts/retry-suspended", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { guids?: unknown };
+    const guids = Array.isArray(body.guids) ? body.guids.map(String) : undefined;
+    const { retrySuspended } = await import("./fleet/retrySuspended");
+    const results = await retrySuspended({ pool: fleet.pool, gate: fleet.gate, proxies: fleet.proxies, requireProxy: () => fleet.nodeSettings.get().proxies.required, log: fleet.log }, guids);
+    return c.json({ ok: true, results, cleared: results.filter((r) => r.verdict === "cleared").length });
+  });
+
   // Node status and knobs (design doc §8): build gate, server list, telemetry.
   app.get("/node", (c) => c.json({ ok: true, build: fleet.buildGate.status(), servers: fleet.servers.status(), telemetry: fleet.telemetry.status(), hub: fleet.hub.status(), version: fleet.versions.current, feed: { polling: fleet.versions.polling, lastFetchAt: fleet.versions.lastFetchAt, lastError: fleet.versions.lastError, info: fleet.versions.lastInfo } }));
   // Connected mode (design doc §4.3, docs/hub-protocol.md).

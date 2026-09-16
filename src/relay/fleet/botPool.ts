@@ -216,6 +216,20 @@ export class BotPool {
     return acc;
   }
 
+  /** The owner re-checked the account and Realm accepts it again. */
+  clearSuspended(guid: string): BotAccount | undefined {
+    const acc = this.byGuid(guid);
+    if (!acc || !acc.suspended) return acc;
+    acc.suspended = false;
+    acc.info.suspended = false;
+    this.touched();
+    this.patchFile((entries) => {
+      for (const e of entries) if (e.guid === guid) e.suspended = false;
+    });
+    console.log(`BotPool: ${acc.alias} un-retired by the owner`);
+    return acc;
+  }
+
   setSeasonal(acc: BotAccount, seasonal: boolean): void {
     if (acc.seasonal === seasonal) return;
     acc.seasonal = seasonal;

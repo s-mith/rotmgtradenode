@@ -73,6 +73,10 @@ export class LoginGate {
   retire(guid: string): void {
     this.lockedUntil.set(guid, this.now() + FOREVER_MS);
   }
+  /** Undo a retire (or any lockout): the account may log in on the next wake. */
+  unlock(guid: string): void {
+    this.lockedUntil.delete(guid);
+  }
   noteServerJam(server: string, seconds: number, why = ""): void {
     if (!server || seconds <= 0) return;
     const now = this.now();
