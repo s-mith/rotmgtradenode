@@ -2,7 +2,7 @@ import { json } from "@/server/http";
 import { checkDevPassword, pyrelay } from "@/lib/devauth";
 
 // GET  /api/dev/backpacks?view=status|plan|accounts[&buffer=0.2][&only=claimable|nobackpack|banked|needlogin|errors][&limit=200]
-// POST /api/dev/backpacks  body { action: "audit"|"logins"|"chore"|"cancel-audit"|"cancel-logins"|"cancel-chore", ...run options }
+// POST /api/dev/backpacks  body { action: "audit"|"chore"|"cancel-audit"|"cancel-chore", ...run options }
 //
 // A thin pass-through to the fleet's /backpacks control-plane routes
 // (docs/relay/BACKPACKS.md §12): the HTTP audit, the daily login pass, the
@@ -19,17 +19,15 @@ export async function GET(req: Request) {
     const q = new URLSearchParams();
     for (const k of ["only", "limit"]) if (url.searchParams.has(k)) q.set(k, url.searchParams.get(k)!);
     path = `/accounts${q.size ? `?${q}` : ""}`;
-  } else if (view === "settings") path = "/settings";
-  else if (view !== "status") return json({ error: "view must be status, plan, accounts or settings" }, { status: 400 });
+  } else if (view !== "status") return json({ error: "view must be status, plan or accounts" }, { status: 400 });
   const r = await pyrelay.backpacksGet<Record<string, unknown>>(path);
   if (!r.ok) return json({ error: r.error }, { status: r.status });
   return json(r.data);
 }
 
 const ACTIONS: Record<string, string> = {
-  audit: "/audit", logins: "/logins", chore: "/chore",
-  "cancel-audit": "/audit/cancel", "cancel-logins": "/logins/cancel", "cancel-chore": "/chore/cancel",
-  settings: "/settings", tick: "/scheduler/tick", recycle: "/recycle", "cancel-recycle": "/recycle/cancel",
+  audit: "/audit", chore: "/chore",
+  "cancel-audit": "/audit/cancel", "cancel-chore": "/chore/cancel",
 };
 
 export async function POST(req: Request) {

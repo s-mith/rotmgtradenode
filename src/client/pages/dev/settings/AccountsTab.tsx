@@ -48,36 +48,6 @@ type Account = {
 
 type Sprite = { name: string; sprite: string | null };
 
-// Progress of a fleet-wide ban sweep. Mirrors lib/devauth.ts's BanSweep, which
-// mirrors pyrelay's Communism/BanSweep.py. The last three are absent on older
-// pyrelay builds, so everything that reads them tolerates undefined.
-type Sweep = {
-  running: boolean;
-  startedAt: number | null;
-  finishedAt: number | null;
-  total: number;
-  checked: number;
-  healthy: number;
-  unknown: number;
-  skippedOnline: number;
-  skippedLocked: number;
-  skippedArchived: number;
-  banned: { alias: string; guid: string; botGuid: string }[];
-  stoppedReason: string | null;
-  current: string | null;
-  phase?: "draining" | "sweeping" | null;
-  tradesHeld?: boolean;
-  concurrency?: number;
-};
-
-// How often to poll while a sweep runs. It logs a handful of accounts in at a
-// time, each taking seconds, so a 2s poll never misses a step and costs
-// almost nothing.
-const SWEEP_POLL_MS = 2000;
-
-// Matches MAX_IDS in /api/dev/item-sprites.
-const SPRITE_BATCH = 200;
-
 function relTime(ts: number | null): string {
   if (ts === null) return "never seen";
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
@@ -92,6 +62,9 @@ function relTime(ts: number | null): string {
 // Status line for the card header. Ordered by what an operator needs to know
 // first: a suspended account explains a missing item outright, so it outranks
 // everything else on the card.
+// Sprites are fetched in batches of ids so a big lookup costs a few requests.
+const SPRITE_BATCH = 200;
+
 function statusOf(a: Account): { text: string; color: string } {
   if (a.suspended) return { text: "SUSPENDED", color: "var(--bad)" };
   if (!a.online) return { text: "offline", color: "var(--muted)" };
@@ -111,9 +84,13 @@ export default function AccountsTab({ password }: { password: string }) {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [sweep, setSweep] = useState<Sweep | null>(null);
-  const [sweepErr, setSweepErr] = useState<string | null>(null);
-  const [sweepBusy, setSweepBusy] = useState(false);
+  // Add-account form (design doc §4.1: the roster is the owner's own alts).
+  const [addEmail, setAddEmail] = useState("");
+  const [addPassword, setAddPassword] = useState("");
+  const [addSeasonal, setAddSeasonal] = useState(true);
+  const [addWalked, setAddWalked] = useState(false);
+  const [addBusy, setAddBusy] = useState(false);
+  const [addMsg, setAddMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const sprites = useRef<Map<number, Sprite>>(new Map());
   const spriteInflight = useRef<Set<number>>(new Set());
@@ -206,110 +183,28 @@ export default function AccountsTab({ password }: { password: string }) {
     };
   }, [accounts, password]);
 
-  // --- ban sweep ----------------------------------------------------------
-  // Log every account in and archive the ones Realm says are banned. pyrelay
-  // runs the same routine its boot sweep uses, so the accounts that come up
-  // clean also get their inventories refreshed on the way past.
-  //
-  // It takes minutes (a handful of logins at a time — a burst is what trips
-  // Realm's rate limit and costs each refused account a 5-minute lockout) and
-  // it pauses withdraws and deposits for the whole run, so this starts it and
-  // polls rather than holding a request open.
-
-  const pollSweep = useCallback(async () => {
+  const addAccount = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddBusy(true);
+    setAddMsg(null);
     try {
-      const res = await fetch("/api/dev/ban-sweep", {
-        headers: { "X-Dev-Password": password },
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
-      setSweep(body.sweep as Sweep);
-      return body.sweep as Sweep;
-    } catch (e) {
-      setSweepErr(e instanceof Error ? e.message : "sweep status failed");
-      return null;
-    }
-  }, [password]);
-
-  // Pick up a sweep that is already running — started from another browser, or
-  // before this tab was opened. Without this, reloading the page mid-sweep
-  // looks like nothing is happening and invites a second click.
-  useEffect(() => {
-    void pollSweep();
-  }, [pollSweep]);
-
-  // Poll only while one is in flight; the final snapshot stays on screen.
-  useEffect(() => {
-    if (!sweep?.running) return;
-    const id = setInterval(() => void pollSweep(), SWEEP_POLL_MS);
-    return () => clearInterval(id);
-  }, [sweep?.running, pollSweep]);
-
-  // A finished sweep changes what the cards below should say — an archived
-  // account reads SUSPENDED, and that is the whole point of having run it. The
-  // list is search-driven and wouldn't otherwise refetch, so a sweep that just
-  // retired two bots would leave them on screen looking healthy.
-  const sweepWasRunning = useRef(false);
-  useEffect(() => {
-    const running = Boolean(sweep?.running);
-    if (sweepWasRunning.current && !running) void search(lastQuery.current);
-    sweepWasRunning.current = running;
-  }, [sweep?.running, search]);
-
-  const startSweep = useCallback(async () => {
-    if (
-      !confirm(
-        "Log every bot account in to check it against Realm?\n\n" +
-          "WITHDRAWS AND DEPOSITS ARE PAUSED for the whole run. Trades " +
-          "already in progress finish first; new requests queue up and are " +
-          "served when the sweep ends.\n\n" +
-          "Each account is a real login, so this runs slowly in the " +
-          "background (minutes, not seconds) and skips bots that are online " +
-          "or rate-limited. Accounts that come up clean get their tracked " +
-          "inventory refreshed. Anything Realm reports SUSPENDED is " +
-          "archived: flagged in Accounts.json and dropped from the pool. " +
-          "Items on an archived bot stay recorded but become unreachable.",
-      )
-    ) {
-      return;
-    }
-    setSweepBusy(true);
-    setSweepErr(null);
-    try {
-      const res = await fetch("/api/dev/ban-sweep", {
+      const res = await fetch("/api/dev/accounts", {
         method: "POST",
-        headers: { "X-Dev-Password": password },
+        headers: { "Content-Type": "application/json", "x-dev-password": password },
+        body: JSON.stringify({ email: addEmail.trim(), password: addPassword, seasonal: addSeasonal, tutorialDone: addWalked }),
       });
       const body = await res.json();
-      // 409 means one was already running — that's the state the operator
-      // wanted anyway, so fall through to polling rather than erroring.
-      if (!res.ok && res.status !== 409) {
-        throw new Error(body.error ?? `HTTP ${res.status}`);
-      }
-      await pollSweep();
-    } catch (e) {
-      setSweepErr(e instanceof Error ? e.message : "could not start the sweep");
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      setAddMsg({ ok: true, text: body.where === "roster" ? `${addEmail.trim()} is on the roster; the fleet may log it in now.` : `${addEmail.trim()} queued for its tutorial walk — watch the Tutorials tab; it joins the roster when done.` });
+      setAddEmail("");
+      setAddPassword("");
+      void search(lastQuery.current);
+    } catch (err) {
+      setAddMsg({ ok: false, text: err instanceof Error ? err.message : "could not add the account" });
     } finally {
-      setSweepBusy(false);
+      setAddBusy(false);
     }
-  }, [password, pollSweep]);
-
-  const cancelSweep = useCallback(async () => {
-    setSweepBusy(true);
-    try {
-      const res = await fetch("/api/dev/ban-sweep", {
-        method: "DELETE",
-        headers: { "X-Dev-Password": password },
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
-      setSweep(body.sweep as Sweep);
-    } catch (e) {
-      setSweepErr(e instanceof Error ? e.message : "could not stop the sweep");
-    } finally {
-      setSweepBusy(false);
-    }
-  }, [password]);
+  }, [addEmail, addPassword, addSeasonal, addWalked, password, search]);
 
   const spriteFor = useCallback(
     (realmId: number | null): string | null =>
@@ -319,104 +214,29 @@ export default function AccountsTab({ password }: { password: string }) {
     [spriteTick],
   );
 
-  // A finished sweep that found nothing still deserves a line — "0 banned" is
-  // the answer the operator came for, and a panel that empties itself reads
-  // like the sweep failed.
-  const sweepDone = sweep !== null && !sweep.running && sweep.finishedAt !== null;
-
   return (
     <div>
-      <div
-        style={{
-          border: "1px solid var(--border)",
-          borderRadius: 6,
-          padding: 12,
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button
-            className="nav-link"
-            type="button"
-            onClick={() => void startSweep()}
-            disabled={sweepBusy || Boolean(sweep?.running)}
-          >
-            {sweep?.running ? "checking…" : "check every account for bans"}
+      <form onSubmit={(e) => void addAccount(e)} style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 12, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 14, margin: "0 0 8px" }}>Add one of your accounts</h2>
+        <p style={{ color: "var(--muted)", fontSize: 12, margin: "0 0 10px", maxWidth: 640 }}>
+          Your own alt, made on Realm&apos;s site. If it has never played, leave &ldquo;tutorial done&rdquo; off and the node walks the
+          tutorial for it. Credentials stay in this node&apos;s data folder and go nowhere else.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <input value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="email" autoComplete="off" style={{ width: 220 }} />
+          <input value={addPassword} onChange={(e) => setAddPassword(e.target.value)} placeholder="password" type="password" autoComplete="new-password" style={{ width: 180 }} />
+          <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+            <input type="checkbox" checked={addSeasonal} onChange={(e) => setAddSeasonal(e.target.checked)} /> seasonal
+          </label>
+          <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+            <input type="checkbox" checked={addWalked} onChange={(e) => setAddWalked(e.target.checked)} /> tutorial done
+          </label>
+          <button className="nav-link" type="submit" disabled={addBusy || !addEmail.trim() || !addPassword}>
+            {addBusy ? "…" : "add"}
           </button>
-          {sweep?.running && (
-            <button
-              className="nav-link"
-              type="button"
-              onClick={() => void cancelSweep()}
-              disabled={sweepBusy}
-            >
-              stop
-            </button>
-          )}
-          <span style={{ color: "var(--muted)", fontSize: 12 }}>
-            {sweep?.running
-              ? sweep.phase === "draining"
-                ? "waiting for trades in progress to finish…"
-                : `${sweep.checked}/${sweep.total} logged in` +
-                  (sweep.current ? ` · on ${sweep.current}` : "")
-              : "logs every account in; archives the banned ones and refreshes the rest"}
-          </span>
         </div>
-
-        {/* The pause is the part with a blast radius, so it gets its own line
-            rather than a clause in the counters below. Only rendered when
-            pyrelay actually reports the hold — an older build's sweep doesn't
-            take one, and claiming it does would be worse than saying nothing. */}
-        {sweep?.running && sweep.tradesHeld && (
-          <p style={{ color: "var(--warn, #d2a24c)", fontSize: 12, margin: "8px 0 0" }}>
-            withdraws and deposits are paused — player requests are queueing and
-            will be served as soon as this finishes
-          </p>
-        )}
-
-        {sweepErr && (
-          <p style={{ color: "var(--bad)", fontSize: 12, margin: "8px 0 0" }}>{sweepErr}</p>
-        )}
-
-        {sweep !== null && (sweep.running || sweepDone) && (
-          <div style={{ fontSize: 12, marginTop: 8 }}>
-            <p style={{ color: "var(--muted)", margin: 0 }}>
-              {sweep.checked} logged in · {sweep.healthy} fine · {sweep.banned.length} banned
-              {sweep.unknown > 0 && ` · ${sweep.unknown} inconclusive`}
-              {sweep.skippedOnline > 0 && ` · ${sweep.skippedOnline} online (skipped)`}
-              {sweep.skippedLocked > 0 && ` · ${sweep.skippedLocked} rate-limited (skipped)`}
-              {sweep.skippedArchived > 0 && ` · ${sweep.skippedArchived} already archived`}
-            </p>
-            {sweep.stoppedReason && (
-              <p style={{ color: "var(--warn, #d2a24c)", margin: "4px 0 0" }}>
-                stopped early — {sweep.stoppedReason}. The accounts it never
-                reached are unchanged; run it again to finish them.
-              </p>
-            )}
-            {sweep.banned.length > 0 ? (
-              <div style={{ marginTop: 6 }}>
-                <strong style={{ color: "var(--bad)" }}>
-                  archived {sweep.banned.length} banned account
-                  {sweep.banned.length === 1 ? "" : "s"}:
-                </strong>{" "}
-                <span style={{ color: "var(--muted)" }}>
-                  {sweep.banned.map((b) => b.alias).join(", ")}
-                </span>
-              </div>
-            ) : (
-              sweepDone && (
-                <p style={{ color: "var(--good, #5aa86a)", margin: "4px 0 0" }}>
-                  no new bans found
-                  {sweep.healthy > 0 &&
-                    ` — ${sweep.healthy} inventor${
-                      sweep.healthy === 1 ? "y" : "ies"
-                    } refreshed`}
-                </p>
-              )
-            )}
-          </div>
-        )}
-      </div>
+        {addMsg && <p style={{ color: addMsg.ok ? "var(--good, #5aa86a)" : "var(--bad)", fontSize: 12, margin: "8px 0 0" }}>{addMsg.text}</p>}
+      </form>
 
       <form
         onSubmit={(e) => {

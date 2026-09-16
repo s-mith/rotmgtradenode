@@ -1,24 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-// Backpacks (docs/relay/BACKPACKS.md): what the fleet knows about each
+// Backpacks (docs/relay/BACKPACKS.md): what the node knows about each
 // account's backpack day and character, the season/month clocks, the
-// demand-driven claim plan, and the three runs — the HTTP audit, the daily
-// login pass and the in-game chore. Nothing here runs by itself; every run is
-// started from this tab (or a script) and polled while it lasts.
+// demand-driven claim plan, and the two runs: the HTTP audit and the in-game
+// chore. Nothing runs by itself; every run is started here and polled while
+// it lasts. There is no daily-login lane and no recycle lane on a node
+// (design doc §2): accounts log in when the owner uses them.
 
 type Run = { running: boolean; mode: string | null; startedAt: number | null; finishedAt: number | null; total: number; done: number; ok: number; failed: number; skipped: number; current: string[]; stoppedReason: string | null; lastErrors: { alias: string; error: string }[] };
 type Status = {
   clocks: { serverTime: number | null; monthResetsAt: number | null; season: { name: string; end: number } | null; seasonEndsBeforeMonth: boolean | null };
   summary: { accounts: number; audited: number; withBackpack: number; seasonal: number; dead: number; claimableDays: number; claimableBackpacks: number; banked: number; vaultVisited: number; loggedToday: number };
-  audit: Run; chore: Run; logins: Run; recycle?: Run;
-  observed?: { verifyLoginYes: number; verifyLoginNo: number; verifyCountsAsLogin: boolean | null };
+  audit: Run; chore: Run;
   seasonWatch?: { season: { name: string; end: number } | null; rolledSeasonId: string | null; endsInS: number | null; lastRoll: { at: number; seasonId: string; changed: number; total: number } | null; lastFetchError: string | null };
-  scheduler?: {
-    enabled: boolean; liveChoreAllowed: boolean; lastTickAt: number | null; lastDecision: { action: string; reason: string; batch: number } | null;
-    lastInput: { pendingPlayers: number; freeExits: number | null; tripsLastHour: number; work: { recycle: number; chore: number; logins: number; audit: number; backstop: number } } | null;
-    backoffUntil: number | null; runs: { kind: string; startedAt: number; finishedAt: number | null; total: number; ok: number; failed: number; skipped: number }[];
-    counters: Record<string, { claimed: number; equipped: number; logins: number; audited: number; retired: number; runs: number }>;
-    settings: { enabled: boolean; backstop: boolean; recycle: boolean; choreBatch: number; choreEverySeconds: number; loginHourUtc: number; maxTripsPerHour: number };
-  };
 };
 type PoolPlan = { pool: string; bots: number; stock: number; bufferItems: number; bufferMode: string; gainPerDay: number | null; horizonDays: number; backpackBots: number; needBots: number; deficit: number; candidates: number; picks: { alias: string; held: number }[] };
 type Plan = { seasonal: PoolPlan; nonseasonal: PoolPlan; vaults?: PoolPlan; buffer: number; rows: number };
@@ -55,7 +48,7 @@ export default function BackpacksTab({ password }: { password: string }) {
     void load();
   }, [load]);
   useEffect(() => {
-    const anyRunning = status?.audit.running || status?.chore.running || status?.logins.running;
+    const anyRunning = status?.audit.running || status?.chore.running;
     if (!anyRunning) return;
     const id = setInterval(() => void load(), POLL_MS);
     return () => clearInterval(id);
@@ -95,19 +88,15 @@ export default function BackpacksTab({ password }: { password: string }) {
   );
   const c = status?.clocks;
   const s = status?.summary;
-  const sch = status?.scheduler;
-  const today = new Date().toISOString().slice(0, 10);
-  const todayCounters = sch?.counters?.[today];
-  async function patchSettings(patch: Record<string, unknown>) {
-    await act("settings", patch);
-  }
   const picks = plan ? plan.seasonal.picks.length + plan.nonseasonal.picks.length : 0;
 
   return (
     <section>
       {error && <p style={{ color: "var(--bad)" }}>{error}</p>}
       <p style={{ color: "var(--muted, #999)", fontSize: 13, maxWidth: 720 }}>
-        Backpacks are claimed as needed, per pool: only on as many accounts as it takes for the pool&apos;s stock to fit on 16-slot bots, with headroom from the measured daily gain. Run the audit to refresh what the fleet knows (HTTP only), the login pass daily so calendars advance, then a dry chore from the plan before a live one.
+        A 16-slot backpack doubles what one of your accounts can hold (8 + 16 = 24 slots per trade). Backpacks come from the daily-login calendar; the
+        audit (HTTP only) refreshes what the node knows, the plan says which accounts are worth fitting, and the chore logs each picked account in,
+        claims its backpack day and equips it. Run a dry chore before a live one.
       </p>
       <div style={{ marginTop: 12 }}>
         <b>Clocks</b>: season {c?.season ? `${c.season.name} ends ${when(c.season.end)}` : "unknown"} · month resets {when(c?.monthResetsAt)} · {c?.seasonEndsBeforeMonth === null || c?.seasonEndsBeforeMonth === undefined ? "" : c.seasonEndsBeforeMonth ? "season ends before the month (claims on seasonal-bound accounts may wait)" : "month resets first"}
@@ -115,39 +104,6 @@ export default function BackpacksTab({ password }: { password: string }) {
       </div>
       <div style={{ marginTop: 8 }}>
         <b>Roster</b>: {s ? `${s.audited}/${s.accounts} audited · ${s.withBackpack} with a backpack · ${s.seasonal} seasonal · ${s.claimableBackpacks} backpacks claimable on ${s.claimableDays} accounts · ${s.banked} banked (${s.vaultVisited} vaults read) · ${s.loggedToday} logged in today` : "…"}
-      </div>
-      <div style={{ marginTop: 16, padding: 10, border: "1px solid var(--border)", borderRadius: 6 }}>
-        <b>Scheduler</b>{" "}
-        {sch ? (
-          <>
-            <span style={{ color: sch.enabled ? "var(--good)" : "var(--muted, #999)" }}>{sch.enabled ? "enabled" : "paused"}</span>
-            {" · "}live chore {sch.liveChoreAllowed ? "allowed" : "disabled (BACKPACK_CHORE_LIVE)"}
-            {" · "}last tick {when(sch.lastTickAt)}
-            {sch.backoffUntil ? ` · backing off until ${when(sch.backoffUntil)}` : ""}
-            <div style={{ marginTop: 6 }}>
-              <b>Last decision:</b> {sch.lastDecision ? `${sch.lastDecision.action} — ${sch.lastDecision.reason}` : "none yet"}
-              {sch.lastInput && <span style={{ color: "var(--muted, #999)" }}> (pending players {sch.lastInput.pendingPlayers}, free exits {sch.lastInput.freeExits ?? "n/a"}, trips last hour {sch.lastInput.tripsLastHour}; work: chore {sch.lastInput.work.chore}, logins {sch.lastInput.work.logins}, audit {sch.lastInput.work.audit}, backstop {sch.lastInput.work.backstop})</span>}
-            </div>
-            <div style={{ marginTop: 6 }}>
-              <b>Today:</b> {todayCounters ? `${todayCounters.claimed} claimed · ${todayCounters.equipped} equipped · ${todayCounters.logins} logins · ${todayCounters.audited} audited · ${todayCounters.retired} retired · ${todayCounters.runs} runs` : "nothing yet"}
-            </div>
-            {sch.runs.length > 0 && (
-              <div style={{ marginTop: 6, color: "var(--muted, #999)", fontSize: 12 }}>
-                recent runs: {sch.runs.slice(-6).map((r) => `${r.kind} ${when(r.startedAt)} ok ${r.ok}/${r.total} failed ${r.failed}`).join(" · ")}
-              </div>
-            )}
-            <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button disabled={busy} onClick={() => void patchSettings({ enabled: !sch.enabled })}>{sch.enabled ? "Pause scheduler" : "Resume scheduler"}</button>
-              <button disabled={busy} onClick={() => void act("tick")}>Tick now</button>
-              <button disabled={busy} onClick={() => void patchSettings({ backstop: !sch.settings.backstop })}>{sch.settings.backstop ? "Backstop: on (turn off)" : "Backstop: off (turn on)"}</button>
-              <button disabled={busy} onClick={() => void patchSettings({ recycle: !sch.settings.recycle })}>{sch.settings.recycle ? "Recycle: on (turn off)" : "Recycle: off (turn on)"}</button>
-              <button disabled={busy} onClick={() => void act("recycle", { limit: 5 }, "Recycle up to 5 accounts now? Dead or missing characters get a new one (and a banked backpack); if the seasonal pool needs bots, empty non-seasonal characters with nothing claimed or banked this month are deleted and recreated seasonal.")}>Recycle 5 now</button>
-              <span style={{ color: "var(--muted, #999)", fontSize: 12 }}>chore every {sch.settings.choreEverySeconds}s in batches of {sch.settings.choreBatch}, logins at {String(sch.settings.loginHourUtc).padStart(2, "0")}:00Z, max {sch.settings.maxTripsPerHour} trips/h</span>
-            </div>
-          </>
-        ) : (
-          <span style={{ color: "var(--muted, #999)" }}>not reported by this fleet build</span>
-        )}
       </div>
       <div style={{ marginTop: 16 }}>
         <b>Plan</b> (buffer <input value={buffer} onChange={(e) => setBuffer(e.target.value)} style={{ width: 48 }} /> of stock until growth is measured)
@@ -162,20 +118,12 @@ export default function BackpacksTab({ password }: { password: string }) {
         <span>limit <input value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="all" style={{ width: 56 }} /></span>
         <button disabled={busy} onClick={() => void act("audit")}>Audit (HTTP)</button>
         <button disabled={busy} onClick={() => void act("audit", { unauditedOnly: true })}>Audit new accounts only</button>
-        <button disabled={busy} onClick={() => void act("logins")}>Daily login pass</button>
         <button disabled={busy || !picks} onClick={() => void act("chore", { mode: "dry", plan: true, buffer: Number(buffer) })}>Dry chore from plan ({picks})</button>
         <button disabled={busy || !picks} onClick={() => void act("chore", { mode: "live", plan: true, buffer: Number(buffer) }, `Claim and equip backpacks on the ${picks} account(s) the plan picks? This logs each one into the game, claims its backpack day and uses a backpack from the Gift Chest.`)}>Live chore from plan ({picks})</button>
         <button disabled={busy} onClick={() => void load()}>refresh</button>
       </div>
       {run("Audit", status?.audit, "cancel-audit")}
-      {run("Login pass", status?.logins, "cancel-logins")}
       {run("Chore", status?.chore, "cancel-chore")}
-      {run("Recycle", status?.recycle, "cancel-recycle")}
-      {status?.observed && (
-        <div style={{ marginTop: 8, color: "var(--muted, #999)", fontSize: 12 }}>
-          calibration: an HTTP audit {status.observed.verifyCountsAsLogin === null ? `counts as a login day? undecided (${status.observed.verifyLoginYes} yes / ${status.observed.verifyLoginNo} no)` : status.observed.verifyCountsAsLogin ? "counts as a login day — the login lane runs over HTTP" : "does not count as a login day — the login lane logs into the game"}
-        </div>
-      )}
     </section>
   );
 }

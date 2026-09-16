@@ -8,11 +8,11 @@ export default function App() {
       <header className="site">
         <span
           className="title-link"
-          aria-label="RotMG Communism"
+          aria-label="RotMG Trade"
           style={{ cursor: "default" }}
         >
           <img src="/logo.png" alt="" className="title-logo" width={48} height={48} />
-          RotMG Communism
+          RotMG Trade
         </span>
         <div className="tag-col">
           {discordUrl && (
@@ -32,14 +32,14 @@ export default function App() {
             </a>
           )}
           <span className="tag">
-            from each according to their loot, to each according to their need
+            your vault, on your own accounts, from your own computer
           </span>
         </div>
       </header>
       <Vault />
       <div style={{ marginTop: 48, paddingTop: 16, borderTop: "1px solid var(--border)", textAlign: "center" }}>
         <a href="/dev/settings" style={{ color: "var(--muted)", fontSize: 12 }}>
-          dev — settings
+          node console
         </a>
       </div>
     </>

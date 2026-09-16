@@ -11,6 +11,7 @@ import SkinsTab from "./SkinsTab";
 import FeaturesTab from "./FeaturesTab";
 import WishlistsTab from "./WishlistsTab";
 import VaultCapsTab from "./VaultCapsTab";
+import NodeTab from "./NodeTab";
 
 // Dev — operator console. Each tool lives in exactly one category; the
 // categories run across the top and the category's tools down the left.
@@ -18,6 +19,7 @@ import VaultCapsTab from "./VaultCapsTab";
 const STORAGE_KEY = "dev_password";
 
 type DevTab =
+  | "node"
   | "inventories"
   | "accounts"
   | "backpacks"
@@ -37,6 +39,7 @@ const CATEGORIES: { id: DevCategory; label: string; tabs: { id: DevTab; label: s
     id: "fleet",
     label: "Fleet",
     tabs: [
+      { id: "node", label: "Node" },
       { id: "inventories", label: "Inventories" },
       { id: "accounts", label: "Accounts" },
       { id: "backpacks", label: "Backpacks" },
@@ -77,7 +80,7 @@ function rememberedTab(): DevTab {
   } catch {
     // Storage blocked: start on the first tool.
   }
-  return "inventories";
+  return "node";
 }
 
 const inputStyle: React.CSSProperties = {
@@ -114,13 +117,12 @@ export default function DevSettingsPage() {
   };
   const category = categoryOf(tab);
 
-  // Restore saved password on first mount.
+  // Restore a saved password on first mount; with none, try without one:
+  // in local mode the console needs no password (src/node/config.ts).
   useEffect(() => {
     const saved = sessionStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      setPassword(saved);
-      tryLoad(saved);
-    }
+    if (saved) setPassword(saved);
+    tryLoad(saved ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -139,7 +141,7 @@ export default function DevSettingsPage() {
         return;
       }
       setAuthed(true);
-      sessionStorage.setItem(STORAGE_KEY, pw);
+      if (pw) sessionStorage.setItem(STORAGE_KEY, pw);
     } catch (e) {
       setError(String(e));
       setAuthed(false);
@@ -226,6 +228,7 @@ export default function DevSettingsPage() {
           {error && <p style={{ color: "var(--bad)", marginBottom: 12 }}>{error}</p>}
 
           {/* Mounted only while selected, so switching away stops its poll loop. */}
+          {tab === "node" && <NodeTab password={password} />}
           {tab === "inventories" && <InventoriesTab password={password} />}
           {tab === "accounts" && <AccountsTab password={password} />}
           {tab === "backpacks" && <BackpacksTab password={password} />}
