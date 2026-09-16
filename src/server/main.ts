@@ -56,40 +56,6 @@ if (process.env.RELAY_EMBEDDED === "1") {
   registerEmbeddedRelay(createControlPlane(f));
   registerEmbeddedPool(() => poolPayload(f));
   fleet = f;
-  // Raid watchers (docs/RAIDS.md §5): the site orders a bot into a bazaar
-  // through the hook, the bot reports back through lib/raids.ts. Off unless
-  // asked for: without the hook every raid runs unverified.
-  if (process.env.RAID_WATCHERS === "1") {
-    const raids = await import("@/lib/raids");
-    f.raidWatch.attachSite({
-      watcherUpdate: (u) => raids.watcherUpdate(getDb(), u),
-      rosterSeen: (u) => raids.rosterSeen(getDb(), u),
-      popSeen: (u) => raids.popSeen(getDb(), u),
-      portalClosed: (u) => raids.portalClosed(getDb(), u),
-      leaderRange: (u) => raids.leaderRange(getDb(), u),
-    });
-    raids.setRaidWatchHook(f.raidWatch);
-    console.log("[relay] raid watchers on (RAID_WATCHERS=1)");
-  } else {
-    console.log("[relay] raid watchers off (RAID_WATCHERS unset) — raids run unverified");
-  }
-  // Realm hunters (docs/REALMHUNTS.md): the site orders a bot into a realm
-  // through the hook, the bot reports back through lib/realmhunts.ts. Off
-  // unless asked for: without the hook a hunt is posted with no bot.
-  if (process.env.REALM_HUNTS === "1") {
-    const hunts = await import("@/lib/realmhunts");
-    f.realmHunt.attachSite({
-      hunterUpdate: (u) => hunts.hunterUpdate(getDb(), u),
-      membersSeen: (u) => hunts.membersSeen(getDb(), u),
-      callStarted: (u) => hunts.callStarted(getDb(), u),
-      callDone: (u) => hunts.callDone(getDb(), u),
-    });
-    hunts.setRealmHuntHook(f.realmHunt);
-    const n = hunts.reorderOpenHunts(getDb());
-    console.log(`[relay] realm hunters on (REALM_HUNTS=1)${n ? `; ${n} open hunt(s) ordered again` : ""}`);
-  } else {
-    console.log("[relay] realm hunters off (REALM_HUNTS unset) — hunts are posted without a bot");
-  }
   void f.start().catch((e) => console.error("[relay] fleet failed to start:", e));
   console.log("[relay] embedded fleet starting");
 }

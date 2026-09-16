@@ -20,8 +20,6 @@ import { ServerUsageWatch } from "./serverUsageWatch";
 import { BackpackScheduler } from "./backpackScheduler";
 import { WakeScheduler } from "./wakes";
 import { PROXIES_REFRESH_S } from "./constants";
-import { RaidWatchService } from "./raidWatch";
-import { RealmHuntService } from "./realmHunt";
 
 export interface FleetOptions {
   dataDir: string;
@@ -67,10 +65,6 @@ export class Fleet {
   readonly serverUsage: ServerUsageWatch;
   /** Keeps pools and vaults at the backpack plan's target by itself (docs/relay/BACKPACKS.md §4). */
   readonly scheduler: BackpackScheduler;
-  /** Watcher bots sent into a bazaar to see a raid's key popped (docs/RAIDS.md §5); the site orders them through its hook. */
-  readonly raidWatch: RaidWatchService;
-  /** Hunter bots that sit in a realm with a party open and count who follows them into called dungeons (docs/REALMHUNTS.md); the site orders them through its hook. */
-  readonly realmHunt: RealmHuntService;
   private started = false;
   private proxyRefresh: ReturnType<typeof setInterval> | null = null;
 
@@ -123,17 +117,6 @@ export class Fleet {
         return cap === null ? null : cap - this.proxies.occupiedCount();
       },
       liveChoreAllowed: () => process.env.BACKPACK_CHORE_LIVE === "1",
-    });
-    this.raidWatch = new RaidWatchService({
-      deps: this.deps, pool: this.pool, holds: this.dispatcher?.maintenanceHolds ?? new Set<string>(),
-      vaultBots: () => this.dispatcher?.vaultBotGuids() ?? new Set<string>(), log: this.log,
-      mirror: () => process.env.RAID_BAZAAR_MIRROR === "1",
-    });
-    this.realmHunt = new RealmHuntService({
-      deps: this.deps, pool: this.pool, holds: this.dispatcher?.maintenanceHolds ?? new Set<string>(),
-      vaultBots: () => this.dispatcher?.vaultBotGuids() ?? new Set<string>(), log: this.log,
-      // A hunter may die (it stands at dungeon entrances with no self-preservation): only bots holding nothing, with no backpack, are sent.
-      eligible: (a) => this.tracker.heldCount(a.botGuid) === 0 && this.tracker.capacityFor(a.botGuid) < 16,
     });
     // A 16-slot deposit nothing can serve: the dispatcher orders a backpack
     // bot and the scheduler is nudged at once rather than at its next minute.
@@ -198,15 +181,11 @@ export class Fleet {
     else this.log("Fleet: backpack scheduler off (BACKPACK_SCHEDULER unset) — runs are manual");
     if (this.dispatcher) this.dispatcher.start();
     else this.log("Fleet: no site configured (COMMUNISM_URL/COMMUNISM_SECRET unset) — no dispatcher started");
-    this.raidWatch.start();
-    this.realmHunt.start();
   }
 
   stop(): void {
     if (this.proxyRefresh) clearInterval(this.proxyRefresh);
     this.proxyRefresh = null;
-    this.raidWatch.stop();
-    this.realmHunt.stop();
     this.scheduler.stop();
     this.seasonWatch.stop();
     this.serverUsage.stop();

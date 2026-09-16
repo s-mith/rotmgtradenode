@@ -197,8 +197,6 @@ export type PlayerScore = {
   points: number;
   deposited: number;
   withdrawn: number;
-  /** Points earned from raids and realm hunts (raid_rewards + realmhunt_rewards); already inside `points`. */
-  raidPoints: number;
   /**
    * Operator has taken this player off the boards (lib/leaderboardDq.ts).
    *
@@ -287,7 +285,6 @@ export function computePlayers(db: Database.Database): PlayerScore[] {
       points: Number(b.points) || 0,
       deposited: Number(b.deposited) || 0,
       withdrawn: Number(b.withdrawn) || 0,
-      raidPoints: 0,
     });
   }
   for (const r of rows) {
@@ -300,7 +297,6 @@ export function computePlayers(db: Database.Database): PlayerScore[] {
         points: 0,
         deposited: 0,
         withdrawn: 0,
-        raidPoints: 0,
       };
       byPlayer.set(r.ign_lower, e);
     }
@@ -319,47 +315,10 @@ export function computePlayers(db: Database.Database): PlayerScore[] {
     }
   }
 
-  // Raid rewards (lib/raids.ts): points paid as they were at the time, one
-  // row per payee per confirmed pop, so they add up the same way forever.
-  const raidRows = db
-    .prepare("SELECT ign_lower, ign, SUM(points) AS points, MAX(at) AS last_at FROM raid_rewards GROUP BY ign_lower")
-    .all() as { ign_lower: string; ign: string; points: number; last_at: number }[];
-  for (const r of raidRows) {
-    let e = byPlayer.get(r.ign_lower);
-    if (!e) {
-      e = { ign: r.ign, ignLower: r.ign_lower, ignAt: r.last_at, points: 0, deposited: 0, withdrawn: 0, raidPoints: 0 };
-      byPlayer.set(r.ign_lower, e);
-    }
-    if (r.last_at > e.ignAt) {
-      e.ign = r.ign;
-      e.ignAt = r.last_at;
-    }
-    e.points += r.points;
-    e.raidPoints += r.points;
-  }
-  // Realm hunt rewards (lib/realmhunts.ts): the same shape, counted with the raid points.
-  const huntRows = db
-    .prepare("SELECT ign_lower, ign, SUM(points) AS points, MAX(at) AS last_at FROM realmhunt_rewards GROUP BY ign_lower")
-    .all() as { ign_lower: string; ign: string; points: number; last_at: number }[];
-  for (const r of huntRows) {
-    let e = byPlayer.get(r.ign_lower);
-    if (!e) {
-      e = { ign: r.ign, ignLower: r.ign_lower, ignAt: r.last_at, points: 0, deposited: 0, withdrawn: 0, raidPoints: 0 };
-      byPlayer.set(r.ign_lower, e);
-    }
-    if (r.last_at > e.ignAt) {
-      e.ign = r.ign;
-      e.ignAt = r.last_at;
-    }
-    e.points += r.points;
-    e.raidPoints += r.points;
-  }
-
   return [...byPlayer.values()]
     .map(({ ignAt: _ignAt, ...e }) => ({
       ...e,
       points: roundPoints(e.points),
-      raidPoints: roundPoints(e.raidPoints),
       disqualified: dq.has(e.ignLower),
     }))
     .sort((a, b) => b.points - a.points || a.ign.localeCompare(b.ign));

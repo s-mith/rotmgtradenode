@@ -13,7 +13,7 @@ import type { NameStyle } from "@/lib/cosmetics";
 type Day = { date: string; points: number; deposited: number; withdrawn: number };
 
 type Activity = {
-  kind: "deposit" | "withdraw" | "raid";
+  kind: "deposit" | "withdraw";
   itemName: string;
   sprite: string | null;
   qty: number;
@@ -28,7 +28,6 @@ type Profile = {
   nameStyle: NameStyle | null;
   points: number;
   rank: number | null;
-  raids?: { led: number; popped: number; poppedByOthers?: number; noPop: number; cancelled?: number; strikes?: number; joined: number; present: number; points?: number };
   totalPlayers: number;
   deposited: number;
   withdrawn: number;
@@ -232,15 +231,6 @@ export default function ProfilePage() {
                   {profile.signature.itemName}
                 </span>
               )}
-              {profile.raids && (profile.raids.led > 0 || profile.raids.joined > 0) && (
-                <span title={[profile.raids.noPop ? `${profile.raids.noPop} raid(s) ended with no pop seen` : "", profile.raids.cancelled ? `${profile.raids.cancelled} cancelled after the AFK check` : "", profile.raids.poppedByOthers ? `${profile.raids.poppedByOthers} popped by someone else` : ""].filter(Boolean).join(" · ") || undefined}>
-                  <strong>{profile.raids.led}</strong> raid{profile.raids.led === 1 ? "" : "s"} led
-                  {profile.raids.led > 0 ? ` (${profile.raids.popped} popped by them)` : ""}
-                  {profile.raids.strikes ? `, ${profile.raids.strikes} active strike${profile.raids.strikes === 1 ? "" : "s"}` : ""}
-                  {profile.raids.joined > 0 ? `, ${profile.raids.joined} joined (${profile.raids.present} showed up)` : ""}
-                  {profile.raids.points ? `, ${fmtPoints(profile.raids.points)} pts from raids` : ""}
-                </span>
-              )}
               <span>
                 {profile.comradeSince
                   ? `comrade since ${new Date(profile.comradeSince).toLocaleDateString()}`
@@ -266,7 +256,7 @@ export default function ProfilePage() {
                   <li key={i}>
                     <span className="profile-feed-main">
                       <strong className={`tx-kind ${a.kind}`}>
-                        {a.kind === "raid" ? "⚔" : a.kind === "deposit" ? `+${a.qty}` : `−${a.qty}`}
+                        {a.kind === "deposit" ? `+${a.qty}` : `−${a.qty}`}
                       </strong>{" "}
                       {a.sprite && <img src={a.sprite} alt="" className="profile-feed-sprite" />}
                       <span title={a.itemName}>{a.itemName}</span>

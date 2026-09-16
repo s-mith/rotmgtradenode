@@ -5,7 +5,6 @@ import { spriteForItemName } from "@/lib/sprites";
 import { computePlayers, pointsAt, rankedPlayers, roundPoints } from "@/lib/leaderboard";
 import { getGrant, isPlainStyle } from "@/lib/cosmetics";
 import { notASkin } from "@/lib/skins";
-import { raidHistoryFor } from "@/lib/raids";
 
 
 // GET /api/profile?ign=<name> — everything the GitHub-style comrade page
@@ -54,16 +53,8 @@ export async function GET(req: Request) {
   }[];
 
   // "No such comrade" asks whether we have ever heard of them at all, so it
-  // reads the full list — a disqualified player still has a profile, and so
-  // does a raider who has never traded.
-  const raids = raidHistoryFor(db, ignLower);
-  const rewards = db
-    .prepare("SELECT raid_id, role, detail, points, at FROM raid_rewards WHERE ign_lower = ? ORDER BY at DESC, id DESC")
-    .all(ignLower) as { raid_id: number; role: "leader" | "raider"; detail: string; points: number; at: number }[];
-  const huntRewards = db
-    .prepare("SELECT hunt_id, role, detail, points, at FROM realmhunt_rewards WHERE ign_lower = ? ORDER BY at DESC, id DESC")
-    .all(ignLower) as { hunt_id: number; role: "finder" | "hunter"; detail: string; points: number; at: number }[];
-  if (!me0 && rows.length === 0 && raids.led + raids.joined === 0 && huntRewards.length === 0) {
+  // reads the full list — a disqualified player still has a profile.
+  if (!me0 && rows.length === 0) {
     return json({ error: "No such comrade" }, { status: 404 });
   }
 
@@ -89,29 +80,18 @@ export async function GET(req: Request) {
       d.withdrawn += r.qty;
     }
   }
-  // Raid points land on the day they were paid, like a deposit would.
-  for (const r of rewards) {
-    if (r.at < since) continue;
-    const day = new Date(r.at).toISOString().slice(0, 10);
-    let d = byDay.get(day);
-    if (!d) {
-      d = { points: 0, deposited: 0, withdrawn: 0 };
-      byDay.set(day, d);
-    }
-    d.points += r.points;
-  }
   const days = [...byDay.entries()]
     .map(([date, d]) => ({ date, ...d, points: roundPoints(d.points) }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // --- commit-log activity -------------------------------------------------
-  // Ledger rows and raid rewards, newest first, cut to the limit together.
+  // Ledger rows, newest first, cut to the limit.
   const activity = [
     ...rows.map((r) => {
       const item = ITEM_BY_ID.get(r.item_id);
       const name = item?.name ?? r.item_id;
       return {
-        kind: r.kind as "deposit" | "withdraw" | "raid",
+        kind: r.kind as "deposit" | "withdraw",
         itemId: r.item_id,
         itemName: name,
         sprite: spriteForItemName(name),
@@ -125,28 +105,6 @@ export async function GET(req: Request) {
         createdAt: r.created_at,
       };
     }),
-    ...rewards.map((r) => ({
-      kind: "raid" as const,
-      itemId: `raid:${r.raid_id}`,
-      itemName: r.role === "leader" ? `Led a raid · ${r.detail}` : `Raided · ${r.detail}`,
-      sprite: null,
-      qty: 1,
-      enchants: 0,
-      points: roundPoints(r.points),
-      server: null,
-      createdAt: r.at,
-    })),
-    ...huntRewards.map((r) => ({
-      kind: "raid" as const,
-      itemId: `hunt:${r.hunt_id}`,
-      itemName: r.role === "finder" ? `Found a dungeon · ${r.detail}` : `Realm hunted · ${r.detail}`,
-      sprite: null,
-      qty: 1,
-      enchants: 0,
-      points: roundPoints(r.points),
-      server: null,
-      createdAt: r.at,
-    })),
   ]
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, ACTIVITY_LIMIT);
@@ -183,9 +141,6 @@ export async function GET(req: Request) {
     // who only exist as ledger rows that net to a baseline-less 0, and for
     // anyone disqualified — they hold no position on the boards.
     rank: idx >= 0 ? idx + 1 : null,
-    // Raids led, pops a watcher confirmed, raids ended for no pop, raids
-    // joined and raids the watcher saw them show up to (lib/raids.ts).
-    raids,
     totalPlayers: ranked.length,
     // Operator has taken them off the boards. Their points and history below
     // are unaffected and still theirs; only the ranking hides them.

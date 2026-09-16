@@ -20,8 +20,6 @@ import itemTooltips from "@/lib/item-tooltips.json";
 import enchantMods from "@/lib/enchant-mods.json";
 import { MISSION_DEFS, earnedRewards, maxRewards, type MissionStat } from "@/lib/missions";
 import { WITHDRAW_SERVERS } from "@/lib/servers";
-import { RaidCreator, RaidFinder, useRaids } from "./Raids";
-import { RealmhuntingFinder, RealmhuntingSide, useRealmhunts, type RaidsTab } from "./Realmhunting";
 import { serverOffLabel, useServerControls } from "@/lib/useServerControls";
 
 // Normalized item name → { classes, slot }, generated from realm-items.json by
@@ -308,7 +306,7 @@ export type { PoolInstance, Rarity };
 // A skin currently in stock (supply > 0), from GET /api/skins.
 type SkinStock = { realmId: string; name: string; image: string; count: number };
 
-export type PoolKind = "seasonal" | "nonseasonal" | "redeemskin" | "myvault" | "wishlist" | "raids";
+export type PoolKind = "seasonal" | "nonseasonal" | "redeemskin" | "myvault" | "wishlist";
 
 // GET /api/vault: the logged-in account's personal storage.
 export type VaultItemView = {
@@ -458,15 +456,12 @@ export default function Vault() {
   const [pool, setPool] = useState<PoolKind>("seasonal");
   // The pool tab to return to from My vault (the bookmark tabs switch between
   // the two; the pool's own sub-tabs live under the Pool bookmark).
-  const [lastPoolKind, setLastPoolKind] = useState<Exclude<PoolKind, "myvault" | "wishlist" | "raids">>("seasonal");
+  const [lastPoolKind, setLastPoolKind] = useState<Exclude<PoolKind, "myvault" | "wishlist">>("seasonal");
   // My Vault shows one half at a time — an account has a seasonal and a
   // non-seasonal vault, each on its own bot.
   const [vaultHalf, setVaultHalf] = useState<VaultHalfKind>("seasonal");
   const vaultHalfTouched = useRef(false);
-  // The Raids bookmark has two sub-tabs: Keys (the dungeon raids: headcount →
-  // AFK check → pop → run) and Realmhunting.
-  const [raidsTab, setRaidsTab] = useState<RaidsTab>("keys");
-  const view: "pool" | "vault" | "wishlist" | "raids" = pool === "myvault" ? "vault" : pool === "wishlist" ? "wishlist" : pool === "raids" ? "raids" : "pool";
+  const view: "pool" | "vault" | "wishlist" = pool === "myvault" ? "vault" : pool === "wishlist" ? "wishlist" : "pool";
   const [tray, setTray] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   // Search tags (item / enchantment / effect chips) picked from the search
@@ -544,16 +539,6 @@ export default function Vault() {
   // /api/login/me and updated by the LoginPanel; the trade form reads it
   // instead of the old free-text field.
   const [sessionIgn, setSessionIgn] = useState<string | null>(null);
-  // Raids tab: the shared raid list (/api/raids), used by the finder and the creator.
-  const raids = useRaids(sessionIgn, pool === "raids");
-  // The Raids tab's corner badge: raids gathering a headcount right now.
-  const raidsInHeadcount = raids.raids.filter((r) => r.status === "headcount").length;
-  // Realmhunting sub-tab: the hunt list (/api/realmhunts).
-  const hunts = useRealmhunts(sessionIgn, pool === "raids" && raidsTab === "realmhunting");
-  // The Raids bookmark's corner badge: raids gathering a headcount plus open hunting parties.
-  const huntsOpen = hunts.hunts.filter((h) => h.status !== "ended").length;
-  const raidsBadge = raidsInHeadcount + huntsOpen;
-  const badgeTitle = [raidsInHeadcount ? `${raidsInHeadcount} raid${raidsInHeadcount === 1 ? "" : "s"} gathering a headcount` : "", huntsOpen ? `${huntsOpen} realm hunting part${huntsOpen === 1 ? "y" : "ies"} open` : ""].filter(Boolean).join(" · ");
   // Operator-granted features on the account (see lib/features.ts); "wishlist"
   // is what shows the My Wishlist bookmark.
   const [features, setFeatures] = useState<string[]>([]);
@@ -633,7 +618,7 @@ export default function Vault() {
   // Recent Activity and the leaderboard; a change in the fleet's inventory
   // repaints the grid. The pool refetch is answered from the server's shared
   // snapshot, so this stays cheap no matter how many people have the page open.
-  useLiveUpdates({ onTx: reloadFeeds, onPool: reloadPool, onRaids: raids.onLive, onRealmhunts: hunts.onLive });
+  useLiveUpdates({ onTx: reloadFeeds, onPool: reloadPool });
 
   useEffect(() => {
     // A hidden tab does not download the pool; the refresh runs on
@@ -768,7 +753,7 @@ export default function Vault() {
 
   const switchPool = useCallback((next: PoolKind) => {
     setPool(next);
-    if (next !== "myvault" && next !== "wishlist" && next !== "raids") setLastPoolKind(next);
+    if (next !== "myvault" && next !== "wishlist") setLastPoolKind(next);
     setTray([]);
     // Claim and potions belong to the pool tabs, donate to My vault; land on
     // withdraw when the current tab has no meaning where we're going.
@@ -1128,31 +1113,15 @@ export default function Vault() {
               My Wishlist
             </button>
           )}
-          <button
-            type="button"
-            className={"bookmark" + (view === "raids" ? " active" : "")}
-            onClick={() => switchPool("raids")}
-          >
-            Raids <span className="bookmark-tag">beta</span>
-            {raidsBadge > 0 && (
-              <span className="bookmark-badge" title={badgeTitle} aria-label={badgeTitle}>
-                {raidsBadge > 99 ? "99+" : raidsBadge}
-              </span>
-            )}
-          </button>
         </nav>
         <section className="panel pool-panel bookmarked">
         <div className="pool-head">
-          <h2>{pool === "myvault" ? "My Vault" : pool === "wishlist" ? "My Wishlist" : pool === "raids" ? "Raids" : "The Pool"}</h2>
+          <h2>{pool === "myvault" ? "My Vault" : pool === "wishlist" ? "My Wishlist" : "The Pool"}</h2>
           <span className="pool-count">
             {pool === "redeemskin"
               ? `${filteredSkins.length} skin${filteredSkins.length === 1 ? "" : "s"}`
               : pool === "wishlist"
                 ? ""
-                : pool === "raids"
-                  ? raidsTab === "keys"
-                    ? `${raids.raids.filter((r) => r.status !== "ended").length} open`
-                    : `${huntsOpen} open`
                 : pool === "myvault"
                 ? ctxHalf
                   ? `${ctxHalf.used} / ${ctxHalf.slots} slots`
@@ -1183,24 +1152,6 @@ export default function Vault() {
               onClick={() => switchPool("redeemskin")}
             >
               Redeem skin
-            </button>
-          </div>
-        )}
-        {pool === "raids" && (
-          <div className="pool-tabs">
-            <button
-              className={"nav-link" + (raidsTab === "keys" ? " active" : "")}
-              onClick={() => setRaidsTab("keys")}
-            >
-              Keys
-              {raidsInHeadcount > 0 && <span className="tab-badge" title={`${raidsInHeadcount} raid${raidsInHeadcount === 1 ? "" : "s"} gathering a headcount`}>{raidsInHeadcount > 99 ? "99+" : raidsInHeadcount}</span>}
-            </button>
-            <button
-              className={"nav-link" + (raidsTab === "realmhunting" ? " active" : "")}
-              onClick={() => setRaidsTab("realmhunting")}
-            >
-              Realmhunting
-              {huntsOpen > 0 && <span className="tab-badge" title={`${huntsOpen} realm hunting part${huntsOpen === 1 ? "y" : "ies"} open`}>{huntsOpen > 99 ? "99+" : huntsOpen}</span>}
             </button>
           </div>
         )}
@@ -1287,9 +1238,7 @@ export default function Vault() {
             )}
           </div>
         )}
-        {pool === "raids" ? (
-          raidsTab === "keys" ? <RaidFinder state={raids} me={sessionIgn} /> : <RealmhuntingFinder state={hunts} me={sessionIgn} />
-        ) : pool === "wishlist" ? (
+        {pool === "wishlist" ? (
           <WishlistPanel ign={sessionIgn} catalog={catalog} refreshKey={poolKey + feedKey + vaultKey} />
         ) : (
         <>
@@ -1494,15 +1443,6 @@ export default function Vault() {
             <h2>Missions</h2>
             <MissionsPanel ign={sessionIgn} selectedSkin={selectedSkin} onChanged={bumpSkins} />
           </div>
-        ) : pool === "raids" ? (
-          raidsTab === "keys" ? (
-            <div className="panel">
-              <h2>Create a raid</h2>
-              <RaidCreator state={raids} me={sessionIgn} />
-            </div>
-          ) : (
-            <RealmhuntingSide state={hunts} me={sessionIgn} />
-          )
         ) : pool === "wishlist" ? (
           <div className="panel">
             <h2>How it works</h2>

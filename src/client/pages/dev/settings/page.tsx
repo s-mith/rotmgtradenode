@@ -17,8 +17,6 @@ import FeaturesTab from "./FeaturesTab";
 import WishlistsTab from "./WishlistsTab";
 import VaultCapsTab from "./VaultCapsTab";
 import TrafficTab from "./TrafficTab";
-import RaidsTab from "./RaidsTab";
-import RealmhuntsTab from "./RealmhuntsTab";
 import PlayerName from "@/components/PlayerName";
 
 // Dev — operator console. The account-creator console that used to live at
@@ -61,8 +59,7 @@ type DevTab =
   | "wishlists"
   | "vaultcaps"
   | "traffic"
-  | "raids"
-  | "realmhunts";
+;
 
 // The console is arranged as categories across the top and each category's
 // tools down the left. A tool lives in exactly one category.
@@ -101,8 +98,6 @@ const CATEGORIES: { id: DevCategory; label: string; tabs: { id: DevTab; label: s
       { id: "wishlists", label: "Wishlists" },
       { id: "vaultcaps", label: "Vault caps" },
       { id: "traffic", label: "Traffic" },
-      { id: "raids", label: "Raids" },
-      { id: "realmhunts", label: "Realm hunts" },
     ],
   },
   {
@@ -496,8 +491,6 @@ export default function DevSettingsPage() {
       {tab === "wishlists" && <WishlistsTab password={password} />}
       {tab === "vaultcaps" && <VaultCapsTab password={password} />}
       {tab === "traffic" && <TrafficTab password={password} />}
-      {tab === "raids" && <RaidsTab password={password} />}
-      {tab === "realmhunts" && <RealmhuntsTab password={password} />}
 
       {tab === "ratelimits" && (
         <section>

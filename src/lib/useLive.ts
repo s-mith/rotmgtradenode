@@ -23,11 +23,6 @@ export function useLiveUpdates(handlers: {
   onPool?: () => void;
   /** One of `groups` moved (claimed, fulfilled, cancelled, expired). */
   onRequest?: (groupId: string) => void;
-  /** A raid changed (posted, joined, stage). Fires in hidden tabs too: a
-   *  raider is usually in the game when their AFK check opens. */
-  onRaids?: () => void;
-  /** A realm hunt changed (posted, ended, the hunter reported). */
-  onRealmhunts?: () => void;
   /** Request groups this browser cares about; reopening the stream when
    *  they change is what subscribes it to their events. */
   groups?: string[];
@@ -85,22 +80,6 @@ export function useLiveUpdates(handlers: {
       lastRev = rev || lastRev;
       fire("pool");
     };
-    let raidsTimer: ReturnType<typeof setTimeout> | null = null;
-    const onRaids = () => {
-      if (raidsTimer !== null) clearTimeout(raidsTimer);
-      raidsTimer = setTimeout(() => {
-        raidsTimer = null;
-        ref.current.onRaids?.();
-      }, DEBOUNCE_MS);
-    };
-    let realmhuntsTimer: ReturnType<typeof setTimeout> | null = null;
-    const onRealmhunts = () => {
-      if (realmhuntsTimer !== null) clearTimeout(realmhuntsTimer);
-      realmhuntsTimer = setTimeout(() => {
-        realmhuntsTimer = null;
-        ref.current.onRealmhunts?.();
-      }, DEBOUNCE_MS);
-    };
     const onRequest = (e: Event) => {
       try {
         const { groupId } = JSON.parse((e as MessageEvent).data) as { groupId: string };
@@ -120,8 +99,6 @@ export function useLiveUpdates(handlers: {
       if (connectedOnce) {
         fire("tx");
         fire("pool");
-        onRaids();
-        onRealmhunts();
       }
       connectedOnce = true;
     };
@@ -136,8 +113,6 @@ export function useLiveUpdates(handlers: {
     es.addEventListener("tx", onTx);
     es.addEventListener("pool", onPool);
     es.addEventListener("request", onRequest);
-    es.addEventListener("raids", onRaids);
-    es.addEventListener("realmhunts", onRealmhunts);
     es.addEventListener("open", onOpen);
     document.addEventListener("visibilitychange", onVisible);
     // No error handler on purpose: EventSource retries by itself, and the
@@ -148,13 +123,10 @@ export function useLiveUpdates(handlers: {
       es.removeEventListener("tx", onTx);
       es.removeEventListener("pool", onPool);
       es.removeEventListener("request", onRequest);
-      es.removeEventListener("raids", onRaids);
-      es.removeEventListener("realmhunts", onRealmhunts);
       es.removeEventListener("open", onOpen);
       document.removeEventListener("visibilitychange", onVisible);
       if (timers.tx !== null) clearTimeout(timers.tx);
       if (timers.pool !== null) clearTimeout(timers.pool);
-      if (raidsTimer !== null) clearTimeout(raidsTimer);
       es.close();
     };
   }, [groupKey]);

@@ -29,9 +29,7 @@ import { markPoolDirty, refreshPoolSnapshot } from "./poolSnapshot";
 export type LiveEvent =
   | { kind: "tx"; at: number }
   | { kind: "pool"; at: number; rev: string }
-  | { kind: "request"; at: number; groupId: string }
-  | { kind: "raids"; at: number }
-  | { kind: "realmhunts"; at: number };
+  | { kind: "request"; at: number; groupId: string };
 type Listener = (ev: LiveEvent) => void;
 
 // How often the watcher re-checks the fleet for the pool. A trade takes many
@@ -125,31 +123,6 @@ export function notifyPoolChanged(): void {
   const s = state();
   if (s.listeners.size === 0) return;
   schedulePoll();
-}
-
-/** Raids events within this window become one: the browsers refetch a list, so one refetch covers a burst. */
-export const RAIDS_COALESCE_MS = 300;
-let raidsTimer: ReturnType<typeof setTimeout> | null = null;
-
-/** A raid was posted, joined, left, or moved on (lib/raids.ts). Browsers refetch the list. */
-export function emitRaids(): void {
-  if (raidsTimer !== null) return;
-  raidsTimer = setTimeout(() => {
-    raidsTimer = null;
-    publish({ kind: "raids", at: Date.now() });
-  }, RAIDS_COALESCE_MS);
-  raidsTimer.unref?.();
-}
-
-let realmhuntsTimer: ReturnType<typeof setTimeout> | null = null;
-/** A realm hunt was posted, ended, or its hunter reported (lib/realmhunts.ts). Browsers refetch the list. */
-export function emitRealmhunts(): void {
-  if (realmhuntsTimer !== null) return;
-  realmhuntsTimer = setTimeout(() => {
-    realmhuntsTimer = null;
-    publish({ kind: "realmhunts", at: Date.now() });
-  }, RAIDS_COALESCE_MS);
-  realmhuntsTimer.unref?.();
 }
 
 /** A ledger row was just committed. Called by the fulfill routes. */
