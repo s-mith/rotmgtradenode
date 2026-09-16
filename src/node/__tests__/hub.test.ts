@@ -69,6 +69,9 @@ describe("HubClient", () => {
     expect(hb.verified).toBe(true);
     expect(hb.body).toMatchObject({ version: "0.1.0", build: "7.0.0.2.0", bots: [{ ign: "Bot" }] });
     expect(c.status()).toMatchObject({ linked: true, lastHeartbeatAt: expect.any(Number), lastError: null });
+    // A signed GET verifies over the empty body it actually sends.
+    expect((await c.signed("GET", "/api/v1/rendezvous/mine")).ok).toBe(false); // fake hub has no such route, but the signature checks
+    expect(hub.seen.at(-1)).toMatchObject({ path: "/api/v1/rendezvous/mine", verified: true });
     // The link survives a restart: a fresh client on the same settings still signs correctly.
     const again = client(hub, NodeSettingsStore.at(dir));
     expect(await again.c.sendHeartbeat()).toBe(true);

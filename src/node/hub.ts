@@ -83,7 +83,9 @@ export class HubClient {
   async signed<T>(method: string, pathWithQuery: string, payload: unknown = {}): Promise<HubResult<T>> {
     const link = this.link;
     if (!link) return { ok: false, status: 0, error: "not linked to a hub" };
-    const body = JSON.stringify(payload);
+    // Sign exactly what goes on the wire: a GET carries no body, so the hub
+    // verifies over the empty string.
+    const body = method === "GET" ? "" : JSON.stringify(payload);
     let privateKey: string;
     try {
       privateKey = unseal(link.privateKeyPemSealed);
