@@ -5,6 +5,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import type { Proxy } from "../net/proxy";
 import type { GameClient } from "../client/gameClient";
+import { open as unseal, seal } from "../../node/secrets";
 
 /** Stable server-side id for an account: sha256(email), base64url, 32 chars. */
 export function deriveBotGuid(email: string): string {
@@ -100,7 +101,8 @@ export class BotPool {
   private readFile(): AccountInfo[] | null {
     if (!fs.existsSync(this.accountsPath)) return null;
     try {
-      const raw = JSON.parse(fs.readFileSync(this.accountsPath, "utf8"));
+      // Sealed at rest (src/node/secrets.ts); a plaintext file from before still reads.
+      const raw = JSON.parse(unseal(fs.readFileSync(this.accountsPath, "utf8").trim()));
       return Array.isArray(raw) ? raw.filter((e) => e && typeof e === "object" && typeof e.guid === "string" && e.guid) : null;
     } catch (e) {
       console.log(`BotPool: failed to parse ${this.accountsPath}: ${String(e)}`);
@@ -110,7 +112,7 @@ export class BotPool {
   private writeFile(entries: AccountInfo[]): void {
     try {
       fs.mkdirSync(path.dirname(this.accountsPath), { recursive: true });
-      fs.writeFileSync(this.accountsPath, JSON.stringify(entries, null, 2) + "\n");
+      fs.writeFileSync(this.accountsPath, seal(JSON.stringify(entries, null, 2)) + "\n", { mode: 0o600 });
       this.fileStat = this.statFile();
     } catch (e) {
       console.log(`BotPool: failed to persist ${this.accountsPath}: ${String(e)}`);
