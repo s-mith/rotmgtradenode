@@ -22,3 +22,10 @@ data/railway/
 
 # equip-sync downloads (regenerable)
 .cache/
+
+# node secrets and state (never commit)
+data/secret_key
+data/session_secret
+data/node.json
+data/onboarding/
+release/

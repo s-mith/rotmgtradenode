@@ -16,7 +16,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "gen:fixtures": "python3 scripts/gen-relay-fixtures.py ../rotmgcommunismpyrelay && python3 scripts/gen-relay-fleet-fixtures.py ../rotmgcommunismpyrelay && python3 scripts/gen-walker-fixtures.py ../accountgen/tutorial-state/pyrelay",
-    "build:resources": "node scripts/build-realm-resources.mjs ../accountgen/tutorial-state/pyrelay/Resources"
+    "build:resources": "node scripts/build-realm-resources.mjs ../accountgen/tutorial-state/pyrelay/Resources",
+    "desktop": "npm run build && electron-builder install-app-deps && electron . ; npm rebuild better-sqlite3",
+    "desktop:pack": "npm run build && electron-builder --dir && npm rebuild better-sqlite3",
+    "desktop:dist": "npm run build && electron-builder && npm rebuild better-sqlite3"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
@@ -53,5 +56,50 @@
   },
   "type": "module",
   "description": "Self-hosted RotMG vault: your own alts, your own computer.",
-  "license": "MIT"
+  "license": "MIT",
+  "main": "electron/main.mjs",
+  "build": {
+    "appId": "is.him.rotmgtrade",
+    "productName": "rotmgtrade",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "asar": false,
+    "files": [
+      "electron/**",
+      "dist/**",
+      "public/**",
+      "realm-items.json",
+      "realm-enchants.json",
+      "package.json",
+      "!dist/**/*.map",
+      "!node_modules/**/test/**",
+      "!node_modules/**/*.md"
+    ],
+    "publish": {
+      "provider": "github"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    }
+  }
 }
