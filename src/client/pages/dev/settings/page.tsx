@@ -10,12 +10,15 @@ import FeaturesTab from "./FeaturesTab";
 import WishlistsTab from "./WishlistsTab";
 import VaultCapsTab from "./VaultCapsTab";
 import NodeTab from "./NodeTab";
+import SiteHeader from "@/components/SiteHeader";
 import ProxiesTab from "./ProxiesTab";
 
-// Dev — operator console. Each tool lives in exactly one category; the
-// categories run across the top and the category's tools down the left.
+// The control panel: everything about running the node. Each tool lives in
+// exactly one category; the categories run across the top and the
+// category's tools down the left. In local mode there is no password
+// (src/node/config.ts); the form only appears when the server asks for one.
 
-const STORAGE_KEY = "dev_password";
+const STORAGE_KEY = "control_password";
 
 type DevTab =
   | "node"
@@ -65,7 +68,7 @@ const CATEGORIES: { id: DevCategory; label: string; tabs: { id: DevTab; label: s
   },
 ];
 const categoryOf = (tab: DevTab): DevCategory => CATEGORIES.find((c) => c.tabs.some((t) => t.id === tab))?.id ?? "fleet";
-const TAB_KEY = "dev_tab";
+const TAB_KEY = "control_tab";
 function rememberedTab(): DevTab {
   try {
     const v = sessionStorage.getItem(TAB_KEY);
@@ -145,8 +148,14 @@ export default function DevSettingsPage() {
 
   if (!authed) {
     return (
-      <main>
-        <h1 style={{ fontSize: 22, marginBottom: 16 }}>Dev — settings</h1>
+      <>
+        <SiteHeader />
+        <h2 style={{ fontSize: 16, marginBottom: 12 }}>Control panel</h2>
+        {!loading && (
+          <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 12, maxWidth: 560 }}>
+            This node is set up with a password (DEV_PASSWORD). Enter it to open the control panel.
+          </p>
+        )}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -156,7 +165,7 @@ export default function DevSettingsPage() {
         >
           <input
             type="password"
-            placeholder="dev password"
+            placeholder="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoFocus
@@ -166,31 +175,14 @@ export default function DevSettingsPage() {
             {loading ? "…" : "Unlock"}
           </button>
         </form>
-        {error && <p style={{ color: "var(--bad)", marginTop: 12 }}>{error}</p>}
-      </main>
+        {error && !loading && <p style={{ color: "var(--bad)", marginTop: 12 }}>{error}</p>}
+      </>
     );
   }
 
   return (
-    <main>
-      <header className="site">
-        <span className="title-link" style={{ cursor: "default" }}>
-          <img src="/logo.png" alt="" className="title-logo" width={48} height={48} />
-          Dev — settings
-        </span>
-        <button className="nav-link" onClick={() => tryLoad(password)}>refresh</button>
-        <button
-          className="nav-link"
-          onClick={() => {
-            sessionStorage.removeItem(STORAGE_KEY);
-            setAuthed(false);
-            setPassword("");
-          }}
-        >
-          lock
-        </button>
-      </header>
-
+    <>
+      <SiteHeader />
       <div className="pool-tabs">
         {CATEGORIES.map((c) => (
           <button
@@ -203,6 +195,19 @@ export default function DevSettingsPage() {
             {c.label}
           </button>
         ))}
+        {password && (
+          <button
+            className="nav-link"
+            style={{ marginLeft: "auto" }}
+            onClick={() => {
+              sessionStorage.removeItem(STORAGE_KEY);
+              setAuthed(false);
+              setPassword("");
+            }}
+          >
+            lock
+          </button>
+        )}
       </div>
 
       <div className="dev-body">
@@ -235,6 +240,6 @@ export default function DevSettingsPage() {
           {tab === "vaultcaps" && <VaultCapsTab password={password} />}
         </div>
       </div>
-    </main>
+    </>
   );
 }

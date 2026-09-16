@@ -130,7 +130,7 @@ function makeTray() {
   tray.setToolTip("rotmgtrade");
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Open rotmgtrade", click: showWindow },
-    { label: "Node console", click: () => { showWindow(); win?.loadURL(`http://127.0.0.1:${port}/dev/settings`); } },
+    { label: "Control panel", click: () => { showWindow(); win?.loadURL(`http://127.0.0.1:${port}/control`); } },
     { label: "Open data folder", click: () => shell.openPath(app.getPath("userData")) },
     { label: "Open log", click: () => shell.openPath(logFile) },
     { type: "separator" },

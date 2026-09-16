@@ -132,6 +132,17 @@ header.site {
   image-rendering: pixelated;
 }
 
+header.site .site-nav {
+  display: flex;
+  gap: 18px;
+  align-self: center;
+  margin-left: 8px;
+  font-size: 15px;
+}
+header.site .site-nav .nav-link {
+  text-decoration: none;
+}
+
 header.site .tag-col {
   margin-left: auto;
   position: relative;
