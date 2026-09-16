@@ -7,7 +7,6 @@ import BackpacksTab from "./BackpacksTab";
 import ItemPointsTab from "./ItemPointsTab";
 import ServerControlTab from "./ServerControlTab";
 import TutorialsTab from "./TutorialsTab";
-import NamedAccountTab from "./NamedAccountTab";
 import SkinsTab from "./SkinsTab";
 import FeaturesTab from "./FeaturesTab";
 import WishlistsTab from "./WishlistsTab";
@@ -27,7 +26,6 @@ type DevTab =
   | "cosmetics"
   | "servercontrols"
   | "tutorials"
-  | "namedaccount"
   | "skins"
   | "features"
   | "wishlists"
@@ -42,7 +40,6 @@ const CATEGORIES: { id: DevCategory; label: string; tabs: { id: DevTab; label: s
       { id: "inventories", label: "Inventories" },
       { id: "accounts", label: "Accounts" },
       { id: "backpacks", label: "Backpacks" },
-      { id: "namedaccount", label: "Named account" },
       { id: "tutorials", label: "Tutorials" },
       { id: "servercontrols", label: "Server controls" },
     ],
@@ -237,7 +234,6 @@ export default function DevSettingsPage() {
           {tab === "cosmetics" && <CosmeticsTab password={password} />}
           {tab === "servercontrols" && <ServerControlTab password={password} />}
           {tab === "tutorials" && <TutorialsTab password={password} />}
-          {tab === "namedaccount" && <NamedAccountTab password={password} />}
           {tab === "skins" && <SkinsTab password={password} />}
           {tab === "features" && <FeaturesTab password={password} />}
           {tab === "wishlists" && <WishlistsTab password={password} />}

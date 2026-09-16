@@ -60,14 +60,13 @@ if (process.env.RELAY_EMBEDDED === "1") {
   console.log("[relay] embedded fleet starting");
 }
 
-// Optional: run accountgen in this process too. The fleet then pulls new
-// accounts straight from the pool, and the mail push endpoint is served
-// under /accountgen/.
+// Optional: the onboarding service (tutorial walks for owner-added
+// accounts) in this process too. The fleet then pulls finished accounts
+// straight from its pool.
 let accountgen: { stop(): Promise<void> } | null = null;
 if (process.env.ACCOUNTGEN_EMBEDDED === "1") {
-  const [{ AccountgenService }, { createAccountgenApi }, { registerLocalAccountSource }, { registerEmbeddedAccountgen }, { parseCursors }] = await Promise.all([
+  const [{ AccountgenService }, { registerLocalAccountSource }, { registerEmbeddedAccountgen }, { parseCursors }] = await Promise.all([
     import("@/accountgen/service"),
-    import("@/accountgen/api"),
     import("@/relay/fleet/botPool"),
     import("@/lib/devauth"),
     import("@/accountgen/walker/liveFeed"),
@@ -78,12 +77,11 @@ if (process.env.ACCOUNTGEN_EMBEDDED === "1") {
     const a = await svc.dispense(seasonal === null ? undefined : seasonal);
     return a ? { email: a.email, password: a.password, name: a.name, server: a.server, seasonal: a.seasonal } : null;
   });
-  app.route("/accountgen", createAccountgenApi(svc));
-  // The dev console's Tutorials tab reads the live view in memory.
-  registerEmbeddedAccountgen({ live: (w) => svc.liveView(parseCursors(w)), mintNamed: (name, seasonal) => svc.mintNamed(name, seasonal) });
+  // The dev console's Tutorials tab reads the live view in memory and adds accounts through it.
+  registerEmbeddedAccountgen({ live: (w) => svc.liveView(parseCursors(w)), addAccount: (acc) => svc.addAccount(acc) });
   svc.start();
   accountgen = svc;
-  console.log("[accountgen] embedded service starting");
+  console.log("[accountgen] onboarding service starting");
 }
 
 const server = serve({ fetch: app.fetch, port, hostname: host }, (info) => {
@@ -98,9 +96,7 @@ function shutdown(signal: string) {
   stopScheduler();
   fleet?.stop();
   // Open SSE streams keep connections alive; don't wait on them forever.
-  // accountgen may hold the process a little longer to finish a mint that
-  // already registered an account (bounded inside stop()).
-  const force = setTimeout(() => process.exit(0), accountgen ? 30_000 : 5_000);
+  const force = setTimeout(() => process.exit(0), 5_000);
   force.unref();
   // The fleet writes its backpack state (debounced during runs) and stops its timers.
   try {

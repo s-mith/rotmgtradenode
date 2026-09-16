@@ -211,25 +211,9 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     return c.json({ ok: true, state: st.state, ign: st.ign });
   });
 
-  app.post("/accounts/ban-sweep", (c) => {
-    try {
-      return c.json({ ok: true, sweep: fleet.banSweep.start() });
-    } catch (e) {
-      return c.json({ error: (e as Error).message, sweep: fleet.banSweep.status() }, 409);
-    }
-  });
-  app.get("/accounts/ban-sweep", (c) => c.json({ ok: true, sweep: fleet.banSweep.status() }));
-
   // Backpacks: HTTP audit, in-game chore (docs/relay/BACKPACKS.md).
   app.get("/servers", (c) => c.json({ ok: true, ...fleet.serverUsage.status() }));
-  app.get("/backpacks", (c) => c.json({ ok: true, ...fleet.backpacks.status(), seasonWatch: fleet.seasonWatch.status(), scheduler: fleet.scheduler.status() }));
-  app.get("/backpacks/settings", (c) => c.json({ ok: true, settings: fleet.scheduler.getSettings() }));
-  app.post("/backpacks/settings", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body || typeof body !== "object") return c.json({ error: "bad json" }, 400);
-    return c.json({ ok: true, settings: fleet.scheduler.setSettings(body) });
-  });
-  app.post("/backpacks/scheduler/tick", (c) => c.json({ ok: true, decision: fleet.scheduler.tick(), scheduler: fleet.scheduler.status() }));
+  app.get("/backpacks", (c) => c.json({ ok: true, ...fleet.backpacks.status(), seasonWatch: fleet.seasonWatch.status() }));
   app.get("/backpacks/accounts", (c) => {
     const limit = Math.max(1, Math.min(Number(c.req.query("limit") ?? 200) || 200, 20000));
     const only = (c.req.query("only") ?? "").trim();
@@ -262,28 +246,6 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     }
   });
   app.post("/backpacks/chore/cancel", (c) => c.json({ ok: true, stopping: fleet.backpacks.cancelChore() }));
-  app.post("/backpacks/logins", async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { limit?: number; guids?: string[] };
-    try {
-      return c.json({ ok: true, logins: fleet.backpacks.startLogins({ limit: Number(body.limit) || undefined, guids: Array.isArray(body.guids) ? body.guids.map(String) : undefined }) });
-    } catch (e) {
-      return c.json({ error: (e as Error).message, logins: fleet.backpacks.status().logins }, 409);
-    }
-  });
-  app.post("/backpacks/logins/cancel", (c) => c.json({ ok: true, stopping: fleet.backpacks.cancelLogins() }));
-  app.post("/backpacks/recycle", async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { limit?: number };
-    try {
-      const picks = fleet.backpacks.recyclePicks(fleet.scheduler.getSettings(), Date.now(), Number(body.limit) || 20);
-      if (!picks.length) return c.json({ error: "nothing to recycle: no dead or missing characters, and the seasonal pool needs no switch" }, 409);
-      return c.json({ ok: true, recycle: fleet.backpacks.startRecycle({ picks }), picks });
-    } catch (e) {
-      return c.json({ error: (e as Error).message, recycle: fleet.backpacks.status().recycle }, 409);
-    }
-  });
-  app.post("/backpacks/recycle/cancel", (c) => c.json({ ok: true, stopping: fleet.backpacks.cancelRecycle() }));
-  app.post("/accounts/ban-sweep/cancel", (c) => c.json({ ok: true, stopping: fleet.banSweep.cancel(), sweep: fleet.banSweep.status() }));
-
   app.get("/account", (c) => {
     const q = (c.req.query("q") ?? "").trim().toLowerCase();
     const limit = Math.max(1, Math.min(Number(c.req.query("limit") ?? 25) || 25, 100));

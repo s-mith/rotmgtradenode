@@ -15,7 +15,6 @@ import { pyrelay, type PyrelayPool } from "./devauth";
 import { enchantName } from "./enchants";
 import { projectCatalog } from "./pool";
 import type { WireBot } from "./poolWire";
-import { mockPool, resetMockPool } from "./mockPool";
 import { ownedInstanceIds } from "./vault";
 
 /** One bot's wire entry, serialized once; `items`/`enchants` are the ids its slots reference. */
@@ -213,7 +212,6 @@ export function resetPoolSnapshot(): void {
   inflight = null;
   lastError = null;
   catalogCache = null;
-  resetMockPool();
 }
 
 function catalogJsonNow(now: number): string {
@@ -255,8 +253,7 @@ async function doRefresh(now: number): Promise<PoolSnapshot | null> {
   lastCheckAt = now;
   dirty = false;
   let pool: PyrelayPool;
-  if (process.env.POOL_MOCK === "1") pool = mockPool();
-  else {
+  {
     const r = await pyrelay.pool();
     if (!r.ok) {
       lastError = `pyrelay: ${r.error}`;

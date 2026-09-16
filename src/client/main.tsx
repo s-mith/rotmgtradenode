@@ -7,7 +7,6 @@ import App from "@/components/App";
 // The operator console is its own chunks, fetched only when someone opens
 // /dev/*: every visitor used to download it inside the main bundle.
 const DevSettings = lazy(() => import("./pages/dev/settings/page"));
-const DevChat = lazy(() => import("./pages/dev/Chat"));
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -23,7 +22,6 @@ createRoot(document.getElementById("root")!).render(
             }
           />
           <Route path="/dev/settings" element={<DevSettings />} />
-          <Route path="/dev/chat" element={<DevChat />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

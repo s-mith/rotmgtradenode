@@ -13,11 +13,10 @@ import { ProxyPool, proxySourceFromEnv, type ProxySource } from "./proxyPool";
 import { GameVersion } from "../realm/gameVersion";
 import { HttpSiteApi, type SiteApi } from "./siteApi";
 import { LoginCodes, PoolSettings, TradeHold, WhisperQueue } from "./stores";
-import { BanSweep, startupSweep } from "./sweeps";
+import { startupSweep } from "./sweeps";
 import { auditProxiesFromFile, BackpackService, BackpackStore } from "./backpacks";
 import { SeasonWatch } from "./seasonWatch";
 import { ServerUsageWatch } from "./serverUsageWatch";
-import { BackpackScheduler } from "./backpackScheduler";
 import { WakeScheduler } from "./wakes";
 import { PROXIES_REFRESH_S } from "./constants";
 
@@ -56,15 +55,12 @@ export class Fleet {
   readonly loginCodes = new LoginCodes();
   readonly whispers = new WhisperQueue();
   readonly dispatcher: Dispatcher | null;
-  readonly banSweep: BanSweep;
   /** Backpack audit + chore (docs/relay/BACKPACKS.md). */
   readonly backpacks: BackpackService;
   /** Follows Realm's season clock; marks every account non-seasonal when a season ends. */
   readonly seasonWatch: SeasonWatch;
   /** Follows Realm's per-server load and reports it to the site, which gates trades on it. */
   readonly serverUsage: ServerUsageWatch;
-  /** Keeps pools and vaults at the backpack plan's target by itself (docs/relay/BACKPACKS.md §4). */
-  readonly scheduler: BackpackScheduler;
   private started = false;
   private proxyRefresh: ReturnType<typeof setInterval> | null = null;
 
@@ -91,7 +87,6 @@ export class Fleet {
     };
     this.wakes = new WakeScheduler(this.deps);
     const sweepDeps = { deps: this.deps, pool: this.pool, tracker: this.tracker, settings: this.settings };
-    this.banSweep = new BanSweep(sweepDeps, this.hold, this.wakes);
     this.dispatcher = opts.api
       ? new Dispatcher({
           api: opts.api, pool: this.pool, deps: this.deps, tracker: this.tracker, settings: this.settings, hold: this.hold,
@@ -107,27 +102,11 @@ export class Fleet {
     });
     this.seasonWatch = new SeasonWatch({ store: backpackStore, pool: this.pool, clients: this.clients, log: this.log });
     this.serverUsage = new ServerUsageWatch({ clients: this.clients, api: opts.api ?? null, log: this.log });
-    this.scheduler = new BackpackScheduler({
-      service: this.backpacks, settingsFile: path.join(this.dataDir, "backpack_settings.json"), log: this.log,
-      banSweepHold: () => this.hold.active,
-      loginPausedMs: () => this.gate.pausedRemainingMs(),
-      pendingPlayers: () => this.dispatcher?.pendingPlayerRequests() ?? 0,
-      freeExits: () => {
-        const cap = this.proxies.exclusiveCapacity();
-        return cap === null ? null : cap - this.proxies.occupiedCount();
-      },
-      liveChoreAllowed: () => process.env.BACKPACK_CHORE_LIVE === "1",
-    });
-    // A 16-slot deposit nothing can serve: the dispatcher orders a backpack
-    // bot and the scheduler is nudged at once rather than at its next minute.
+    // A 16-slot deposit nothing can serve: the dispatcher records a backpack
+    // order; the owner runs the chore from the Backpacks tab.
     this.dispatcher?.setBackpackOrders((seasonal) => {
       if (!this.backpacks.orderBackpackBot(seasonal)) return;
-      this.log(`backpacks: a waiting ${seasonal ? "seasonal" : "non-seasonal"} 16-slot deposit has no bot with the room — ordering one fitted with a backpack`);
-      try {
-        this.scheduler.tick();
-      } catch (e) {
-        this.log(`backpacks: order tick failed: ${String(e)}`);
-      }
+      this.log(`backpacks: a waiting ${seasonal ? "seasonal" : "non-seasonal"} 16-slot deposit has no bot with the room — run the backpack chore to fit one`);
     });
   }
 
@@ -177,8 +156,6 @@ export class Fleet {
     this.seasonWatch.start();
     this.serverUsage.start();
     this.backpacks.seedCapacities();
-    if (process.env.BACKPACK_SCHEDULER === "1") this.scheduler.start();
-    else this.log("Fleet: backpack scheduler off (BACKPACK_SCHEDULER unset) — runs are manual");
     if (this.dispatcher) this.dispatcher.start();
     else this.log("Fleet: no site configured (COMMUNISM_URL/COMMUNISM_SECRET unset) — no dispatcher started");
   }
@@ -186,7 +163,6 @@ export class Fleet {
   stop(): void {
     if (this.proxyRefresh) clearInterval(this.proxyRefresh);
     this.proxyRefresh = null;
-    this.scheduler.stop();
     this.seasonWatch.stop();
     this.serverUsage.stop();
     this.backpacks.flush();
