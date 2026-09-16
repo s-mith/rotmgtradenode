@@ -50,8 +50,10 @@ export function applyNodeDefaults(): NodeConfig {
   if (!process.env.SESSION_SECRET) process.env.SESSION_SECRET = persistedSecret(path.join(dataDir, "session_secret"));
   // Nothing outside this process reaches the control plane; a per-boot token is enough.
   if (!process.env.PYRELAY_AUTH) process.env.PYRELAY_AUTH = randomBytes(24).toString("base64url");
-  // A home connection is the whole point: no exit-IP list unless the owner sets one.
+  // A home connection is the whole point: no exit-IP list unless the owner
+  // sets one, and only a few accounts online at once from it (design doc §2).
   setDefault("PROXIES_URL", "");
+  setDefault("DIRECT_ONLINE_BOTS", "4");
   return { mode: "local", dataDir, host: process.env.HOST!, port: Number(process.env.PORT) };
 }
 

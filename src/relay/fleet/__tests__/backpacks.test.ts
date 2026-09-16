@@ -300,21 +300,6 @@ describe("recycle picks and audit backoff", () => {
     void seasonalDeficitRows;
     return { svc, store, accs };
   }
-  it("revives dead or missing characters; switches an empty, unclaimed, unbanked non-seasonal account only when the seasonal pool needs bots", async () => {
-    const { svc } = await service([
-      { dead: true },                                              // a0: revive
-      { charId: null },                                            // a1: revive (no character)
-      { hasBackpack: true, dead: true },                           // a2: dead with a backpack? still revive (nothing to lose)
-      { claimed: ["2026-09:nonconsecutive:2"] },                   // a3: claimed this month -> never switched
-      { banked: 2 },                                               // a4: spares on its side -> never switched
-      {},                                                          // a5: switch candidate (if the seasonal pool needs one)
-      { manual: true, dead: true },                                // a6: manual -> never
-    ], { "g-a5": 0 });
-    const now = Date.UTC(2026, 8, 10);
-    const picks = svc.recyclePicks({ buffer: 0 }, now, 100);
-    // No seasonal stock in this fleet -> no seasonal deficit -> no switch; the revives stand.
-    expect(picks.map((p) => [p.guid, p.why])).toEqual([["a0@x", "revive"], ["a1@x", "revive"], ["a2@x", "revive"]]);
-  });
   it("the audit skips accounts it tried within a day and failed", async () => {
     const { svc, store, accs } = await service([{ lastAuditAt: null }, { lastAuditAt: null }, { lastAuditAt: null }]);
     const now = Date.UTC(2026, 8, 10, 12);

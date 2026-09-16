@@ -608,9 +608,6 @@ export function auditProxiesFromFile(file: string | undefined, log: (l: string) 
 export class BackpackService {
   readonly audit: RunState = freshRun();
   readonly chore: RunState = freshRun();
-  readonly logins: RunState = freshRun();
-  readonly recycle: RunState = freshRun();
-  private recycleCancel = false;
   /** Write the state file now (shutdown). */
   flush(): void {
     this.o.store.save();
@@ -619,7 +616,6 @@ export class BackpackService {
   private readonly activity = new Map<string, string>();
   private auditCancel = false;
   private choreCancel = false;
-  private loginsCancel = false;
   private readonly now: () => number;
 
   constructor(private readonly o: BackpackServiceOptions) {
@@ -628,9 +624,9 @@ export class BackpackService {
   private log(line: string): void {
     this.o.sd.deps.log(line);
   }
-  status(): { clocks: Clocks; summary: ReturnType<BackpackStore["summary"]>; audit: RunState; chore: RunState; logins: RunState; recycle: RunState; observed: Observed } {
+  status(): { clocks: Clocks; summary: ReturnType<BackpackStore["summary"]>; audit: RunState; chore: RunState; observed: Observed } {
     const snap = (r: RunState): RunState => ({ ...r, current: [...r.current], lastErrors: [...r.lastErrors] });
-    return { clocks: this.o.store.clocks(), summary: this.o.store.summary(this.now()), audit: snap(this.audit), chore: snap(this.chore), logins: snap(this.logins), recycle: snap(this.recycle), observed: { ...this.o.store.observed } };
+    return { clocks: this.o.store.clocks(), summary: this.o.store.summary(this.now()), audit: snap(this.audit), chore: snap(this.chore), observed: { ...this.o.store.observed } };
   }
   /** Settled calibration: an HTTP audit advances the login-day counter (docs §5.3, §9.1). */
   verifyCountsAsLogin(): boolean {
@@ -721,14 +717,6 @@ export class BackpackService {
     return [...p.vaults.picks, ...p.nonseasonal.picks, ...p.seasonal.picks].map((x) => byBot.get(x.botGuid)).filter((g): g is string => !!g).slice(0, batch);
   }
   /** Guids for the targeted login lane (docs §5.3). */
-  loginPicks(settings: { buffer: number }, nowMs: number, batch: number): string[] {
-    const rows = this.planRows(nowMs);
-    const p = this.planFrom(rows, settings.buffer, nowMs);
-    const targets = loginTargets(rows.map((r) => ({ st: r.st, held: r.row.held, vaultBot: r.row.vaultBot, poolDeficit: r.row.seasonal ? p.seasonal.deficit : p.nonseasonal.deficit })), this.o.store.clocks(), nowMs, batch);
-    const byGuid = new Map(rows.map((r) => [r.st.guid, r.acc.guid]));
-    return targets.map((st) => byGuid.get(st.guid)).filter((g): g is string => !!g);
-  }
-  /** Guids never audited, or stale without a login since (docs §5.5). */
   auditPicks(settings: { auditStaleDays: number }, nowMs: number, batch: number): string[] {
     const cutoff = nowMs / 1000 - settings.auditStaleDays * 86_400;
     const out: string[] = [];
@@ -742,150 +730,7 @@ export class BackpackService {
     }
     return out;
   }
-  /**
-   * The recycle lane's picks (docs §5.4). Two cases only:
-   *  - revive: the account has no living character (dead, or none) — create
-   *    one in its own pool and equip a banked spare if there is one;
-   *  - switch: the seasonal pool has a deficit and a non-seasonal account has
-   *    claimed nothing this month, holds nothing, wears nothing and has
-   *    nothing banked on its side — recreate it seasonal so its claim lands
-   *    where the capacity is wanted.
-   * Never a character wearing a backpack or holding items, never a vault bot.
-   */
-  recyclePicks(settings: { buffer: number }, nowMs: number, batch: number): { guid: string; target: boolean; why: "revive" | "switch" }[] {
-    const rows = this.planRows(nowMs);
-    const p = this.planFrom(rows, settings.buffer, nowMs);
-    const month = monthKey(nowMs / 1000);
-    const out: { guid: string; target: boolean; why: "revive" | "switch" }[] = [];
-    for (const r of rows) {
-      const st = r.st;
-      // The recycle lane's own eligibility: a dead character is exactly what it is for.
-      if (r.busy || r.row.vaultBot || !eligibleForTrip(st, nowMs, true)) continue;
-      const noChar = st.lastAuditAt !== null && (st.dead === true || st.charId === null);
-      if (noChar) {
-        out.push({ guid: r.acc.guid, target: st.seasonal ?? r.acc.seasonalOrDefault, why: "revive" });
-        continue;
-      }
-      if (p.seasonal.deficit > out.filter((x) => x.why === "switch").length && st.seasonal === false && st.hasBackpack === false && r.row.held === 0 && (st.banked ?? 0) === 0 && !st.claimed.some((c) => c.startsWith(month))) {
-        out.push({ guid: r.acc.guid, target: true, why: "switch" });
-      }
-    }
-    return out.slice(0, batch);
-  }
-  startRecycle(opts: { picks: { guid: string; target: boolean; why: "revive" | "switch" }[] }): RunState {
-    if (this.recycle.running) throw new Error("a recycle run is already running");
-    this.recycleCancel = false;
-    Object.assign(this.recycle, freshRun(), { running: true, mode: "recycle", startedAt: this.now() / 1000 });
-    void this.runRecycle(opts.picks);
-    return { ...this.recycle };
-  }
-  cancelRecycle(): boolean {
-    if (!this.recycle.running) return false;
-    this.recycleCancel = true;
-    return true;
-  }
-  private async runRecycle(picks: { guid: string; target: boolean; why: "revive" | "switch" }[]): Promise<void> {
-    const { store, sd } = this.o;
-    const byGuid = new Map(sd.pool.every().map((a) => [a.guid, a]));
-    const accounts = picks.map((p) => byGuid.get(p.guid)).filter((a): a is BotAccount => !!a);
-    const spec = new Map(picks.map((p) => [p.guid, p]));
-    try {
-      this.log(`backpacks: recycle over ${accounts.length} account(s) (${picks.filter((p) => p.why === "revive").length} revive, ${picks.filter((p) => p.why === "switch").length} switch), <= ${RECYCLE_CONCURRENCY} at once`);
-      await this.each(this.recycle, () => this.recycleCancel, accounts, RECYCLE_CONCURRENCY, CHORE_STAGGER_MS, (acc) => this.recycleOne(acc, spec.get(acc.guid)!));
-    } finally {
-      store.save();
-      this.recycle.running = false;
-      this.recycle.finishedAt = this.now() / 1000;
-      this.recycle.current = [];
-      this.log(`backpacks: recycle done — ${this.recycle.ok} ok, ${this.recycle.failed} failed, ${this.recycle.skipped} skipped${this.recycle.stoppedReason ? ` (${this.recycle.stoppedReason})` : ""}`);
-    }
-  }
-  private async recycleOne(acc: BotAccount, spec: { target: boolean; why: "revive" | "switch" }): Promise<"ok" | "failed" | "skipped"> {
-    const { sd, store, holds } = this.o;
-    const st = store.for(acc);
-    if ((acc.client && acc.client.active) || acc.assignedRequestId !== null || acc.inUse) {
-      st.lastError = "online or busy";
-      return "skipped";
-    }
-    if (sd.tracker.heldCount(acc.botGuid) > 0) {
-      st.lastError = "holds items (tracker)";
-      return "skipped";
-    }
-    // Fresh truth over HTTP before anything irreversible.
-    const t = await this.tokenFor(acc);
-    if ("skip" in t) {
-      st.lastError = t.skip;
-      return "skipped";
-    }
-    let deleted = false;
-    try {
-      const cl = await getCharListDetail(t.token, t.proxy);
-      if (!cl.ok) throw new Error(`char/list ${cl.error.kind}`);
-      applyCharList(st, cl.value, this.now());
-      const c = cl.value.chars[0];
-      if (c && !c.dead) {
-        if (spec.why === "revive") {
-          st.lastError = "character alive after all";
-          return "skipped";
-        }
-        // switch: the guards, against the fresh list
-        if (c.hasBackpack) {
-          st.lastError = "wears a backpack — never deleted";
-          return "skipped";
-        }
-        if (c.seasonal === spec.target) {
-          st.lastError = "already in the target pool";
-          return "skipped";
-        }
-        const del = await deleteChar(t.token, c.id, t.proxy);
-        if (!del.ok) throw new Error(`char/delete ${del.error.kind}`);
-        deleted = true;
-        this.log(`backpacks: ${acc.alias}: deleted character ${c.id} (${c.seasonal ? "seasonal" : "non-seasonal"}, empty, no backpack) to recreate it ${spec.target ? "seasonal" : "non-seasonal"}`);
-      }
-    } finally {
-      t.release();
-    }
-    holds.add(acc.guid);
-    this.setActivity(acc.guid, `recycle (${spec.why}): creating a ${spec.target ? "seasonal" : "non-seasonal"} character`);
-    let client: GameClient;
-    try {
-      client = await (sd.deps.bringUp ?? bringUp)(sd.deps, acc, acc.info.server ?? "USSouth3", { createSeasonal: spec.target });
-    } catch (e) {
-      holds.delete(acc.guid);
-      this.setActivity(acc.guid, null);
-      const verdict = e instanceof BringUpRefused ? e.verdict : "failed";
-      st.lastError = `bring-up ${verdict}${deleted ? " (character deleted; the next login creates one)" : ""}`;
-      return verdict === "failed" ? "failed" : "skipped";
-    }
-    try {
-      // The client CREATEs on the first Nexus MAPINFO; the first CREATE is refused and retried (proxy charadmin, 2026-09-06).
-      const r = await runChoreTrip(client, {
-        mode: "live", policy: { equip: true }, state: st, log: (l) => this.log(`backpacks: ${acc.alias}: ${l}`), now: this.now,
-        onStep: (label) => this.setActivity(acc.guid, `recycle (${spec.why}): ${label}`), timeouts: { inWorldMs: 90_000 },
-      });
-      sd.pool.setSeasonal(acc, spec.target);
-      st.seasonal = spec.target;
-      st.charId = client.charId >= 0 ? client.charId : st.charId;
-      st.dead = false;
-      const snap = snapshotInventory(client);
-      const hasBp = client.hasBackpack || r.equipped;
-      sd.tracker.updateFromSlots(acc.botGuid, snap.slots, hasBp ? 16 : 8);
-      if (client.playerData.name) sd.tracker.recordIgn(acc.botGuid, client.playerData.name);
-      st.hasBackpack = hasBp;
-      st.held = Object.keys(snap.slots).length;
-      st.lastRecycleAt = Math.floor(this.now() / 1000);
-      noteLogin(st, this.now());
-      noteChoreOutcome(st, r.ok, r.error, this.now());
-      this.log(`backpacks: ${acc.alias}: recycle ${spec.why} -> ${r.summary}`);
-      return r.ok ? "ok" : "failed";
-    } finally {
-      takeDown(sd.deps, acc, "recycle done");
-      holds.delete(acc.guid);
-      this.setActivity(acc.guid, null);
-      store.requestSave();
-    }
-  }
-  /** Bank-only claims for the opt-in month-end backstop: any claimable day, any character. */
+  /** Accounts with a claimable backpack day that nothing else picked (a manual fallback). */
   backstopPicks(batch: number): string[] {
     const out: string[] = [];
     for (const acc of this.o.sd.pool.every()) {
@@ -897,16 +742,6 @@ export class BackpackService {
       if (out.length >= batch) break;
     }
     return out;
-  }
-  /** Work available per lane, for the scheduler's decision. */
-  laneWork(settings: { buffer: number; auditStaleDays: number }, nowMs: number): { recycle: number; chore: number; logins: number; audit: number; backstop: number; orders: number } {
-    const rows = this.planRows(nowMs);
-    const p = this.planFrom(rows, settings.buffer, nowMs);
-    const chore = p.vaults.picks.length + p.nonseasonal.picks.length + p.seasonal.picks.length;
-    const logins = loginTargets(rows.map((r) => ({ st: r.st, held: r.row.held, vaultBot: r.row.vaultBot, poolDeficit: r.row.seasonal ? p.seasonal.deficit : p.nonseasonal.deficit })), this.o.store.clocks(), nowMs, 1_000_000).length;
-    const plain = rows.map((r) => r.row);
-    const orders = this.openOrders(nowMs).filter((half) => orderCandidate(plain, half === "seasonal") !== null).length;
-    return { recycle: this.recyclePicks(settings, nowMs, 1_000_000).length, chore, logins, audit: this.auditPicks(settings, nowMs, 1_000_000).length, backstop: this.backstopPicks(1_000_000).length, orders };
   }
   private planFrom(rowsWithState: { row: PlanRow }[], buffer: number, nowMs: number): ReturnType<typeof planClaims> {
     const { store } = this.o;
@@ -1009,60 +844,6 @@ export class BackpackService {
     return true;
   }
   /** Log every account that has not been in the world today into the Nexus once (and straight out), so the calendar counts the day. */
-  startLogins(opts: { limit?: number; guids?: string[] } = {}): RunState {
-    if (this.logins.running) throw new Error("a backpack login pass is already running");
-    this.loginsCancel = false;
-    Object.assign(this.logins, freshRun(), { running: true, mode: "logins", startedAt: this.now() / 1000 });
-    void this.runLogins(opts);
-    return { ...this.logins };
-  }
-  cancelLogins(): boolean {
-    if (!this.logins.running) return false;
-    this.loginsCancel = true;
-    return true;
-  }
-
-  private async runLogins(opts: { limit?: number; guids?: string[] }): Promise<void> {
-    const { store, sd } = this.o;
-    try {
-      const accounts = this.pick(opts).filter((a) => needsLoginToday(store.for(a), this.now()));
-      this.log(`backpacks: daily login pass over ${accounts.length} account(s) not yet counted today, <= ${LOGIN_CONCURRENCY} at once`);
-      await this.each(this.logins, () => this.loginsCancel, accounts, LOGIN_CONCURRENCY, LOGIN_STAGGER_MS, async (acc) => {
-        const st = store.for(acc);
-        const c = acc.client;
-        if (c && c.active && c.objectId !== -1) {
-          // Already in the world: today is counted.
-          noteLogin(st, this.now());
-          return "skipped";
-        }
-        if (acc.assignedRequestId !== null || acc.inUse || (c && c.active)) {
-          st.lastError = "online or busy";
-          return "skipped";
-        }
-        this.setActivity(acc.guid, "daily login");
-        let v;
-        try {
-          v = await sweepAccount(sd, acc, `${acc.alias} (daily login)`);
-        } finally {
-          this.setActivity(acc.guid, null);
-        }
-        if (v === "captured") {
-          noteLogin(st, this.now());
-          st.lastError = null;
-          return "ok";
-        }
-        st.lastError = `login ${v}`;
-        return v === "failed" ? "failed" : "skipped";
-      });
-    } finally {
-      store.save();
-      this.logins.running = false;
-      this.logins.finishedAt = this.now() / 1000;
-      this.logins.current = [];
-      this.log(`backpacks: login pass done — ${this.logins.ok} logged in, ${this.logins.failed} failed, ${this.logins.skipped} skipped${this.logins.stoppedReason ? ` (${this.logins.stoppedReason})` : ""}`);
-    }
-  }
-
   private pick(opts: { limit?: number; guids?: string[] }): BotAccount[] {
     let accounts = this.o.sd.pool.every().filter((a) => !a.suspended);
     if (opts.guids?.length) {
