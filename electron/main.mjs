@@ -170,10 +170,16 @@ app.whenReady().then(async () => {
 app.on("window-all-closed", () => {
   // Stay in the tray; quitting is explicit.
 });
-app.on("before-quit", () => {
+app.on("before-quit", (e) => {
+  if (quitting) return;
   quitting = true;
-  if (child) {
-    // SIGTERM lets the node flush its state and log the bots out.
-    child.kill("SIGTERM");
-  }
+  if (!child) return;
+  // Ask the node to stop the way a SIGTERM would; on Windows a child cannot
+  // be signalled, so this endpoint is the only graceful path. Give it a few
+  // seconds to flush state and log the bots out, then quit for real.
+  e.preventDefault();
+  const done = () => { try { child?.kill(); } catch {} app.quit(); };
+  const timer = setTimeout(done, 8_000);
+  child.once("exit", () => { clearTimeout(timer); done(); });
+  fetch(`http://127.0.0.1:${port}/api/dev/shutdown`, { method: "POST" }).catch(() => { clearTimeout(timer); child?.kill("SIGTERM"); setTimeout(done, 3_000); });
 });

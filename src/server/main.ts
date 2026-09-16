@@ -116,3 +116,10 @@ function shutdown(signal: string) {
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+// The desktop shell's graceful stop (POST /api/dev/shutdown): Windows has no
+// SIGTERM for a child process.
+declare global {
+  // eslint-disable-next-line no-var
+  var __rotmgtrade_shutdown__: ((why: string) => void) | undefined;
+}
+globalThis.__rotmgtrade_shutdown__ = shutdown;

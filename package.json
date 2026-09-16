@@ -17,9 +17,9 @@
     "test:watch": "vitest",
     "gen:fixtures": "python3 scripts/gen-relay-fixtures.py ../rotmgcommunismpyrelay && python3 scripts/gen-relay-fleet-fixtures.py ../rotmgcommunismpyrelay && python3 scripts/gen-walker-fixtures.py ../accountgen/tutorial-state/pyrelay",
     "build:resources": "node scripts/build-realm-resources.mjs ../accountgen/tutorial-state/pyrelay/Resources",
-    "desktop": "npm run build && electron-builder install-app-deps && electron . ; npm rebuild better-sqlite3",
-    "desktop:pack": "npm run build && electron-builder --dir && npm rebuild better-sqlite3",
-    "desktop:dist": "npm run build && electron-builder && npm rebuild better-sqlite3"
+    "desktop": "node scripts/desktop.mjs run",
+    "desktop:pack": "node scripts/desktop.mjs pack",
+    "desktop:dist": "node scripts/desktop.mjs dist"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
