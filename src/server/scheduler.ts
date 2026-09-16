@@ -7,7 +7,6 @@
 // clean while the site is idle.
 import { getDb } from "@/lib/db";
 import { sweepStaleRequests } from "@/lib/timeouts";
-import { flushTraffic } from "@/lib/traffic";
 
 const SWEEP_INTERVAL_MS = 30_000;
 
@@ -23,23 +22,10 @@ export function startScheduler(): () => void {
     } catch (e) {
       console.error("[scheduler] sweep failed:", e);
     }
-    // The traffic counters the request path accumulates go to the table here
-    // (lib/traffic.ts), so no request ever waits on a write for them.
-    try {
-      flushTraffic(getDb());
-    } catch (e) {
-      console.error("[scheduler] traffic flush failed:", e);
-    }
   }, SWEEP_INTERVAL_MS);
   sweep.unref();
 
   return () => {
     clearInterval(sweep);
-    // A last flush so a deploy doesn't lose the half minute before it.
-    try {
-      flushTraffic(getDb());
-    } catch (e) {
-      console.error("[scheduler] final traffic flush failed:", e);
-    }
   };
 }

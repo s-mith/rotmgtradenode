@@ -4,7 +4,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type Database from "better-sqlite3";
 import { openDatabase } from "../db";
-import { computePlayers } from "../leaderboard";
 import { presence } from "../fleetPresence";
 import * as q from "../queue";
 import { registerEmbeddedPool, type PyrelayPool } from "../devauth";
@@ -12,7 +11,6 @@ import { isSkinItem, itemDisplayName, notASkin, skinItemId, skinRealmId } from "
 import { createRedemption, missionProgress, skinInventory, skinStock } from "../skinRedeem";
 import { createDepositRequest } from "../depositRequest";
 import { GET as recent } from "../../server/api/recent/route";
-import { GET as profile } from "../../server/api/profile/route";
 import { GET as publicSkins } from "../../server/api/skins/route";
 
 let db: Database.Database;
@@ -78,17 +76,12 @@ describe("skins", () => {
     expect(inv).toMatchObject({ count: 2, holders: ["BotAlpha"], strays: 1, strayHolders: ["BotBeta"] });
   });
 
-  it("never reach the activity feed, a profile, or the leaderboard", async () => {
+  it("never reach the activity feed", async () => {
     tx("Someone", "pdef", 3);
     tx("Someone", ITEM, 1);
     tx("Other", ITEM, 5);
     const feed = await (await recent()).json();
     expect(feed.events.map((e: { ign: string; itemName: string }) => `${e.ign}:${e.itemName}`)).toEqual(["Someone:Potion of Defense"]);
-    const page = JSON.stringify(await (await profile(new Request("http://site/api/profile?ign=Someone"))).json());
-    expect(page).toContain("Potion of Defense");
-    expect(page).not.toContain("Agent Skin");
-    expect(page).not.toContain(ITEM);
-    expect(computePlayers(db).find((p) => p.ign === "Other")).toBeUndefined();
   });
 
   it("come in only on an operator's skin deposit, and never write a ledger row", async () => {

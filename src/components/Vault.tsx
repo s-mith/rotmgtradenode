@@ -3,11 +3,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { VirtuosoGrid } from "react-virtuoso";
 import TxForm from "./TxForm";
-import Leaderboard from "./Leaderboard";
 import RecentActivity from "./RecentActivity"
 import { useLiveUpdates } from "@/lib/useLive"
 import { applyPoolWire, emptyPoolState, instancesFromState, type PoolInstance, type PoolState, type PoolWire, type Rarity } from "@/lib/poolWire";
-import Blog from "./Blog";
 import LoginPanel from "./LoginPanel";
 import WishlistPanel from "./WishlistPanel";
 import OpenRequests from "./OpenRequests";
@@ -1412,10 +1410,6 @@ export default function Vault() {
         )}
       </section>
         </div>
-        <div className="panel">
-          <h2>Blog</h2>
-          <Blog />
-        </div>
       </div>
 
       <aside style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -1475,11 +1469,6 @@ export default function Vault() {
         <div className="panel">
             <h2> Recent Activity</h2>
             <RecentActivity refreshKey={feedKey} />
-        </div>
-        <div className="panel">
-          {/* No heading — the component's Top Comrades / Suspected
-              Capitalists tab buttons take the title's place. */}
-          <Leaderboard refreshKey={feedKey} />
         </div>
       </aside>
       {hover && <TilePortalTip hover={hover} enchSprites={enchSprites} />}
