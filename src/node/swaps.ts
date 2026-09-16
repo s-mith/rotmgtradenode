@@ -205,7 +205,20 @@ export class SwapCoordinator {
       }
       return;
     }
-    if (known) return;
+    if (known) {
+      // Still "meet" but past the deadline with our side not traded: give the
+      // row back and tell the hub, so the offer reopens instead of hanging.
+      if (this.now() > rv.deadlineAt && known.state === "meet" && known.request_id !== null) {
+        const row = queue.swapJobsFor(db, rv.id).find((j) => j.id === known.request_id);
+        if (row && (row.status === "pending" || row.status === "claimed")) {
+          queue.cancelSwapJob(db, known.request_id, "deadline passed");
+          db.prepare("UPDATE swap_rendezvous SET state = 'aborted', updated_at = ? WHERE rendezvous_id = ?").run(this.now(), rv.id);
+          this.o.log(`swaps: rendezvous #${rv.id} passed its deadline without a trade; aborting`);
+          await this.o.hub.signed("POST", `/api/v1/rendezvous/${rv.id}/abort`, { reason: "deadline passed, no trade" });
+        }
+      }
+      return;
+    }
     const local = this.localOffer(rv.offerId);
     if (!local) {
       this.o.log(`swaps: rendezvous #${rv.id} refers to offer #${rv.offerId} this node has no record of; ignoring`);
