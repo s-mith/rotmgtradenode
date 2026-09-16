@@ -21,9 +21,13 @@ export type Kind = "deposit" | "withdraw";
 export type ItemQty = { itemId: string; qty: number };
 export type Unit = { itemId: string; enchants: number };
 
+/** A cross-node swap on a withdraw row (design doc §6.2). */
+export type SwapSpec = { rendezvousId: number; role: "give" | "take"; gets: ItemQty[] };
+export type SwapResult = { ok: boolean; gave: ItemQty[]; gaveInstanceIds: string[]; got: ItemQty[]; partnerIgn: string; error?: string; partnerAbsent?: boolean };
+
 export type Assignment =
   | { kind: "deposit"; requestId: number; ign: string; server: string; itemCount: number; botIgn: string; vault: number | null }
-  | { kind: "withdraw"; requestId: number; ign: string; server: string; items: ItemQty[]; instanceIds: string[] | null; botIgn: string; vault: number | null };
+  | { kind: "withdraw"; requestId: number; ign: string; server: string; items: ItemQty[]; instanceIds: string[] | null; botIgn: string; vault: number | null; swap?: SwapSpec | null };
 
 /** A physical item a vault deposit received, as the fleet's tracker identifies it. */
 export type ReceivedInstance = { instanceId: string; itemId: string; enchants: number };
@@ -129,12 +133,12 @@ export function claimWithdraw(db: Database.Database, botGuid: string, inventory:
   db.transaction(() => {
     const candidates = db
       .prepare(
-        `SELECT id, ign, server, items_json, target_bot_guid, instance_ids_json, group_id, vault_user_id FROM withdraw_requests
+        `SELECT id, ign, server, items_json, target_bot_guid, instance_ids_json, group_id, vault_user_id, swap_json FROM withdraw_requests
          WHERE status = 'pending' AND server = ? AND seasonal = ?
            AND ${isPlayersNextTrade("withdraw_requests")}
          ORDER BY created_at ASC LIMIT 50`,
       )
-      .all(bot.server, bot.seasonal ? 1 : 0) as { id: number; ign: string; server: string; items_json: string; target_bot_guid: string | null; instance_ids_json: string | null; group_id: string | null; vault_user_id: number | null }[];
+      .all(bot.server, bot.seasonal ? 1 : 0) as { id: number; ign: string; server: string; items_json: string; target_bot_guid: string | null; instance_ids_json: string | null; group_id: string | null; vault_user_id: number | null; swap_json: string | null }[];
     for (const cand of candidates) {
       let items: ItemQty[];
       try {
@@ -160,7 +164,7 @@ export function claimWithdraw(db: Database.Database, botGuid: string, inventory:
       if (claimed.changes !== 1) continue;
       recordEvent(db, "withdraw", cand.id, "claimed", botGuid, { perInstance: needed !== null });
       groupId = cand.group_id;
-      out = { kind: "withdraw", requestId: cand.id, ign: cand.ign, server: cand.server, items, instanceIds: needed, botIgn: bot.ign, vault: cand.vault_user_id };
+      out = { kind: "withdraw", requestId: cand.id, ign: cand.ign, server: cand.server, items, instanceIds: needed, botIgn: bot.ign, vault: cand.vault_user_id, swap: parseSwap(cand.swap_json) };
       return;
     }
   }).immediate();
@@ -381,6 +385,81 @@ export function giveUp(db: Database.Database, botGuid: string, requestId: number
 
 // --- reads -------------------------------------------------------------------------
 
+function parseSwap(raw: string | null): SwapSpec | null {
+  if (!raw) return null;
+  try {
+    const j = JSON.parse(raw) as SwapSpec;
+    return j && (j.role === "give" || j.role === "take") && Array.isArray(j.gets) ? { rendezvousId: Number(j.rendezvousId), role: j.role, gets: j.gets } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Queue one side of a cross-node swap. `give` and `giveInstanceIds` are
+ * what this node's bot (`botGuid`, the holder) hands over on `server` to
+ * the partner bot `partnerIgn`; `swap.gets` is what it must receive in the
+ * same window. The dispatcher routes it like a per-instance withdraw.
+ */
+export function createSwapJob(db: Database.Database, job: { server: string; botGuid: string; partnerIgn: string; seasonal: boolean; give: ItemQty[]; giveInstanceIds: string[]; swap: SwapSpec }): number {
+  if (!job.give.length || !job.giveInstanceIds.length) throw new QueueError("a swap side must give at least one item");
+  if (!job.partnerIgn) throw new QueueError("partner IGN required");
+  const now = Date.now();
+  const r = db.prepare(`INSERT INTO withdraw_requests (ign, ign_lower, server, items_json, status, target_bot_guid, instance_ids_json, seasonal, created_at, updated_at, swap_json)
+    VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`)
+    .run(job.partnerIgn, job.partnerIgn.toLowerCase(), job.server, JSON.stringify(job.give), job.botGuid, JSON.stringify(job.giveInstanceIds), job.seasonal ? 1 : 0, now, now, JSON.stringify(job.swap));
+  const id = Number(r.lastInsertRowid);
+  recordEvent(db, "withdraw", id, "swap-queued", job.botGuid, { rendezvousId: job.swap.rendezvousId, role: job.swap.role });
+  return id;
+}
+
+/** Swap rows for `rendezvousId` in any state (normally one). */
+export function swapJobsFor(db: Database.Database, rendezvousId: number): { id: number; status: string }[] {
+  return (db.prepare("SELECT id, status, swap_json FROM withdraw_requests WHERE swap_json IS NOT NULL").all() as { id: number; status: string; swap_json: string }[])
+    .filter((r) => parseSwap(r.swap_json)?.rendezvousId === rendezvousId)
+    .map((r) => ({ id: r.id, status: r.status }));
+}
+
+export function cancelSwapJob(db: Database.Database, requestId: number, why: string): boolean {
+  const r = db.prepare("UPDATE withdraw_requests SET status = 'cancelled', updated_at = ? WHERE id = ? AND swap_json IS NOT NULL AND status IN ('pending','claimed')").run(Date.now(), requestId);
+  if (r.changes) recordEvent(db, "withdraw", requestId, "swap-cancelled", null, { why });
+  return r.changes > 0;
+}
+
+type SwapListener = (requestId: number, swap: SwapSpec, result: SwapResult) => void;
+const swapListeners = new Set<SwapListener>();
+/** The swap coordinator (src/node/swaps.ts) hears every swap outcome here. */
+export function onSwapResult(fn: SwapListener): () => void {
+  swapListeners.add(fn);
+  return () => swapListeners.delete(fn);
+}
+
+/** The fleet's report for a swap row: closes it either way and tells the listeners. No ledger, no vault rows. */
+export function reportSwap(db: Database.Database, botGuid: string, requestId: number, result: SwapResult): { swap: SwapSpec } {
+  const now = Date.now();
+  const swap = db.transaction(() => {
+    const row = db.prepare("SELECT status, claimed_by, swap_json FROM withdraw_requests WHERE id = ?").get(requestId) as { status: string; claimed_by: string | null; swap_json: string | null } | undefined;
+    if (!row || !row.swap_json) throw new QueueError("Not a swap row");
+    const spec = parseSwap(row.swap_json);
+    if (!spec) throw new QueueError("Bad swap spec");
+    if (row.status === "fulfilled" || row.status === "failed" || row.status === "cancelled") throw new QueueError("Already closed");
+    if (row.claimed_by && row.claimed_by !== botGuid) throw new QueueError("This request was claimed by a different bot");
+    db.prepare("UPDATE withdraw_requests SET status = ?, updated_at = ? WHERE id = ?").run(result.ok ? "fulfilled" : "failed", now, requestId);
+    recordEvent(db, "withdraw", requestId, result.ok ? "swap-done" : "swap-failed", botGuid, result);
+    return spec;
+  }).immediate();
+  presence.setStatus(botGuid, "idle", now);
+  console.log(`[queue] swap #${requestId} ${result.ok ? "done" : `failed: ${result.error ?? "?"}`}`);
+  for (const fn of swapListeners) {
+    try {
+      fn(requestId, swap, result);
+    } catch (e) {
+      console.error("[queue] swap listener raised:", e);
+    }
+  }
+  return { swap };
+}
+
 export interface PendingWithdraw {
   id: number;
   server: string;
@@ -390,6 +469,7 @@ export interface PendingWithdraw {
   seasonal: boolean;
   /** Personal storage: the account whose items these are. */
   vaultUserId: number | null;
+  swap?: SwapSpec | null;
 }
 export interface PendingDeposit {
   id: number;
@@ -415,8 +495,8 @@ export interface PendingDeposit {
 export function listPending(db: Database.Database): { withdraws: PendingWithdraw[]; deposits: PendingDeposit[]; vaultBots: string[] } {
   sweepStaleRequests(db);
   const withdraws = (db
-    .prepare(`SELECT id, server, items_json, target_bot_guid, instance_ids_json, seasonal, vault_user_id FROM withdraw_requests WHERE status = 'pending' AND ${isPlayersNextTrade("withdraw_requests")} ORDER BY created_at ASC`)
-    .all() as { id: number; server: string; items_json: string; target_bot_guid: string | null; instance_ids_json: string | null; seasonal: number; vault_user_id: number | null }[])
+    .prepare(`SELECT id, server, items_json, target_bot_guid, instance_ids_json, seasonal, vault_user_id, swap_json FROM withdraw_requests WHERE status = 'pending' AND ${isPlayersNextTrade("withdraw_requests")} ORDER BY created_at ASC`)
+    .all() as { id: number; server: string; items_json: string; target_bot_guid: string | null; instance_ids_json: string | null; seasonal: number; vault_user_id: number | null; swap_json: string | null }[])
     .map((w) => {
       let items: ItemQty[] = [];
       let instanceIds: string[] | null = null;
@@ -430,7 +510,7 @@ export function listPending(db: Database.Database): { withdraws: PendingWithdraw
           if (Array.isArray(j)) instanceIds = j.filter((x): x is string => typeof x === "string");
         } catch { /* aggregate */ }
       }
-      return { id: w.id, server: w.server, items, targetBotGuid: w.target_bot_guid, instanceIds, seasonal: w.seasonal !== 0, vaultUserId: w.vault_user_id };
+      return { id: w.id, server: w.server, items, targetBotGuid: w.target_bot_guid, instanceIds, seasonal: w.seasonal !== 0, vaultUserId: w.vault_user_id, swap: parseSwap(w.swap_json) };
     });
   // The vault bot comes from a correlated subquery rather than a join: the
   // next-trade predicate names the table's own columns, and a join would make

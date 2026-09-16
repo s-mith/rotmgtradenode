@@ -19,8 +19,9 @@ export default function NodeTab({ password }: { password: string }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [hubUrl, setHubUrl] = useState("");
-  const [linkUrl, setLinkUrl] = useState("");
+  const DEFAULT_HUB = "https://rotmg.trade";
+  const [hubUrl, setHubUrl] = useState(DEFAULT_HUB);
+  const [linkUrl, setLinkUrl] = useState(DEFAULT_HUB);
   const [linkEmail, setLinkEmail] = useState("");
   const [linkPassword, setLinkPassword] = useState("");
   const headers = { "X-Dev-Password": password, "Content-Type": "application/json" };
@@ -34,7 +35,8 @@ export default function NodeTab({ password }: { password: string }) {
         return;
       }
       setStatus(data as Status);
-      setHubUrl((h) => h || (data as Status).telemetry.hubUrl);
+      setHubUrl((h) => (data as Status).telemetry.hubUrl || h);
+      setLinkUrl((u) => (data as Status).hub.url || u);
     } catch (e) {
       setError(String(e));
     }
@@ -138,7 +140,7 @@ export default function NodeTab({ password }: { password: string }) {
                 onSubmit={(e) => { e.preventDefault(); void act({ action: "hub-link", url: linkUrl, email: linkEmail, password: linkPassword, name: "my node" }); setLinkPassword(""); }}
                 style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
               >
-                <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://hub…" style={{ width: 220 }} />
+                <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder={DEFAULT_HUB} style={{ width: 220 }} />
                 <input value={linkEmail} onChange={(e) => setLinkEmail(e.target.value)} placeholder="hub email" style={{ width: 180 }} autoComplete="username" />
                 <input value={linkPassword} onChange={(e) => setLinkPassword(e.target.value)} placeholder="hub password" type="password" style={{ width: 160 }} autoComplete="current-password" />
                 <button type="submit" disabled={busy || !linkUrl || !linkEmail || !linkPassword}>Log in and link</button>
@@ -160,7 +162,7 @@ export default function NodeTab({ password }: { password: string }) {
               else. The hub joins reports across nodes so a ban wave shows while it is starting.
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <input value={hubUrl} onChange={(e) => setHubUrl(e.target.value)} placeholder="https://hub…" style={{ width: 260 }} />
+              <input value={hubUrl} onChange={(e) => setHubUrl(e.target.value)} placeholder={DEFAULT_HUB} style={{ width: 260 }} />
               <button disabled={busy} onClick={() => void act({ action: "telemetry", enabled: !t.enabled, hubUrl })}>{t.enabled ? "Turn off" : "Turn on"}</button>
               <button disabled={busy || !t.enabled} onClick={() => void act({ action: "flush" })}>Send now</button>
               <span style={{ color: "var(--muted, #999)", fontSize: 12 }}>queued {t.queued} · sent {t.sent} · last sent {when(t.lastFlushAt)}{t.lastError ? ` · ${t.lastError}` : ""}</span>

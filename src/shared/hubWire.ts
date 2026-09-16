@@ -118,3 +118,103 @@ export function compareVersions(a: string, b: string): number {
   }
   return 0;
 }
+
+// --- phase 3: offers, rendezvous, receipts (design doc §6.2) -----------------
+
+/** One physical item as an offer describes it. `ref` is the node's own handle (its instance id stays local). */
+export interface OfferItemWire {
+  ref: string;
+  itemId: string;
+  /** Enchantment ids the poster's tracker saw, or null when unknown. */
+  enchants: number[] | null;
+  /** Number of enchantments (always known). */
+  count: number;
+}
+
+/** One line of what an offer asks for. `enchants` is the node's wishlist SlotSpec[] shape; the hub stores it opaquely. */
+export interface WantLineWire {
+  itemId: string;
+  qty: number;
+  slotsMin: number;
+  slotsExact: number | null;
+  enchants: unknown[];
+}
+
+export type OfferStatusWire = "open" | "accepted" | "cancelled" | "expired" | "void";
+
+export interface OfferWire {
+  id: number;
+  /** The poster's hub display name, for the browse page. */
+  poster: string;
+  /** True on the poster's own node. */
+  mine: boolean;
+  botIgn: string;
+  seasonal: boolean;
+  server: string;
+  give: OfferItemWire[];
+  want: WantLineWire[];
+  status: OfferStatusWire;
+  createdAt: number;
+  expiresAt: number;
+}
+
+export interface CreateOfferRequest {
+  botIgn: string;
+  seasonal: boolean;
+  /** Where the poster's bot will meet the taker. */
+  server: string;
+  give: OfferItemWire[];
+  want: WantLineWire[];
+}
+
+export interface AcceptOfferRequest {
+  botIgn: string;
+  /** The taker's items that cover the offer's want lines, in want-line order. */
+  items: OfferItemWire[];
+}
+
+export type RendezvousState = "meet" | "done" | "failed" | "aborted" | "disputed";
+
+/** One side's view of a scheduled swap. The hub tells each node only what it needs. */
+export interface RendezvousWire {
+  id: number;
+  offerId: number;
+  server: string;
+  seasonal: boolean;
+  state: RendezvousState;
+  createdAt: number;
+  deadlineAt: number;
+  me: {
+    /** "give": this bot sends the trade request and is the giver in the trade machine; "take": it waits and accepts first. */
+    role: "give" | "take";
+    botIgn: string;
+    /** What this side hands over (refs are this node's own). */
+    gives: OfferItemWire[];
+    /** What this side receives (catalog shape; the counterparty's refs are not shared). */
+    gets: { itemId: string; qty: number }[];
+  };
+  partner: { botIgn: string; poster: string };
+  /** Receipts the hub has for this rendezvous: which sides reported. */
+  reported: { mine: boolean; partner: boolean };
+}
+
+export interface ReceiptWire {
+  window: number;
+  ok: boolean;
+  /** What left this bot (catalog counts) and which of its refs. */
+  gave: { itemId: string; qty: number }[];
+  gaveRefs: string[];
+  /** What arrived. */
+  got: { itemId: string; qty: number }[];
+  /** The counterparty's IGN as seen in the trade window (attestation). */
+  partnerIgn: string;
+  error?: string;
+  at: number;
+}
+
+export interface NodeLimitsWire {
+  maxOpenOffers: number;
+  maxItemsPerSide: number;
+  completedSwaps: number;
+  frozen: boolean;
+}

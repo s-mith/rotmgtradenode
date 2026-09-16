@@ -48,6 +48,8 @@ export interface Assignment {
   itemCount?: number;
   /** Consolidation swaps: what flows the other way (take: we give these; give: we get these). */
   swapItems?: ItemQty[] | null;
+  /** consolidate_take with swapItems: the exact instances to put up (a cross-node swap promised specific items). */
+  swapInstanceIds?: string[] | null;
   /** Deposits: also take character skins. Only the operator's own skin deposits set this. */
   acceptSkins?: boolean;
 }
@@ -471,7 +473,7 @@ export class TradeSession {
       return;
     }
     let giving = swapping ? a.swapItems! : a.items;
-    let giveIds = swapping ? null : a.instanceIds ?? null;
+    let giveIds = swapping ? a.swapInstanceIds ?? null : a.instanceIds ?? null;
     if (a.kind === "withdraw") {
       // Hand over only what fits in the partner's inventory right now; the
       // rest goes in further windows of the same assignment.

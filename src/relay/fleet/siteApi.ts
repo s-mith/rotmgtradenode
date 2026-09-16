@@ -9,6 +9,23 @@ export interface ItemQty {
   itemId: string;
   qty: number;
 }
+/** A cross-node swap riding a withdraw row (design doc §6.2): what comes back, and which side sends the request. */
+export interface SwapSpec {
+  rendezvousId: number;
+  role: "give" | "take";
+  /** What this bot receives, catalog shape. */
+  gets: ItemQty[];
+}
+export interface SwapResult {
+  ok: boolean;
+  gave: ItemQty[];
+  gaveInstanceIds: string[];
+  got: ItemQty[];
+  partnerIgn: string;
+  error?: string;
+  partnerAbsent?: boolean;
+}
+
 export interface Assignment {
   kind: "deposit" | "withdraw";
   requestId: number;
@@ -22,6 +39,8 @@ export interface Assignment {
   botIgn?: string;
   /** Personal storage: the account whose items these are (null for the pool). */
   vault?: number | null;
+  /** Set on a swap row: the trade is two-way and the partner is another node's bot. */
+  swap?: SwapSpec | null;
 }
 export interface PendingWithdraw {
   id: number;
@@ -31,6 +50,7 @@ export interface PendingWithdraw {
   instanceIds: string[] | null;
   seasonal: boolean;
   vaultUserId?: number | null;
+  swap?: SwapSpec | null;
 }
 export interface PendingDeposit {
   id: number;
@@ -94,6 +114,8 @@ export interface SiteApi {
   listVaults(): Promise<ApiResult<{ vaults: FleetVault[] }>>;
   /** The fleet moved these owned items onto `botGuid`. */
   vaultMoved(instanceIds: string[], botGuid: string): Promise<ApiResult<{ moved?: number }>>;
+  /** A swap row's outcome, success or not (replaces fulfill/giveUp for swap rows). */
+  reportSwap?(botGuid: string, requestId: number, result: SwapResult): Promise<ApiResult>;
   readonly timeoutMs: number;
   readonly stats: ApiStats;
 }

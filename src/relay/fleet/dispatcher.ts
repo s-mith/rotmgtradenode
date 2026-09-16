@@ -21,6 +21,7 @@ import type { LoginCodes, PoolSettings, TradeHold, WhisperQueue } from "./stores
 import type { Assignment as SiteAssignment, FleetVault, ItemQty, PendingDeposit, PendingWithdraw, PoolRoom, ReceivedInstance, SiteApi } from "./siteApi";
 import { bucketCounts, bucketOf, collectionTargets, electRoles, fragmentation, planMoves, splitStats, type Demand, type Fragmentation, type Inventories, type Move, type MoveKind } from "./potionConsolidation";
 import * as C from "./constants";
+import { swapAssignment, swapResult } from "./swapJobs";
 
 // --- routing types ----------------------------------------------------------
 
@@ -723,12 +724,37 @@ export class Dispatcher {
     return false;
   }
 
+  /** Swap rows (design doc §6.2) by account guid: the site assignment the outcome is reported against. */
+  private readonly swapAssignments = new Map<string, SiteAssignment & { kind: "withdraw" }>();
+
   private acceptAssignment(acc: BotAccount, client: GameClient, a: SiteAssignment): void {
     const items = a.items ?? [];
     acc.assignedRequestId = a.requestId;
     acc.assignedKind = a.kind;
     acc.assignedPartnerIgn = a.ign;
     acc.assignedVaultUser = a.vault ?? null;
+    if (a.kind === "withdraw" && a.swap) {
+      // A cross-node swap: two-way trade with another node's bot. The trade
+      // machine runs its consolidation swap path; the row is closed through
+      // reportSwap rather than fulfill.
+      const sa = a as SiteAssignment & { kind: "withdraw" };
+      this.swapAssignments.set(acc.guid, sa);
+      const now = Date.now();
+      this.lastActive.set(acc.guid, now);
+      const session = this.sessionFor(acc);
+      session?.setAssignment(swapAssignment(sa));
+      this.log(`${acc.alias} got swap #${a.requestId} (${a.swap.role}) with ${a.ign}: gives ${items.map((i) => `${i.qty}x${i.itemId}`).join(",")}, gets ${a.swap.gets.map((i) => `${i.qty}x${i.itemId}`).join(",")}`);
+      this.tradeTimeline.set(acc.guid, { claimed: now });
+      if (client.gameIdValue !== GameId.nexus) {
+        this.log(`${acc.alias} not in nexus (gameId=${client.gameIdValue}), sending nexus()`);
+        client.nexus();
+      } else if (a.swap.role === "give") {
+        // Only the giver invites; the taker waits for the request.
+        if (session?.sendTradeRequest()) this.tradeTimeline.get(acc.guid)!.requested = now;
+        else this.log(`${acc.alias} swap request deferred (trade machine busy or partner not in view)`);
+      }
+      return;
+    }
     if (a.kind === "deposit" && acc.assignedVaultUser !== null) {
       this.preTradeInstances.set(acc.guid, new Set(Object.values(this.tracker.instancesFor(acc.botGuid)).map((i) => i.instanceId)));
     }
@@ -758,6 +784,25 @@ export class Dispatcher {
     const kind = acc.assignedKind!;
     const timing = this.tradeStageSummary(acc);
     if (timing) this.log(`${acc.alias} ${kind} #${requestId} ${timing}`);
+
+    const swapRow = this.swapAssignments.get(acc.guid);
+    if (swapRow) {
+      this.swapAssignments.delete(acc.guid);
+      const result = swapResult(swapRow, outcome);
+      this.log(`${acc.alias} swap #${requestId} ${result.ok ? `done: gave ${result.gave.map((i) => `${i.qty}x${i.itemId}`).join(",")}, got ${result.got.map((i) => `${i.qty}x${i.itemId}`).join(",")}` : `failed: ${result.error}`}`);
+      const report = this.api.reportSwap
+        ? this.api.reportSwap(acc.botGuid, requestId, result)
+        : result.ok ? this.api.fulfillWithdraw(acc.botGuid, requestId, result.gave, result.gaveInstanceIds) : this.api.giveUp(acc.botGuid, requestId, "withdraw");
+      void report.then((r) => {
+        if (!r.ok) this.log(`swap #${requestId} report failed: ${r.error}`);
+      }).catch((e) => this.log(`swap #${requestId} report raised: ${String(e)}`));
+      this.clearAssignment(acc, session);
+      this.partnerWaitSince.delete(acc.guid);
+      this.lastActive.set(acc.guid, Date.now());
+      this.refreshInventory(acc, client);
+      if (!result.ok && result.partnerAbsent) this.disconnectAccount(acc, false);
+      return;
+    }
 
     if (kind === "consolidate_give" || kind === "consolidate_take") {
       if (outcome.ok) {

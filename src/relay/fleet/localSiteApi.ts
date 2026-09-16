@@ -6,7 +6,7 @@ import { presence } from "../../lib/fleetPresence";
 import { serverUsage } from "../../lib/serverUsage";
 import * as queue from "../../lib/queue";
 import { listVaultsForFleet, noteVaultMoved } from "../../lib/vault";
-import { ApiStats, type ApiResult, type Assignment, type FleetVault, type ItemQty, type PendingDeposit, type PendingWithdraw, type PoolRoom, type ReceivedInstance, type ServerUsageReport, type SiteApi } from "./siteApi";
+import { ApiStats, type ApiResult, type Assignment, type FleetVault, type ItemQty, type PendingDeposit, type PendingWithdraw, type PoolRoom, type ReceivedInstance, type ServerUsageReport, type SiteApi, type SwapResult } from "./siteApi";
 
 export class LocalSiteApi implements SiteApi {
   readonly timeoutMs = 1000;
@@ -67,5 +67,8 @@ export class LocalSiteApi implements SiteApi {
   }
   async vaultMoved(instanceIds: string[], botGuid: string): Promise<ApiResult<{ moved?: number }>> {
     return this.run("vault-moved", () => ({ moved: noteVaultMoved(this.db(), instanceIds, botGuid) }));
+  }
+  async reportSwap(botGuid: string, requestId: number, result: SwapResult): Promise<ApiResult> {
+    return this.run("swap-report", () => ({ ...queue.reportSwap(this.db(), botGuid, requestId, result) }));
   }
 }

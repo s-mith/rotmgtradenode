@@ -95,6 +95,8 @@ function init(db: Database.Database) {
       -- chose specific physical items; target_bot_guid becomes a hard claim
       -- gate and the fulfilling bot must still hold each named instance.
       instance_ids_json TEXT,
+      -- Cross-node swap spec (lib/queue.ts SwapSpec) or NULL for a withdraw.
+      swap_json TEXT,
       -- Which pool the player withdrew from (the tab they had selected). A
       -- seasonal character can only trade a seasonal bot, so only a bot of
       -- this type may claim the row.
@@ -350,6 +352,13 @@ function init(db: Database.Database) {
   if (wreqCols.length > 0 && !wreqCols.some((c) => c.name === "instance_ids_json")) {
     console.log("[db.init] adding withdraw_requests.instance_ids_json");
     db.exec("ALTER TABLE withdraw_requests ADD COLUMN instance_ids_json TEXT");
+  }
+  // Cross-node swaps (design doc §6.2) ride the withdraw row: a bot hands
+  // over the picked instances to a partner bot and expects `swap_json.gets`
+  // back in the same trade window. NULL = an ordinary withdraw.
+  if (wreqCols.length > 0 && !wreqCols.some((c) => c.name === "swap_json")) {
+    console.log("[db.init] adding withdraw_requests.swap_json");
+    db.exec("ALTER TABLE withdraw_requests ADD COLUMN swap_json TEXT");
   }
 
   // Seasonal / non-seasonal pool split: bots carry which pool they serve
