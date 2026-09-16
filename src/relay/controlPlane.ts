@@ -262,7 +262,20 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
   });
 
   // Node status and knobs (design doc §8): build gate, server list, telemetry.
-  app.get("/node", (c) => c.json({ ok: true, build: fleet.buildGate.status(), servers: fleet.servers.status(), telemetry: fleet.telemetry.status(), version: fleet.versions.current, feed: { polling: fleet.versions.polling, lastFetchAt: fleet.versions.lastFetchAt, lastError: fleet.versions.lastError, info: fleet.versions.lastInfo } }));
+  app.get("/node", (c) => c.json({ ok: true, build: fleet.buildGate.status(), servers: fleet.servers.status(), telemetry: fleet.telemetry.status(), hub: fleet.hub.status(), version: fleet.versions.current, feed: { polling: fleet.versions.polling, lastFetchAt: fleet.versions.lastFetchAt, lastError: fleet.versions.lastError, info: fleet.versions.lastInfo } }));
+  // Connected mode (design doc §4.3, docs/hub-protocol.md).
+  app.post("/node/hub/link", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { url?: string; email?: string; password?: string; name?: string } | null;
+    if (!body || typeof body !== "object") return c.json({ error: "bad json" }, 400);
+    const r = await fleet.hub.linkTo(String(body.url ?? ""), String(body.email ?? ""), String(body.password ?? ""), String(body.name ?? "").trim() || "my node");
+    if (!r.ok) return c.json({ error: r.error, hub: fleet.hub.status() }, r.status >= 400 ? (r.status as 400) : 502);
+    return c.json({ ok: true, link: r.data, hub: fleet.hub.status() });
+  });
+  app.post("/node/hub/unlink", async (c) => {
+    await fleet.hub.unlink();
+    return c.json({ ok: true, hub: fleet.hub.status() });
+  });
+  app.post("/node/hub/heartbeat", async (c) => c.json({ ok: await fleet.hub.sendHeartbeat(), hub: fleet.hub.status() }));
   app.post("/node/build/canary", async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { server?: string };
     const r = await fleet.buildGate.canary(body.server ? String(body.server) : undefined);

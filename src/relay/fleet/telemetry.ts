@@ -48,6 +48,8 @@ export interface TelemetryOptions {
   log: (s: string) => void;
   fetchImpl?: typeof fetch;
   now?: () => number;
+  /** When set (a linked hub), reports go out signed through it instead of a bare POST. */
+  sender?: (reports: BanReport[]) => Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
 export class Telemetry {
@@ -121,10 +123,15 @@ export class Telemetry {
     const batch = this.queue.slice();
     const url = `${this.o.settings.get().telemetry.hubUrl}/api/v1/telemetry/bans`;
     try {
-      const res = await (this.o.fetchImpl ?? fetch)(url, {
-        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reports: batch }), signal: AbortSignal.timeout(10_000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (this.o.sender) {
+        const r = await this.o.sender(batch);
+        if (!r.ok) throw new Error(r.error);
+      } else {
+        const res = await (this.o.fetchImpl ?? fetch)(url, {
+          method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reports: batch }), signal: AbortSignal.timeout(10_000),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      }
       this.queue.splice(0, batch.length);
       this.sent += batch.length;
       this.lastFlushAt = this.now();

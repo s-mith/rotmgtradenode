@@ -10,12 +10,25 @@ export interface NodeSettings {
   telemetry: { enabled: boolean; hubUrl: string; salt: string };
   /** Realm builds this node has run bots on without a protocol kick (design doc §8). */
   knownBuilds: string[];
+  /** Connected mode (design doc §4.3): the hub this node is linked to, or null in local mode. */
+  hub: HubLink | null;
+}
+
+export interface HubLink {
+  url: string;
+  nodeId: string;
+  /** The hub account this node was linked with (for display only). */
+  email: string;
+  publicKeyPem: string;
+  /** Sealed with src/node/secrets.ts; never written in the clear. */
+  privateKeyPemSealed: string;
+  linkedAt: number;
 }
 
 export const NODE_SETTINGS_FILE = "node.json";
 
 function defaults(): NodeSettings {
-  return { telemetry: { enabled: false, hubUrl: "", salt: randomBytes(16).toString("base64url") }, knownBuilds: [] };
+  return { telemetry: { enabled: false, hubUrl: "", salt: randomBytes(16).toString("base64url") }, knownBuilds: [], hub: null };
 }
 
 export class NodeSettingsStore {
@@ -27,6 +40,7 @@ export class NodeSettingsStore {
       this.value = {
         telemetry: { ...this.value.telemetry, ...(raw.telemetry ?? {}) },
         knownBuilds: Array.isArray(raw.knownBuilds) ? raw.knownBuilds.filter((b): b is string => typeof b === "string") : [],
+        hub: raw.hub && typeof raw.hub === "object" && typeof raw.hub.nodeId === "string" ? raw.hub : null,
       };
     } catch {
       // absent or unreadable: defaults, written on the first change

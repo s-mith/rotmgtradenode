@@ -10,6 +10,7 @@ type Status = {
   build: { build: string; known: boolean; held: boolean; reason: string | null; knownBuilds: string[]; canary: { running: boolean; last: { ok: boolean; build: string; ign?: string; seconds?: number; reason?: string } | null } };
   servers: { fetchedAt: number; stale: boolean; lastError: string | null; servers: Record<string, string> };
   telemetry: { enabled: boolean; hubUrl: string; queued: number; sent: number; lastFlushAt: number | null; lastError: string | null };
+  hub: { linked: boolean; url: string | null; nodeId: string | null; email: string | null; linkedAt: number | null; lastHeartbeatAt: number | null; lastError: string | null; outdated: boolean; version: { minNodeVersion: string; latestNodeVersion: string; downloadUrl: string; build: { gameVersion: string; knownBuilds: string[] } } | null };
 };
 
 const when = (ms: number | null | undefined) => (ms ? new Date(ms).toLocaleString() : "never");
@@ -19,6 +20,9 @@ export default function NodeTab({ password }: { password: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [hubUrl, setHubUrl] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linkPassword, setLinkPassword] = useState("");
   const headers = { "X-Dev-Password": password, "Content-Type": "application/json" };
 
   const load = useCallback(async () => {
@@ -61,6 +65,7 @@ export default function NodeTab({ password }: { password: string }) {
 
   const b = status?.build;
   const t = status?.telemetry;
+  const h = status?.hub;
   const last = b?.canary.last;
   return (
     <section>
@@ -103,6 +108,44 @@ export default function NodeTab({ password }: { password: string }) {
           <span style={{ color: "var(--muted, #999)", fontSize: 12 }}>
             {Object.keys(status.servers.servers).length} known · refreshed {when(status.servers.fetchedAt)}{status.servers.stale ? " (stale: refreshed at the next login)" : ""}{status.servers.lastError ? ` · last error ${status.servers.lastError}` : ""}
           </span>
+        ) : "…"}
+      </div>
+
+      <div style={{ marginTop: 12, padding: 10, border: "1px solid var(--border)", borderRadius: 6 }}>
+        <b>Hub</b>{" "}
+        {h ? (
+          h.linked ? (
+            <>
+              <span style={{ color: "var(--good, #5aa86a)" }}>linked</span>
+              <div style={{ color: "var(--muted, #999)", fontSize: 12, marginTop: 4 }}>
+                {h.url} · as {h.email} · node {h.nodeId} · since {when(h.linkedAt)} · last heartbeat {when(h.lastHeartbeatAt)}
+                {h.lastError ? ` · ${h.lastError}` : ""}
+                {h.version ? ` · hub wants node ≥ ${h.version.minNodeVersion}${h.outdated ? " (this node is older: hub features off until updated)" : ""}` : ""}
+              </div>
+              <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button disabled={busy} onClick={() => void act({ action: "hub-heartbeat" })}>Heartbeat now</button>
+                <button disabled={busy} onClick={() => void act({ action: "hub-unlink" }, "Unlink this node from the hub? Its key is forgotten; offers and shared vaults from this node disappear from the hub.")}>Unlink</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span style={{ color: "var(--muted, #999)" }}>local mode (not linked)</span>
+              <p style={{ color: "var(--muted, #999)", fontSize: 12, margin: "6px 0", maxWidth: 640 }}>
+                Everything on the main page works without a hub. Linking unlocks offers between vaults, the commons and shared vaults. Your hub
+                password is used once to register this node&apos;s key and is not stored; your game accounts never leave this machine.
+              </p>
+              <form
+                onSubmit={(e) => { e.preventDefault(); void act({ action: "hub-link", url: linkUrl, email: linkEmail, password: linkPassword, name: "my node" }); setLinkPassword(""); }}
+                style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
+              >
+                <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://hub…" style={{ width: 220 }} />
+                <input value={linkEmail} onChange={(e) => setLinkEmail(e.target.value)} placeholder="hub email" style={{ width: 180 }} autoComplete="username" />
+                <input value={linkPassword} onChange={(e) => setLinkPassword(e.target.value)} placeholder="hub password" type="password" style={{ width: 160 }} autoComplete="current-password" />
+                <button type="submit" disabled={busy || !linkUrl || !linkEmail || !linkPassword}>Log in and link</button>
+              </form>
+              {h.lastError && <div style={{ color: "var(--bad)", fontSize: 12, marginTop: 4 }}>{h.lastError}</div>}
+            </>
+          )
         ) : "…"}
       </div>
 

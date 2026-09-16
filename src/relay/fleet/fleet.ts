@@ -22,6 +22,7 @@ import { ServerList } from "../realm/serverList";
 import { BuildGate } from "./buildGate";
 import { Telemetry } from "./telemetry";
 import { NodeSettingsStore } from "../../node/settings";
+import { HubClient } from "../../node/hub";
 import { PROXIES_REFRESH_S } from "./constants";
 
 export interface FleetOptions {
@@ -76,6 +77,8 @@ export class Fleet {
   /** Opt-in suspension reports to the hub (design doc §8). */
   readonly telemetry: Telemetry;
   readonly nodeSettings: NodeSettingsStore;
+  /** Connected mode: linked hub, heartbeats, version feed (design doc §4.3). */
+  readonly hub: HubClient;
   private started = false;
   private proxyRefresh: ReturnType<typeof setInterval> | null = null;
 
@@ -121,7 +124,21 @@ export class Fleet {
     this.seasonWatch = new SeasonWatch({ store: backpackStore, pool: this.pool, clients: this.clients, log: this.log });
     this.serverUsage = new ServerUsageWatch({ clients: this.clients, api: opts.api ?? null, log: this.log, servers: this.servers });
     this.buildGate = new BuildGate({ versions: this.versions, deps: this.deps, pool: this.pool, settings: this.nodeSettings, log: this.log });
-    this.telemetry = new Telemetry({ settings: this.nodeSettings, pool: this.pool, tracker: this.tracker, versions: this.versions, nodeVersion: opts.nodeVersion ?? process.env.ROTMGTRADE_VERSION ?? "dev", log: this.log });
+    const nodeVersion = opts.nodeVersion ?? process.env.ROTMGTRADE_VERSION ?? "dev";
+    this.hub = new HubClient({
+      settings: this.nodeSettings, nodeVersion, log: this.log,
+      build: () => this.versions.current,
+      bots: () => this.pool.all().map((a) => ({ ign: this.tracker.ignFor(a.botGuid) ?? "", seasonal: a.seasonalOrDefault, online: a.online })).filter((b) => b.ign),
+      onKnownBuilds: (b) => this.buildGate.acceptFromHub(b),
+    });
+    this.telemetry = new Telemetry({
+      settings: this.nodeSettings, pool: this.pool, tracker: this.tracker, versions: this.versions, nodeVersion, log: this.log,
+      sender: async (reports) => {
+        if (!this.hub.linked) return { ok: false, error: "not linked to a hub" };
+        const r = await this.hub.signed<{ ok: true; accepted: number }>("POST", "/api/v1/telemetry/bans", { reports });
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
+      },
+    });
     // A 16-slot deposit nothing can serve: the dispatcher records a backpack
     // order; the owner runs the chore from the Backpacks tab.
     this.dispatcher?.setBackpackOrders((seasonal) => {
@@ -182,6 +199,7 @@ export class Fleet {
     if (this.dispatcher) this.dispatcher.start();
     else this.log("Fleet: no site configured (COMMUNISM_URL/COMMUNISM_SECRET unset) — no dispatcher started");
     this.telemetry.start();
+    this.hub.start();
   }
 
   stop(): void {
@@ -190,6 +208,7 @@ export class Fleet {
     this.seasonWatch.stop();
     this.serverUsage.stop();
     this.telemetry.stop();
+    this.hub.stop();
     this.buildGate.stop();
     this.backpacks.flush();
     this.dispatcher?.stop();

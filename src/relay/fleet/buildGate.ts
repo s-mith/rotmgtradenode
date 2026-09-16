@@ -79,6 +79,10 @@ export class BuildGate {
   trust(build = this.o.versions.current): void {
     this.markKnown(build, "trusted by the owner");
   }
+  /** The hub's operator confirmed these builds work with this node's codecs (docs/hub-protocol.md). */
+  acceptFromHub(builds: string[]): void {
+    for (const b of builds) if (!this.isKnown(b)) this.markKnown(b, "confirmed by the hub");
+  }
 
   private markKnown(build: string, why: string): void {
     if (!this.isKnown(build)) {
