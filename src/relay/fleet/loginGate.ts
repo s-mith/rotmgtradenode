@@ -4,6 +4,8 @@ const LOGIN_LIMIT_TRIP_COUNT = Number(process.env.LOGIN_LIMIT_TRIP_COUNT ?? 3);
 const LOGIN_LIMIT_TRIP_WINDOW_MS = Number(process.env.LOGIN_LIMIT_TRIP_WINDOW_SECONDS ?? 60) * 1000;
 const LOGIN_PAUSE_MS = Number(process.env.LOGIN_PAUSE_SECONDS ?? 300) * 1000;
 const FOREVER_MS = 365 * 24 * 3600 * 1000;
+/** How long a hold reports as "paused" to callers that only look at the clock. */
+const HOLD_MS = 3600 * 1000;
 
 export class LoginGate {
   private lockedUntil = new Map<string, number>();
@@ -11,6 +13,8 @@ export class LoginGate {
   private attemptLimitHits: number[] = [];
   private pauseUntil = 0;
   private pauseLoggedAt = 0;
+  /** A standing hold (the build gate): logins refused until released, whatever the clock says. */
+  holdReason: string | null = null;
   private readonly now: () => number;
 
   constructor(now: () => number = Date.now) {
@@ -20,8 +24,22 @@ export class LoginGate {
   lockoutRemainingMs(guid: string): number {
     return Math.max(0, (this.lockedUntil.get(guid) ?? 0) - this.now());
   }
+  /** Time until logins may resume; while a hold is on this never runs out. */
   pausedRemainingMs(): number {
+    const p = Math.max(0, this.pauseUntil - this.now());
+    return this.holdReason ? Math.max(p, HOLD_MS) : p;
+  }
+  /** The rate-limit pause alone, for a caller allowed past the hold. */
+  ratePauseRemainingMs(): number {
     return Math.max(0, this.pauseUntil - this.now());
+  }
+  hold(reason: string): void {
+    if (this.holdReason !== reason) console.log(`LoginGate: holding all logins — ${reason}`);
+    this.holdReason = reason;
+  }
+  release(): void {
+    if (this.holdReason) console.log("LoginGate: hold released");
+    this.holdReason = null;
   }
   serverJamRemainingMs(server: string): number {
     return Math.max(0, (this.serverJamUntil.get(server) ?? 0) - this.now());

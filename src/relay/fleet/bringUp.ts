@@ -8,6 +8,7 @@ import { DEFAULT_SERVER, isServerName } from "../realm/constants";
 import type { BotAccount, BotPool } from "./botPool";
 import type { LoginGate } from "./loginGate";
 import type { ProxyPool } from "./proxyPool";
+import type { ServerList } from "../realm/serverList";
 import { RECONNECT_GRACE_S, TOKEN_ERROR_COOLDOWN_S } from "./constants";
 
 export type BringUpVerdict = "captured" | "suspended" | "locked" | "paused" | "failed";
@@ -29,6 +30,8 @@ export interface FleetDeps {
   capacityFor?: (botGuid: string) => number;
   /** Every successful authenticate: the backpack service records the login and what char/list said. */
   onLogin?: (acc: BotAccount, client: GameClient) => void;
+  /** Realm's server addresses; refreshed with the fresh token before the socket opens when stale. */
+  servers?: ServerList;
 }
 
 export class BringUpRefused extends Error {
@@ -43,8 +46,10 @@ export class BringUpRefused extends Error {
  * verdict. Everything short of a live client releases the exit IP.
  */
 export interface BringUpOptions {
-  /** When the account has no character, CREATE one with this seasonality (the recycle lane). Default: non-seasonal. */
+  /** When the account has no character, CREATE one with this seasonality. Default: non-seasonal. */
   createSeasonal?: boolean;
+  /** The build gate's canary: go past a standing hold (never past a rate-limit pause). */
+  ignoreHold?: boolean;
 }
 
 export async function bringUp(deps: FleetDeps, acc: BotAccount, server: string, opts: BringUpOptions = {}): Promise<GameClient> {
@@ -52,10 +57,10 @@ export async function bringUp(deps: FleetDeps, acc: BotAccount, server: string, 
   const label = acc.alias || acc.guid;
   if (!acc.info.guid || (!acc.info.password && !acc.info.secret)) throw new BringUpRefused("failed", "empty guid or password");
 
-  const paused = gate.pausedRemainingMs();
+  const paused = opts.ignoreHold ? gate.ratePauseRemainingMs() : gate.pausedRemainingMs();
   if (paused > 0) {
-    if (gate.notePauseRefusal()) log(`BringUp: logins paused, ${Math.floor(paused / 1000)}s left — not attempting any account`);
-    throw new BringUpRefused("paused", "logins paused");
+    if (gate.notePauseRefusal()) log(gate.holdReason && !opts.ignoreHold ? `BringUp: logins held — ${gate.holdReason}` : `BringUp: logins paused, ${Math.floor(paused / 1000)}s left — not attempting any account`);
+    throw new BringUpRefused("paused", gate.holdReason && !opts.ignoreHold ? "logins held" : "logins paused");
   }
   const locked = gate.lockoutRemainingMs(acc.guid);
   if (locked > 0) {
@@ -140,6 +145,9 @@ export async function bringUp(deps: FleetDeps, acc: BotAccount, server: string, 
     log(`BringUp: onLogin hook failed for ${label}: ${String(e)}`);
   }
   if (proxy) proxies.noteResult(proxy.host, true);
+  // A moved server is resolved here, before the socket opens, not after a
+  // release: the token just earned is what account/servers wants.
+  if (deps.servers?.stale && client.token) await deps.servers.refreshIfStale(client.token, proxy);
 
   // Failure packets after this point are policy events for the gate.
   client.on("failure", (ev) => {

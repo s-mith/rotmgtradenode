@@ -7,6 +7,7 @@
 import type { GameClient } from "../client/gameClient";
 import { getServers, type ServerEntry } from "../realm/api";
 import type { ServerUsageReport, SiteApi } from "./siteApi";
+import type { ServerList } from "../realm/serverList";
 
 export const SERVER_USAGE_REFRESH_MS = Number(process.env.SERVER_USAGE_REFRESH_SECONDS ?? 30) * 1000;
 
@@ -19,6 +20,8 @@ export interface ServerUsageWatchOptions {
   now?: () => number;
   /** Test hook: replaces the HTTP call. */
   fetchServers?: (token: string, proxy: GameClient["proxy"]) => Promise<ServerEntry[] | null>;
+  /** Every list fetched also refreshes the address table. */
+  servers?: ServerList;
 }
 export interface ServerUsageWatchStatus {
   servers: ServerUsageReport[];
@@ -103,6 +106,7 @@ export class ServerUsageWatch {
     if (busyBefore !== busyNow) this.o.log(`server_usage: loaded servers now ${busyNow ? busyNow.split(",").map((n) => `${n} ${Math.round((report.find((s) => s.name === n)?.usage ?? 0) * 100)}%`).join(", ") : "none"}`);
     this.servers = report;
     this.fetchedAt = this.now();
+    this.o.servers?.apply(list);
     void this.o.api?.reportServerUsage(report);
   }
 }

@@ -1,11 +1,14 @@
 // Process entry point. Owns the lifecycle Next never gave us: load env, open
 // the database (which runs migrations), start background work, listen, and
 // shut down cleanly on a signal.
-import { randomBytes } from "node:crypto";
 import { serve } from "@hono/node-server";
 import { loadEnv } from "./env";
+import { applyNodeDefaults } from "@/node/config";
 
 loadEnv();
+// Every knob gets a local-mode default (design doc §4.3); env still wins.
+const nodeConfig = applyNodeDefaults();
+console.log(`[node] local mode, data in ${nodeConfig.dataDir}`);
 
 // Imported after loadEnv so module-level reads of process.env (DATA_DIR in
 // lib/db, the rate-limit and live-bus globals) see the file-backed values.
@@ -26,11 +29,6 @@ const host = process.env.HOST ?? "0.0.0.0";
 if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
   console.error("[server] SESSION_SECRET is not set; refusing to start in production");
   process.exit(1);
-}
-if (process.env.RELAY_EMBEDDED === "1" && !process.env.PYRELAY_AUTH) {
-  // The control plane is only reachable in-process, so a per-boot token is
-  // all it needs.
-  process.env.PYRELAY_AUTH = randomBytes(24).toString("base64url");
 }
 
 const db = getDb();

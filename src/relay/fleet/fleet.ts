@@ -18,6 +18,10 @@ import { auditProxiesFromFile, BackpackService, BackpackStore } from "./backpack
 import { SeasonWatch } from "./seasonWatch";
 import { ServerUsageWatch } from "./serverUsageWatch";
 import { WakeScheduler } from "./wakes";
+import { ServerList } from "../realm/serverList";
+import { BuildGate } from "./buildGate";
+import { Telemetry } from "./telemetry";
+import { NodeSettingsStore } from "../../node/settings";
 import { PROXIES_REFRESH_S } from "./constants";
 
 export interface FleetOptions {
@@ -36,6 +40,10 @@ export interface FleetOptions {
   bringUp?: FleetDeps["bringUp"];
   /** Called whenever the tracker's revision moves. */
   onPoolChanged?: () => void;
+  /** Node-level settings (telemetry opt-in, known builds); defaults to `<dataDir>/node.json`. */
+  nodeSettings?: NodeSettingsStore;
+  /** What telemetry reports as the node version. */
+  nodeVersion?: string;
 }
 
 export class Fleet {
@@ -61,6 +69,13 @@ export class Fleet {
   readonly seasonWatch: SeasonWatch;
   /** Follows Realm's per-server load and reports it to the site, which gates trades on it. */
   readonly serverUsage: ServerUsageWatch;
+  /** Realm's server addresses, refreshed from account/servers (design doc §8). */
+  readonly servers: ServerList;
+  /** Refuses logins on a Realm build this node has not seen work (design doc §8). */
+  readonly buildGate: BuildGate;
+  /** Opt-in suspension reports to the hub (design doc §8). */
+  readonly telemetry: Telemetry;
+  readonly nodeSettings: NodeSettingsStore;
   private started = false;
   private proxyRefresh: ReturnType<typeof setInterval> | null = null;
 
@@ -75,12 +90,15 @@ export class Fleet {
     if (opts.onPoolChanged) this.tracker.onChange = opts.onPoolChanged;
     this.proxies = ProxyPool.fromSource(opts.proxies);
     this.gate = new LoginGate();
+    this.nodeSettings = opts.nodeSettings ?? NodeSettingsStore.at(this.dataDir, this.log);
+    this.servers = ServerList.at(this.dataDir, this.log);
     this.versions = opts.versions ?? new GameVersion({ seed: opts.buildVersion, url: null, log: this.log });
     const versions = this.versions;
     this.deps = {
       pool: this.pool, proxies: this.proxies, gate: this.gate, clients: this.clients, log: this.log, bringUp: opts.bringUp,
       capacityFor: (g) => this.tracker.capacityFor(g),
       onLogin: (acc, client) => this.backpacks.onLogin(acc, client),
+      servers: this.servers,
       // Read at every bring-up, so a build bump reaches the next HELLO.
       get buildVersion() { return versions.current; },
       refreshBuildVersion: () => versions.refresh(),
@@ -101,7 +119,9 @@ export class Fleet {
       vaultBots: () => this.dispatcher?.vaultBotGuids() ?? new Set<string>(),
     });
     this.seasonWatch = new SeasonWatch({ store: backpackStore, pool: this.pool, clients: this.clients, log: this.log });
-    this.serverUsage = new ServerUsageWatch({ clients: this.clients, api: opts.api ?? null, log: this.log });
+    this.serverUsage = new ServerUsageWatch({ clients: this.clients, api: opts.api ?? null, log: this.log, servers: this.servers });
+    this.buildGate = new BuildGate({ versions: this.versions, deps: this.deps, pool: this.pool, settings: this.nodeSettings, log: this.log });
+    this.telemetry = new Telemetry({ settings: this.nodeSettings, pool: this.pool, tracker: this.tracker, versions: this.versions, nodeVersion: opts.nodeVersion ?? process.env.ROTMGTRADE_VERSION ?? "dev", log: this.log });
     // A 16-slot deposit nothing can serve: the dispatcher records a backpack
     // order; the owner runs the chore from the Backpacks tab.
     this.dispatcher?.setBackpackOrders((seasonal) => {
@@ -132,6 +152,9 @@ export class Fleet {
   async start(opts: { sweep?: boolean } = {}): Promise<void> {
     if (this.started) return;
     this.started = true;
+    // The gate reads the cached build before the feed answers; a new build
+    // from the feed holds logins the moment it lands.
+    this.buildGate.start();
     this.versions.start();
     // The cached file was loaded in the constructor; the live list replaces
     // it before anything logs in, so pins are computed against today's hosts.
@@ -158,6 +181,7 @@ export class Fleet {
     this.backpacks.seedCapacities();
     if (this.dispatcher) this.dispatcher.start();
     else this.log("Fleet: no site configured (COMMUNISM_URL/COMMUNISM_SECRET unset) — no dispatcher started");
+    this.telemetry.start();
   }
 
   stop(): void {
@@ -165,6 +189,8 @@ export class Fleet {
     this.proxyRefresh = null;
     this.seasonWatch.stop();
     this.serverUsage.stop();
+    this.telemetry.stop();
+    this.buildGate.stop();
     this.backpacks.flush();
     this.dispatcher?.stop();
     this.versions.stop();

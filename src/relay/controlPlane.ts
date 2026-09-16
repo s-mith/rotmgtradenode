@@ -246,6 +246,40 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     }
   });
   app.post("/backpacks/chore/cancel", (c) => c.json({ ok: true, stopping: fleet.backpacks.cancelChore() }));
+  // Roster intake: an account that has already done its tutorial goes
+  // straight in; the onboarding service handles the rest (src/accountgen).
+  app.post("/accounts", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { email?: string; password?: string; seasonal?: boolean; alias?: string; server?: string } | null;
+    if (!body || typeof body !== "object") return c.json({ error: "bad json" }, 400);
+    const email = String(body.email ?? "").trim().toLowerCase();
+    const password = String(body.password ?? "");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: "email looks wrong" }, 400);
+    if (!password) return c.json({ error: "password is required" }, 400);
+    const acc = fleet.pool.addPulled({ guid: email, password, alias: (body.alias ?? "").trim() || email.split("@")[0], seasonal: body.seasonal !== false, ...(body.server ? { server: String(body.server) } : {}) });
+    if (!acc) return c.json({ error: "that account is already on the roster" }, 409);
+    fleet.log(`roster: added ${acc.alias} (${acc.seasonalOrDefault ? "seasonal" : "non-seasonal"})`);
+    return c.json({ ok: true, account: { alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, seasonal: acc.seasonal } });
+  });
+
+  // Node status and knobs (design doc §8): build gate, server list, telemetry.
+  app.get("/node", (c) => c.json({ ok: true, build: fleet.buildGate.status(), servers: fleet.servers.status(), telemetry: fleet.telemetry.status(), version: fleet.versions.current, feed: { polling: fleet.versions.polling, lastFetchAt: fleet.versions.lastFetchAt, lastError: fleet.versions.lastError, info: fleet.versions.lastInfo } }));
+  app.post("/node/build/canary", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { server?: string };
+    const r = await fleet.buildGate.canary(body.server ? String(body.server) : undefined);
+    return c.json({ ok: r.ok, canary: r, build: fleet.buildGate.status() }, r.ok ? 200 : 409);
+  });
+  app.post("/node/build/trust", (c) => {
+    fleet.buildGate.trust();
+    return c.json({ ok: true, build: fleet.buildGate.status() });
+  });
+  app.post("/node/telemetry", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { enabled?: boolean; hubUrl?: string } | null;
+    if (!body || typeof body.enabled !== "boolean") return c.json({ error: "enabled must be a boolean" }, 400);
+    fleet.telemetry.setEnabled(body.enabled, typeof body.hubUrl === "string" ? body.hubUrl : undefined);
+    return c.json({ ok: true, telemetry: fleet.telemetry.status() });
+  });
+  app.post("/node/telemetry/flush", async (c) => c.json({ ok: true, sent: await fleet.telemetry.flush(), telemetry: fleet.telemetry.status() }));
+
   app.get("/account", (c) => {
     const q = (c.req.query("q") ?? "").trim().toLowerCase();
     const limit = Math.max(1, Math.min(Number(c.req.query("limit") ?? 25) || 25, 100));
