@@ -1,0 +1,221 @@
+// Composition root: one Fleet per process owns the roster, tracker, proxy
+// pool, login gate, wake scheduler and the dispatcher.
+import fs from "node:fs";
+import path from "node:path";
+import type { GameClient } from "../client/gameClient";
+import { PartnerCoordinator } from "../trade/tradeMachine";
+import { BotPool } from "./botPool";
+import type { FleetDeps } from "./bringUp";
+import { Dispatcher } from "./dispatcher";
+import { InventoryTracker } from "./inventoryTracker";
+import { LoginGate } from "./loginGate";
+import { ProxyPool, proxySourceFromEnv, type ProxySource } from "./proxyPool";
+import { GameVersion } from "../realm/gameVersion";
+import { HttpSiteApi, type SiteApi } from "./siteApi";
+import { LoginCodes, PoolSettings, TradeHold, WhisperQueue } from "./stores";
+import { BanSweep, startupSweep } from "./sweeps";
+import { auditProxiesFromFile, BackpackService, BackpackStore } from "./backpacks";
+import { SeasonWatch } from "./seasonWatch";
+import { ServerUsageWatch } from "./serverUsageWatch";
+import { BackpackScheduler } from "./backpackScheduler";
+import { WakeScheduler } from "./wakes";
+import { PROXIES_REFRESH_S } from "./constants";
+import { RaidWatchService } from "./raidWatch";
+import { RealmHuntService } from "./realmHunt";
+
+export interface FleetOptions {
+  dataDir: string;
+  /** Where the exit-IP list comes from: PROXIES_URL and/or PROXIES_FILE. */
+  proxies: ProxySource;
+  /** Pinned build string; ignored when `versions` is given. */
+  buildVersion: string;
+  /** Live build source (feed-following); defaults to a pin on `buildVersion`. */
+  versions?: GameVersion;
+  /** The site's queue client; without one no dispatcher runs. */
+  api?: SiteApi;
+  log?: (line: string) => void;
+  freeSlotsTarget?: number;
+  /** Test hook, forwarded to FleetDeps. */
+  bringUp?: FleetDeps["bringUp"];
+  /** Called whenever the tracker's revision moves. */
+  onPoolChanged?: () => void;
+}
+
+export class Fleet {
+  readonly dataDir: string;
+  readonly log: (line: string) => void;
+  readonly pool: BotPool;
+  readonly settings: PoolSettings;
+  readonly tracker: InventoryTracker;
+  readonly proxies: ProxyPool;
+  readonly gate: LoginGate;
+  readonly versions: GameVersion;
+  readonly clients = new Map<string, GameClient>();
+  readonly deps: FleetDeps;
+  readonly wakes: WakeScheduler;
+  readonly hold = new TradeHold();
+  readonly coordinator = new PartnerCoordinator();
+  readonly loginCodes = new LoginCodes();
+  readonly whispers = new WhisperQueue();
+  readonly dispatcher: Dispatcher | null;
+  readonly banSweep: BanSweep;
+  /** Backpack audit + chore (docs/relay/BACKPACKS.md). */
+  readonly backpacks: BackpackService;
+  /** Follows Realm's season clock; marks every account non-seasonal when a season ends. */
+  readonly seasonWatch: SeasonWatch;
+  /** Follows Realm's per-server load and reports it to the site, which gates trades on it. */
+  readonly serverUsage: ServerUsageWatch;
+  /** Keeps pools and vaults at the backpack plan's target by itself (docs/relay/BACKPACKS.md §4). */
+  readonly scheduler: BackpackScheduler;
+  /** Watcher bots sent into a bazaar to see a raid's key popped (docs/RAIDS.md §5); the site orders them through its hook. */
+  readonly raidWatch: RaidWatchService;
+  /** Hunter bots that sit in a realm with a party open and count who follows them into called dungeons (docs/REALMHUNTS.md); the site orders them through its hook. */
+  readonly realmHunt: RealmHuntService;
+  private started = false;
+  private proxyRefresh: ReturnType<typeof setInterval> | null = null;
+
+  constructor(opts: FleetOptions) {
+    this.dataDir = opts.dataDir;
+    this.log = opts.log ?? ((l) => console.log(l));
+    fs.mkdirSync(this.dataDir, { recursive: true });
+    this.pool = BotPool.at(this.dataDir);
+    this.settings = PoolSettings.at(this.dataDir);
+    this.tracker = InventoryTracker.at(this.dataDir);
+    if (this.settings.poolHasBackpack) this.log("pool_settings: pool_has_backpack is set but no longer forces capacity — slots are per bot (backpack seen on that character); the knob is inert");
+    if (opts.onPoolChanged) this.tracker.onChange = opts.onPoolChanged;
+    this.proxies = ProxyPool.fromSource(opts.proxies);
+    this.gate = new LoginGate();
+    this.versions = opts.versions ?? new GameVersion({ seed: opts.buildVersion, url: null, log: this.log });
+    const versions = this.versions;
+    this.deps = {
+      pool: this.pool, proxies: this.proxies, gate: this.gate, clients: this.clients, log: this.log, bringUp: opts.bringUp,
+      capacityFor: (g) => this.tracker.capacityFor(g),
+      onLogin: (acc, client) => this.backpacks.onLogin(acc, client),
+      // Read at every bring-up, so a build bump reaches the next HELLO.
+      get buildVersion() { return versions.current; },
+      refreshBuildVersion: () => versions.refresh(),
+    };
+    this.wakes = new WakeScheduler(this.deps);
+    const sweepDeps = { deps: this.deps, pool: this.pool, tracker: this.tracker, settings: this.settings };
+    this.banSweep = new BanSweep(sweepDeps, this.hold, this.wakes);
+    this.dispatcher = opts.api
+      ? new Dispatcher({
+          api: opts.api, pool: this.pool, deps: this.deps, tracker: this.tracker, settings: this.settings, hold: this.hold,
+          wakes: this.wakes, coordinator: this.coordinator, loginCodes: this.loginCodes, whispers: this.whispers, dataDir: this.dataDir,
+          freeSlotsTarget: opts.freeSlotsTarget,
+        })
+      : null;
+    const backpackStore = BackpackStore.at(this.dataDir);
+    this.backpacks = new BackpackService({
+      sd: sweepDeps, store: backpackStore, holds: this.dispatcher?.maintenanceHolds ?? new Set<string>(),
+      auditProxy: auditProxiesFromFile(process.env.BACKPACK_AUDIT_PROXIES_FILE, this.log),
+      vaultBots: () => this.dispatcher?.vaultBotGuids() ?? new Set<string>(),
+    });
+    this.seasonWatch = new SeasonWatch({ store: backpackStore, pool: this.pool, clients: this.clients, log: this.log });
+    this.serverUsage = new ServerUsageWatch({ clients: this.clients, api: opts.api ?? null, log: this.log });
+    this.scheduler = new BackpackScheduler({
+      service: this.backpacks, settingsFile: path.join(this.dataDir, "backpack_settings.json"), log: this.log,
+      banSweepHold: () => this.hold.active,
+      loginPausedMs: () => this.gate.pausedRemainingMs(),
+      pendingPlayers: () => this.dispatcher?.pendingPlayerRequests() ?? 0,
+      freeExits: () => {
+        const cap = this.proxies.exclusiveCapacity();
+        return cap === null ? null : cap - this.proxies.occupiedCount();
+      },
+      liveChoreAllowed: () => process.env.BACKPACK_CHORE_LIVE === "1",
+    });
+    this.raidWatch = new RaidWatchService({
+      deps: this.deps, pool: this.pool, holds: this.dispatcher?.maintenanceHolds ?? new Set<string>(),
+      vaultBots: () => this.dispatcher?.vaultBotGuids() ?? new Set<string>(), log: this.log,
+      mirror: () => process.env.RAID_BAZAAR_MIRROR === "1",
+    });
+    this.realmHunt = new RealmHuntService({
+      deps: this.deps, pool: this.pool, holds: this.dispatcher?.maintenanceHolds ?? new Set<string>(),
+      vaultBots: () => this.dispatcher?.vaultBotGuids() ?? new Set<string>(), log: this.log,
+      // A hunter may die (it stands at dungeon entrances with no self-preservation): only bots holding nothing, with no backpack, are sent.
+      eligible: (a) => this.tracker.heldCount(a.botGuid) === 0 && this.tracker.capacityFor(a.botGuid) < 16,
+    });
+    // A 16-slot deposit nothing can serve: the dispatcher orders a backpack
+    // bot and the scheduler is nudged at once rather than at its next minute.
+    this.dispatcher?.setBackpackOrders((seasonal) => {
+      if (!this.backpacks.orderBackpackBot(seasonal)) return;
+      this.log(`backpacks: a waiting ${seasonal ? "seasonal" : "non-seasonal"} 16-slot deposit has no bot with the room — ordering one fitted with a backpack`);
+      try {
+        this.scheduler.tick();
+      } catch (e) {
+        this.log(`backpacks: order tick failed: ${String(e)}`);
+      }
+    });
+  }
+
+  static fromEnv(overrides: Partial<FleetOptions> = {}): Fleet {
+    // RELAY_DATA_DIR keeps the fleet's files apart from the site's DATA_DIR
+    // (which holds pool.db) when both run in one process.
+    const dataDir = process.env.RELAY_DATA_DIR || process.env.DATA_DIR || ".";
+    const api = HttpSiteApi.fromEnv("COMMUNISM") ?? undefined;
+    // An explicit buildVersion override is a pin; otherwise follow the feed.
+    const versions = overrides.versions
+      ?? (overrides.buildVersion ? new GameVersion({ seed: overrides.buildVersion, url: null, log: overrides.log }) : GameVersion.fromEnv(dataDir, overrides.log));
+    return new Fleet({
+      dataDir,
+      proxies: proxySourceFromEnv(dataDir),
+      buildVersion: versions.current,
+      versions,
+      api,
+      ...overrides,
+    });
+  }
+
+  /** Boot sweep, then start every dispatcher. */
+  async start(opts: { sweep?: boolean } = {}): Promise<void> {
+    if (this.started) return;
+    this.started = true;
+    this.versions.start();
+    // The cached file was loaded in the constructor; the live list replaces
+    // it before anything logs in, so pins are computed against today's hosts.
+    if (this.proxies.sourceStatus().urlConfigured) {
+      await this.proxies.refresh();
+      // Keep following the list: a host added at the provider is a bot more
+      // the fleet can have online, and a removed one stops being handed out.
+      if (PROXIES_REFRESH_S > 0) {
+        this.proxyRefresh = setInterval(() => {
+          void this.proxies.refresh();
+        }, PROXIES_REFRESH_S * 1000);
+        this.proxyRefresh.unref?.();
+      }
+    }
+    if (opts.sweep ?? true) {
+      try {
+        await startupSweep({ deps: this.deps, pool: this.pool, tracker: this.tracker, settings: this.settings });
+      } catch (e) {
+        this.log(`startup_sweep: aborted with error: ${String(e)}`);
+      }
+    }
+    this.seasonWatch.start();
+    this.serverUsage.start();
+    this.backpacks.seedCapacities();
+    if (process.env.BACKPACK_SCHEDULER === "1") this.scheduler.start();
+    else this.log("Fleet: backpack scheduler off (BACKPACK_SCHEDULER unset) — runs are manual");
+    if (this.dispatcher) this.dispatcher.start();
+    else this.log("Fleet: no site configured (COMMUNISM_URL/COMMUNISM_SECRET unset) — no dispatcher started");
+    this.raidWatch.start();
+    this.realmHunt.start();
+  }
+
+  stop(): void {
+    if (this.proxyRefresh) clearInterval(this.proxyRefresh);
+    this.proxyRefresh = null;
+    this.raidWatch.stop();
+    this.realmHunt.stop();
+    this.scheduler.stop();
+    this.seasonWatch.stop();
+    this.serverUsage.stop();
+    this.backpacks.flush();
+    this.dispatcher?.stop();
+    this.versions.stop();
+    this.wakes.stop();
+    for (const c of this.clients.values()) c.stop();
+    this.tracker.close();
+  }
+
+}

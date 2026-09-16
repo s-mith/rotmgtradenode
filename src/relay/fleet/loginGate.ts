@@ -1,0 +1,73 @@
+// Who may log in right now: per-account lockouts, the fleet-wide breaker,
+// and benched servers. Port of the policy half of pyrelay's ClientManager.
+const LOGIN_LIMIT_TRIP_COUNT = Number(process.env.LOGIN_LIMIT_TRIP_COUNT ?? 3);
+const LOGIN_LIMIT_TRIP_WINDOW_MS = Number(process.env.LOGIN_LIMIT_TRIP_WINDOW_SECONDS ?? 60) * 1000;
+const LOGIN_PAUSE_MS = Number(process.env.LOGIN_PAUSE_SECONDS ?? 300) * 1000;
+const FOREVER_MS = 365 * 24 * 3600 * 1000;
+
+export class LoginGate {
+  private lockedUntil = new Map<string, number>();
+  private serverJamUntil = new Map<string, number>();
+  private attemptLimitHits: number[] = [];
+  private pauseUntil = 0;
+  private pauseLoggedAt = 0;
+  private readonly now: () => number;
+
+  constructor(now: () => number = Date.now) {
+    this.now = now;
+  }
+
+  lockoutRemainingMs(guid: string): number {
+    return Math.max(0, (this.lockedUntil.get(guid) ?? 0) - this.now());
+  }
+  pausedRemainingMs(): number {
+    return Math.max(0, this.pauseUntil - this.now());
+  }
+  serverJamRemainingMs(server: string): number {
+    return Math.max(0, (this.serverJamUntil.get(server) ?? 0) - this.now());
+  }
+
+  /** Extend (never shorten) an account's lockout. */
+  noteCooldown(guid: string, seconds: number, why: string): void {
+    if (seconds <= 0) return;
+    const before = this.lockoutRemainingMs(guid);
+    const until = this.now() + seconds * 1000;
+    if (until > (this.lockedUntil.get(guid) ?? 0)) this.lockedUntil.set(guid, until);
+    const after = this.lockoutRemainingMs(guid);
+    if (after > before) console.log(`LoginGate: ${guid} not logging in for ${Math.floor(after / 1000)}s — ${why}`);
+  }
+
+  /** Realm refused with LOGIN ATTEMPT LIMIT: lock the account and count it against the channel. */
+  noteAttemptLimit(guid: string, lockoutSeconds: number): void {
+    this.noteCooldown(guid, lockoutSeconds, "login attempt limit");
+    const now = this.now();
+    this.attemptLimitHits = this.attemptLimitHits.filter((t) => now - t < LOGIN_LIMIT_TRIP_WINDOW_MS);
+    this.attemptLimitHits.push(now);
+    const hits = this.attemptLimitHits.length;
+    if (hits < LOGIN_LIMIT_TRIP_COUNT || this.pauseUntil > now) return;
+    this.pauseUntil = now + LOGIN_PAUSE_MS;
+    this.attemptLimitHits = [];
+    console.log(`LoginGate: ${hits} attempt-limit refusals inside ${LOGIN_LIMIT_TRIP_WINDOW_MS / 1000}s — pausing ALL logins for ${LOGIN_PAUSE_MS / 1000}s`);
+  }
+  noteLoginSuccess(): void {
+    this.attemptLimitHits = [];
+  }
+  retire(guid: string): void {
+    this.lockedUntil.set(guid, this.now() + FOREVER_MS);
+  }
+  noteServerJam(server: string, seconds: number, why = ""): void {
+    if (!server || seconds <= 0) return;
+    const now = this.now();
+    const fresh = (this.serverJamUntil.get(server) ?? 0) <= now;
+    const until = now + seconds * 1000;
+    if (until > (this.serverJamUntil.get(server) ?? 0)) this.serverJamUntil.set(server, until);
+    if (fresh) console.log(`LoginGate: benching ${server} for ~${seconds}s — ${why}`);
+  }
+  /** Log the pause at most every 15s; returns true when a line was printed. */
+  notePauseRefusal(): boolean {
+    const now = this.now();
+    if (now - this.pauseLoggedAt < 15_000) return false;
+    this.pauseLoggedAt = now;
+    return true;
+  }
+}

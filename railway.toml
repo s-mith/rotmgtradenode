@@ -1,0 +1,20 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+# A redeploy restarts the bot fleet (drain, reconnect, boot sweep), so only
+# rebuild when something that ships in the image changes.
+watchPatterns = [
+  "src/**", "public/**", "content/**", "scripts/**",
+  "index.html", "vite.config.ts", "tsconfig.json",
+  "package.json", "package-lock.json", "Dockerfile", "railway.toml",
+  "realm-items.json", "realm-enchants.json", "data/*.json",
+]
+
+[deploy]
+startCommand = "node dist/server/main.js"
+healthcheckPath = "/api/healthz"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+# Let in-flight trades and the fleet's disconnect finish before the kill.
+drainingSeconds = 30

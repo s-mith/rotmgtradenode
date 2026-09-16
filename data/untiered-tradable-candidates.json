@@ -1,0 +1,3501 @@
+[
+  {
+    "id": "almandine_ring_of_wrath",
+    "name": "Almandine Ring of Wrath",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "9016",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "brewer_s_bangle",
+    "name": "Brewer's Bangle",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "17857",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "candy_ring",
+    "name": "Candy Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "3167",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "captain_s_ring",
+    "name": "Captain's Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "3111",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "chef_s_hat",
+    "name": "Chef's Hat",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "18360",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "coral_ring",
+    "name": "Coral Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "3091",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "corsair",
+    "name": "Corsair Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "8841",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "crystal_bone_ring",
+    "name": "Crystal Bone Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "3095",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "crystal_key",
+    "name": "Crystal Key",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "19250",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "enchanted_ice_shard",
+    "name": "Enchanted Ice Shard",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "32722",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "experimental_ring",
+    "name": "Experimental Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "3121",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "fairy_ring",
+    "name": "Fairy Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "2109",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "geb_s_ring_of_wisdom",
+    "name": "Geb's Ring of Wisdom",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "9053",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "legacy_forgotten_ring",
+    "name": "Legacy Forgotten Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "8618",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "legacy_ring_of_pure_wishes",
+    "name": "Legacy Ring of Pure Wishes",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "9061",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "legacy_spectral_ring_of_horrors",
+    "name": "Legacy Spectral Ring of Horrors",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "8611",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "mask_of_anubis",
+    "name": "Mask of Anubis",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "4058",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "mask_of_cnidaria",
+    "name": "Mask of Cnidaria",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "4060",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "mask_of_lightning",
+    "name": "Mask of Lightning",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "4059",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "mask_of_mucus",
+    "name": "Mask of Mucus",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "4061",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "oryxmas_ornament_energized",
+    "name": "Oryxmas Ornament Energized",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "25788",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "oryxmas_ornament_exposed",
+    "name": "Oryxmas Ornament Exposed",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "25790",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "oryxmas_ornament_weak",
+    "name": "Oryxmas Ornament Weak",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "25789",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "ring_of_divine_faith",
+    "name": "Ring of Divine Faith",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "3104",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "ring_of_the_burning_sun",
+    "name": "Ring of the Burning Sun",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "8960",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "ring_of_the_covetous_heart",
+    "name": "Ring of the Covetous Heart",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "9057",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "ring_of_the_nile",
+    "name": "Ring of the Nile",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "2977",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "ring_of_the_pyramid",
+    "name": "Ring of the Pyramid",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "2978",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "ring_of_the_sphinx",
+    "name": "Ring of the Sphinx",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "2976",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "spider_s_eye_ring",
+    "name": "Spider's Eye Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "1800",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "superior_mask_of_anubis",
+    "name": "Superior Mask of Anubis",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "55420",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "superior_mask_of_cnidaria",
+    "name": "Superior Mask of Cnidaria",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "55422",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "superior_mask_of_lightning",
+    "name": "Superior Mask of Lightning",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "55421",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "superior_mask_of_mucus",
+    "name": "Superior Mask of Mucus",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "55423",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "leather_cheater",
+    "name": "Cheater Light Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "3202",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_chef",
+    "name": "Chefs Atire",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "18355",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_chocolate",
+    "name": "Chocolate Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "34337",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_coralsilk",
+    "name": "Coral Silk Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "3096",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_construction",
+    "name": "Fitted Construction Vest",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "12074",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "frost_drakehide",
+    "name": "Frost Drake Hide Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "5850",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_greaterhosen",
+    "name": "Greaterhosen",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "15717",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_harlequin",
+    "name": "Harlequin Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "29768",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_skuld",
+    "name": "Legacy Mantle of Skuld",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "8609",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_shadowbeast",
+    "name": "Shadowbeast Hide",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "14498",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_snakeskin",
+    "name": "Snakeskin Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "2622",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_spectral",
+    "name": "Spectral Cloth Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "3112",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_almandine",
+    "name": "Almandine Armor of Anger",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "9015",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_heavenly",
+    "name": "Armor of Heavenly Light",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "14500",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "bbp",
+    "name": "Berserker's Breastplate",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "14876",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_cask",
+    "name": "Cask Corslet",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "17850",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_cheater",
+    "name": "Cheater Heavy Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "3204",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "frost_citadel",
+    "name": "Frost Citadel Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "5853",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_construction",
+    "name": "Heavy Construction Vest",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "12075",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_fairyplate",
+    "name": "Legacy Fairy Plate",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "9060",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "lovebite_armor",
+    "name": "Lovebite Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "34340",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_resurrected",
+    "name": "Resurrected Warrior's Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "3182",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_warped",
+    "name": "Warped Mantle",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "26026",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "chasuble_of_holy_light",
+    "name": "Chasuble of Holy Light",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "3103",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "cheater_robe",
+    "name": "Cheater Robe",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "3203",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "frost_elemrobe",
+    "name": "Frost Elementalist Robe",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "5851",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "legacy_robe_of_twilight",
+    "name": "Legacy Robe of Twilight",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "8616",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "magic_construction_vest",
+    "name": "Magic Construction Vest",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "12073",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "robe_of_dark_summoning",
+    "name": "Robe of Dark Summoning",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "14499",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "robe_of_the_mad_scientist",
+    "name": "Robe of the Mad Scientist",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "3122",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "robe_of_the_summer_solstice",
+    "name": "Robe of the Summer Solstice",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "8863",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "robe_of_the_tlatoani",
+    "name": "Robe of the Tlatoani",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "3092",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "shendyt_of_geb",
+    "name": "Shendyt of Geb",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "9052",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "soulless_robe",
+    "name": "Soulless Robe",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "9056",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "tlatoani_s_shroud",
+    "name": "Tlatoani's Shroud",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "14074",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "woodland_robe",
+    "name": "Woodland Robe",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "2110",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "book_of_geb",
+    "name": "Book of Geb",
+    "category": "UT/ST",
+    "_realmId": "9054",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "botany_book",
+    "name": "Botany Book",
+    "category": "UT/ST",
+    "_realmId": "25113",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "nativity_tome",
+    "name": "Nativity Tome",
+    "category": "UT/ST",
+    "_realmId": "8342",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "necronomicon",
+    "name": "Necronomicon",
+    "category": "UT/ST",
+    "_realmId": "1405",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "tome_of_holy_protection",
+    "name": "Tome of Holy Protection",
+    "category": "UT/ST",
+    "_realmId": "3102",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "tome_of_moral_support",
+    "name": "Tome of Moral Support",
+    "category": "UT/ST",
+    "_realmId": "23341",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "tome_of_purification",
+    "name": "Tome of Purification",
+    "category": "UT/ST",
+    "_realmId": "3081",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "onyx_shield_of_the_mad_god",
+    "name": "Onyx Shield of the Mad God",
+    "category": "UT/ST",
+    "_realmId": "9017",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "resounding_shield",
+    "name": "Resounding Shield",
+    "category": "UT/ST",
+    "_realmId": "8340",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "shield_of_pogmur",
+    "name": "Shield of Pogmur",
+    "category": "UT/ST",
+    "_realmId": "23344",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "snakeskin_shield",
+    "name": "Snakeskin Shield",
+    "category": "UT/ST",
+    "_realmId": "2624",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "tester_wooden_shield",
+    "name": "Tester Wooden Shield",
+    "category": "UT/ST",
+    "_realmId": "53231",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "legacy_ancient_spell_pierce",
+    "name": "Legacy Ancient Spell: Pierce",
+    "category": "UT/ST",
+    "_realmId": "8617",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "random_spell_extraction_device",
+    "name": "Random Spell Extraction Device",
+    "category": "UT/ST",
+    "_realmId": "23330",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "spelling_spell",
+    "name": "Spelling Spell",
+    "category": "UT/ST",
+    "_realmId": "23339",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "thousand_suns_spell",
+    "name": "Thousand Suns Spell",
+    "category": "UT/ST",
+    "_realmId": "8862",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "vigil_spell",
+    "name": "Vigil Spell",
+    "category": "UT/ST",
+    "_realmId": "8338",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "advent_seal",
+    "name": "Advent Seal",
+    "category": "UT/ST",
+    "_realmId": "8344",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "legacy_seal_of_the_enchanted_forest",
+    "name": "Legacy Seal of the Enchanted Forest",
+    "category": "UT/ST",
+    "_realmId": "9062",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "sandstone_seal",
+    "name": "Sandstone Seal",
+    "category": "UT/ST",
+    "_realmId": "9660",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "scholar_s_seal",
+    "name": "Scholar's Seal",
+    "category": "UT/ST",
+    "_realmId": "1406",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "seal_of_eternal_life",
+    "name": "Seal of Eternal Life",
+    "category": "UT/ST",
+    "_realmId": "23346",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cloak_planewalker",
+    "name": "Cloak of the Planewalker",
+    "category": "UT/ST",
+    "_realmId": "2650",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cloak_winter",
+    "name": "Cloak of Winter",
+    "category": "UT/ST",
+    "_realmId": "8333",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cloak_eggshell",
+    "name": "Eggshell Cowl",
+    "category": "UT/ST",
+    "_realmId": "18358",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cloak_ghastly",
+    "name": "Legacy Ghastly Drape",
+    "category": "UT/ST",
+    "_realmId": "8610",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cloak_mirror",
+    "name": "Mirror Cloak",
+    "category": "UT/ST",
+    "_realmId": "23335",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "archerang",
+    "name": "Archerang",
+    "category": "UT/ST",
+    "_realmId": "23337",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "coalbearing_quiver",
+    "name": "Coalbearing Quiver",
+    "category": "UT/ST",
+    "_realmId": "8336",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cocoon_quiver",
+    "name": "Cocoon Quiver",
+    "category": "UT/ST",
+    "_realmId": "9089",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "tester_magic_quiver",
+    "name": "Tester Magic Quiver",
+    "category": "UT/ST",
+    "_realmId": "53232",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "helm_amber",
+    "name": "Amber Encrusted Helmet",
+    "category": "UT/ST",
+    "_realmId": "9661",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "helm_challenger",
+    "name": "Challenger Helm",
+    "category": "UT/ST",
+    "_realmId": "23343",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "helm_pathfinder",
+    "name": "Pathfinder's Helm",
+    "category": "UT/ST",
+    "_realmId": "8335",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cursed_canopic_jar",
+    "name": "Cursed Canopic Jar",
+    "category": "UT/ST",
+    "_realmId": "1380",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "holly_poison",
+    "name": "Holly Poison",
+    "category": "UT/ST",
+    "_realmId": "8343",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "lightning_in_a_bottle",
+    "name": "Lightning in a Bottle",
+    "category": "UT/ST",
+    "_realmId": "23347",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "mighty_stein",
+    "name": "Mighty Stein",
+    "category": "UT/ST",
+    "_realmId": "15718",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "murky_toxin",
+    "name": "Murky Toxin",
+    "category": "UT/ST",
+    "_realmId": "29040",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "plague_poison",
+    "name": "Plague Poison",
+    "category": "UT/ST",
+    "_realmId": "3181",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cracked_crystal_skull",
+    "name": "Cracked Crystal Skull",
+    "category": "UT/ST",
+    "_realmId": "3094",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "epiphany_skull",
+    "name": "Epiphany Skull",
+    "category": "UT/ST",
+    "_realmId": "23349",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "sealed_crystal_skull",
+    "name": "Sealed Crystal Skull",
+    "category": "UT/ST",
+    "_realmId": "13987",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "skull_of_krampus",
+    "name": "Skull of Krampus",
+    "category": "UT/ST",
+    "_realmId": "8337",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "greedsnatcher_trap",
+    "name": "Greedsnatcher Trap",
+    "category": "UT/ST",
+    "_realmId": "8339",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "helium_trap",
+    "name": "Helium Trap",
+    "category": "UT/ST",
+    "_realmId": "23351",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "mimicry_trap",
+    "name": "Mimicry Trap",
+    "category": "UT/ST",
+    "_realmId": "19252",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "painbow",
+    "name": "Painbow",
+    "category": "UT/ST",
+    "_realmId": "25109",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "enchantment_orb",
+    "name": "Enchantment Orb",
+    "category": "UT/ST",
+    "_realmId": "2111",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "karma_orb",
+    "name": "Karma Orb",
+    "category": "UT/ST",
+    "_realmId": "23352",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "orb_of_sweet_demise",
+    "name": "Orb of Sweet Demise",
+    "category": "UT/ST",
+    "_realmId": "306",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "snowbound_orb",
+    "name": "Snowbound Orb",
+    "category": "UT/ST",
+    "_realmId": "8334",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "soul_of_the_bearer",
+    "name": "Soul of the Bearer",
+    "category": "UT/ST",
+    "_realmId": "9058",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "sphere_of_ice",
+    "name": "Sphere of Ice",
+    "category": "UT/ST",
+    "_realmId": "4302",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "titan_s_heart_2",
+    "name": "Titan's Heart",
+    "category": "UT/ST",
+    "_realmId": "57471",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "fool_s_prism",
+    "name": "Fool's Prism",
+    "category": "UT/ST",
+    "_realmId": "23353",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ghostly_prism",
+    "name": "Ghostly Prism",
+    "category": "UT/ST",
+    "_realmId": "3114",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "heart_of_gold_prism",
+    "name": "Heart of Gold Prism",
+    "category": "UT/ST",
+    "_realmId": "1904",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ornamental_prism",
+    "name": "Ornamental Prism",
+    "category": "UT/ST",
+    "_realmId": "8341",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "prism_of_dancing_swords",
+    "name": "Prism of Dancing Swords",
+    "category": "UT/ST",
+    "_realmId": "2322",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "prismimic",
+    "name": "Prismimic",
+    "category": "UT/ST",
+    "_realmId": "19254",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "honey_scepter",
+    "name": "Honey Scepter",
+    "category": "UT/ST",
+    "_realmId": "310",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "honey_scepter_supreme",
+    "name": "Honey Scepter Supreme",
+    "category": "UT/ST",
+    "_realmId": "23354",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "scepter_of_fulmination",
+    "name": "Scepter of Fulmination",
+    "category": "UT/ST",
+    "_realmId": "3120",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "scepter_of_sainthood",
+    "name": "Scepter of Sainthood",
+    "category": "UT/ST",
+    "_realmId": "8346",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "clover_star",
+    "name": "Clover Star",
+    "category": "UT/ST",
+    "_realmId": "29718",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ilex_star",
+    "name": "Ilex Star",
+    "category": "UT/ST",
+    "_realmId": "8345",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "testiken",
+    "name": "Testiken",
+    "category": "UT/ST",
+    "_realmId": "39338",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "testiken_att",
+    "name": "Testiken ATT",
+    "category": "UT/ST",
+    "_realmId": "39339",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "testiken_def",
+    "name": "Testiken DEF",
+    "category": "UT/ST",
+    "_realmId": "39340",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "testiken_dex",
+    "name": "Testiken DEX",
+    "category": "UT/ST",
+    "_realmId": "39341",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "testiken_spd",
+    "name": "Testiken SPD",
+    "category": "UT/ST",
+    "_realmId": "39342",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "testiken_vit",
+    "name": "Testiken VIT",
+    "category": "UT/ST",
+    "_realmId": "39343",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "testiken_wis",
+    "name": "Testiken WIS",
+    "category": "UT/ST",
+    "_realmId": "39344",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "unshuriken",
+    "name": "Unshuriken",
+    "category": "UT/ST",
+    "_realmId": "23355",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "nsfwakizashi",
+    "name": "NSFWakizashi",
+    "category": "UT/ST",
+    "_realmId": "23357",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "peppermint_wakizashi",
+    "name": "Peppermint Wakizashi",
+    "category": "UT/ST",
+    "_realmId": "613",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ronin_s_wakizashi",
+    "name": "Ronin's Wakizashi",
+    "category": "UT/ST",
+    "_realmId": "1407",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "wakizashi_of_crossing_fires",
+    "name": "Wakizashi of Crossing Fires",
+    "category": "UT/ST",
+    "_realmId": "9152",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "wakizashi_of_eastern_winds",
+    "name": "Wakizashi of Eastern Winds",
+    "category": "UT/ST",
+    "_realmId": "8994",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "lullaby",
+    "name": "Lullaby",
+    "category": "UT/ST",
+    "_realmId": "14207",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "oryxmas_carol",
+    "name": "Oryxmas Carol",
+    "category": "UT/ST",
+    "_realmId": "12167",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "pharaoh_s_requiem",
+    "name": "Pharaoh's Requiem",
+    "category": "UT/ST",
+    "_realmId": "19951",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "snake_charmer_pungi",
+    "name": "Snake Charmer Pungi",
+    "category": "UT/ST",
+    "_realmId": "19950",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "mace_of_the_celestial_forest",
+    "name": "Mace of the Celestial Forest",
+    "category": "UT/ST",
+    "_realmId": "10291",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "mace_of_the_north_pole",
+    "name": "Mace of the North Pole",
+    "category": "UT/ST",
+    "_realmId": "14341",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "recursion_mace",
+    "name": "Recursion Mace",
+    "category": "UT/ST",
+    "_realmId": "18499",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "an_ancient_s_embrace",
+    "name": "An Ancient's Embrace",
+    "category": "UT/ST",
+    "_realmId": "1381",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "quartermaster_scabbard",
+    "name": "Quartermaster Scabbard",
+    "category": "UT/ST",
+    "_realmId": "14820",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "snowman_s_sheath",
+    "name": "Snowman's Sheath",
+    "category": "UT/ST",
+    "_realmId": "14662",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "volcanic_sheath",
+    "name": "Volcanic Sheath",
+    "category": "UT/ST",
+    "_realmId": "14818",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "draconic_insignia",
+    "name": "Draconic Insignia",
+    "category": "UT/ST",
+    "_realmId": "31611",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_hsig",
+    "name": "Hawkmaster Sigil",
+    "category": "UT/ST",
+    "_realmId": "31650",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "sharktooth_sigil",
+    "name": "Sharktooth Sigil",
+    "category": "UT/ST",
+    "_realmId": "31603",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "sigil_of_the_reindeer",
+    "name": "Sigil of the Reindeer",
+    "category": "UT/ST",
+    "_realmId": "31653",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "sigil_of_the_rubber_duck",
+    "name": "Sigil of the Rubber Duck",
+    "category": "UT/ST",
+    "_realmId": "31651",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "silken_sigil",
+    "name": "Silken Sigil",
+    "category": "UT/ST",
+    "_realmId": "31607",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ancient_stone_sword",
+    "name": "Ancient Stone Sword",
+    "category": "UT/ST",
+    "_realmId": "3077",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "apocalypse_feather",
+    "name": "Apocalypse Feather",
+    "category": "UT/ST",
+    "_realmId": "1705",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "arap",
+    "name": "Arcane Rapier",
+    "category": "UT/ST",
+    "_realmId": "9659",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "crystalsword",
+    "name": "Crystal Sword",
+    "category": "UT/ST",
+    "_realmId": "2563",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "doctor_swordsworth",
+    "name": "Doctor Swordsworth",
+    "category": "UT/ST",
+    "_realmId": "3295",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "qbc_eggbasher",
+    "name": "Egg Basher",
+    "category": "UT/ST",
+    "_realmId": "1460",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "enchiceblade",
+    "name": "Enchanted Ice Blade",
+    "category": "UT/ST",
+    "_realmId": "5846",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "ffabulous_fflail",
+    "name": "FFabulous FFlail",
+    "category": "UT/ST",
+    "_realmId": "37678",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "frostbite",
+    "name": "Frostbite",
+    "category": "UT/ST",
+    "_realmId": "9612",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "hammer_sword",
+    "name": "Hammer Sword",
+    "category": "UT/ST",
+    "_realmId": "12071",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "keychain_cutlass",
+    "name": "Keychain Cutlass",
+    "category": "UT/ST",
+    "_realmId": "19212",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "flail_lament",
+    "name": "Lament of the Frozen Prisoner",
+    "category": "UT/ST",
+    "_realmId": "26229",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "legacy_pixie_enchanted_sword",
+    "name": "Legacy Pixie-Enchanted Sword",
+    "category": "UT/ST",
+    "_realmId": "9063",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "flail_yoyo",
+    "name": "Lovestruck Yoyo",
+    "category": "UT/ST",
+    "_realmId": "26749",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "mmace_mmurderer",
+    "name": "MMace MMurderer",
+    "category": "UT/ST",
+    "_realmId": "1395",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "pkcutlass",
+    "name": "Pirate King's Cutlass",
+    "category": "UT/ST",
+    "_realmId": "3291",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "frost_saintnic",
+    "name": "Saint Nicolas' Blade",
+    "category": "UT/ST",
+    "_realmId": "6862",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "flail_seismic",
+    "name": "Seismic Flail",
+    "category": "UT/ST",
+    "_realmId": "53819",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "silex_s_hammer",
+    "name": "Silex's Hammer",
+    "category": "UT/ST",
+    "_realmId": "23334",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "skull_splitter_sword",
+    "name": "Skull-splitter Sword",
+    "category": "UT/ST",
+    "_realmId": "8732",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "spectral_sword",
+    "name": "Spectral Sword",
+    "category": "UT/ST",
+    "_realmId": "41744",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "swordillum",
+    "name": "Sword of Illumination",
+    "category": "UT/ST",
+    "_realmId": "8963",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "sword_of_the_mad_god",
+    "name": "Sword of the Mad God",
+    "category": "UT/ST",
+    "_realmId": "8962",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "sword_of_the_rainbow_s_end",
+    "name": "Sword of the Rainbow's End",
+    "category": "UT/ST",
+    "_realmId": "5707",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "sword_of_the_unending_chaos",
+    "name": "Sword of the Unending Chaos",
+    "category": "UT/ST",
+    "_realmId": "14495",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "the_crimson_blade",
+    "name": "The Crimson Blade",
+    "category": "UT/ST",
+    "_realmId": "42278",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "unstable_anomaly",
+    "name": "Unstable Anomaly",
+    "category": "UT/ST",
+    "_realmId": "8996",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "vinesword",
+    "name": "Vinesword",
+    "category": "UT/ST",
+    "_realmId": "8846",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "flail_void",
+    "name": "Void Flail",
+    "category": "UT/ST",
+    "_realmId": "41775",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_icicle",
+    "name": "An Icicle",
+    "category": "UT/ST",
+    "_realmId": "9085",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_dirk",
+    "name": "Blood Coated Dirk",
+    "category": "UT/ST",
+    "_realmId": "42280",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bdag",
+    "name": "Bone Dagger",
+    "category": "UT/ST",
+    "_realmId": "3106",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "duel_boomerang",
+    "name": "Boomerang Blades",
+    "category": "UT/ST",
+    "_realmId": "53801",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_chicken",
+    "name": "Chicken Leg of Doom",
+    "category": "UT/ST",
+    "_realmId": "2849",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_corruption",
+    "name": "Corruption Cutter",
+    "category": "UT/ST",
+    "_realmId": "1408",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_chaos",
+    "name": "Dagger of Eternal Chaos",
+    "category": "UT/ST",
+    "_realmId": "14491",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_amethyst",
+    "name": "Dagger of the Amethyst Prism",
+    "category": "UT/ST",
+    "_realmId": "9002",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_rabbit",
+    "name": "Dagger of the Hasteful Rabbit",
+    "category": "UT/ST",
+    "_realmId": "2201",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_talon",
+    "name": "Dagger of the Terrible Talon",
+    "category": "UT/ST",
+    "_realmId": "3857",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_frostlich",
+    "name": "Frost Lich's Finger",
+    "category": "UT/ST",
+    "_realmId": "6859",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "duel_frostbite",
+    "name": "Frostbite Blades",
+    "category": "UT/ST",
+    "_realmId": "26193",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_groovymango",
+    "name": "Groovy Mango",
+    "category": "UT/ST",
+    "_realmId": "37679",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "duel_hatchling",
+    "name": "Hatchling Blades",
+    "category": "UT/ST",
+    "_realmId": "1458",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "duel_heartjewel",
+    "name": "Heart Jewel Blades",
+    "category": "UT/ST",
+    "_realmId": "26745",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_heartfind",
+    "name": "Heartfind Dagger",
+    "category": "UT/ST",
+    "_realmId": "8845",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_etherite",
+    "name": "Legacy Etherite Dagger",
+    "category": "UT/ST",
+    "_realmId": "8608",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_marionette",
+    "name": "Marionette Ravager",
+    "category": "UT/ST",
+    "_realmId": "41740",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_mistermango",
+    "name": "Mister Mango",
+    "category": "UT/ST",
+    "_realmId": "1396",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_spoon",
+    "name": "Needlessly Large Spoon",
+    "category": "UT/ST",
+    "_realmId": "18345",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_poisonfang",
+    "name": "Poison Fang Dagger",
+    "category": "UT/ST",
+    "_realmId": "1801",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_prismatic",
+    "name": "Prismatic Slasher",
+    "category": "UT/ST",
+    "_realmId": "20983",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_spatula",
+    "name": "Spatula Dagger",
+    "category": "UT/ST",
+    "_realmId": "12068",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_spirit",
+    "name": "Spirit Dagger",
+    "category": "UT/ST",
+    "_realmId": "3113",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_sunshine",
+    "name": "Sunshine Shiv",
+    "category": "UT/ST",
+    "_realmId": "3309",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_toyknife",
+    "name": "Toy Knife",
+    "category": "UT/ST",
+    "_realmId": "9000",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "duel_void",
+    "name": "Void Blades",
+    "category": "UT/ST",
+    "_realmId": "41778",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "longbow_anteros",
+    "name": "Anteros Longbow",
+    "category": "UT/ST",
+    "_realmId": "26746",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_arctic",
+    "name": "Arctic Bow",
+    "category": "UT/ST",
+    "_realmId": "5849",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_baked",
+    "name": "Baked Bow",
+    "category": "UT/ST",
+    "_realmId": "37680",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_efrost",
+    "name": "Bow of Eternal Frost",
+    "category": "UT/ST",
+    "_realmId": "9610",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_nightmares",
+    "name": "Bow of Nightmares",
+    "category": "UT/ST",
+    "_realmId": "3858",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_mstar",
+    "name": "Bow of the Morning Star",
+    "category": "UT/ST",
+    "_realmId": "8961",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_skyglory",
+    "name": "Bow of the Sky's Glory",
+    "category": "UT/ST",
+    "_realmId": "14492",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_bramble",
+    "name": "Bramble Bow",
+    "category": "UT/ST",
+    "_realmId": "9088",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_butter",
+    "name": "Butter Bow",
+    "category": "UT/ST",
+    "_realmId": "1397",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_clover",
+    "name": "Clover Bow",
+    "category": "UT/ST",
+    "_realmId": "5706",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_coral",
+    "name": "Coral Bow",
+    "category": "UT/ST",
+    "_realmId": "3088",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_cupid",
+    "name": "Cupid's Bow",
+    "category": "UT/ST",
+    "_realmId": "8847",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "longbow_harpoon",
+    "name": "Harpoon Longbow",
+    "category": "UT/ST",
+    "_realmId": "53822",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_icicle",
+    "name": "Icicle Launcher",
+    "category": "UT/ST",
+    "_realmId": "6858",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "frost_glacierbow",
+    "name": "Longbow of the Great Glacier",
+    "category": "UT/ST",
+    "_realmId": "26196",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "longbow_void",
+    "name": "Longbow of the Void",
+    "category": "UT/ST",
+    "_realmId": "41786",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_nailgun",
+    "name": "Nail Gun Bow",
+    "category": "UT/ST",
+    "_realmId": "12067",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_stringstick",
+    "name": "Precisely Calibrated Stringstick",
+    "category": "UT/ST",
+    "_realmId": "8997",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_robobow",
+    "name": "Robobow",
+    "category": "UT/ST",
+    "_realmId": "3308",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "qbc_shardlauncher",
+    "name": "Shard Launcher",
+    "category": "UT/ST",
+    "_realmId": "1463",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "acidic_aspergillum",
+    "name": "Acidic Aspergillum",
+    "category": "UT/ST",
+    "_realmId": "53821",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "caduceus_of_current_craziness",
+    "name": "Caduceus of Current Craziness",
+    "category": "UT/ST",
+    "_realmId": "1398",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "caduceus_of_enlightened_chaos",
+    "name": "Caduceus Of Enlightened Chaos",
+    "category": "UT/ST",
+    "_realmId": "37681",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "ceremonial_wand",
+    "name": "Ceremonial Wand",
+    "category": "UT/ST",
+    "_realmId": "42282",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "qbc_ovipositor",
+    "name": "Chocolate Ovipositor",
+    "category": "UT/ST",
+    "_realmId": "1462",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "cwand",
+    "name": "Conducting Wand",
+    "category": "UT/ST",
+    "_realmId": "3123",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "crystal_wand",
+    "name": "Crystal Wand",
+    "category": "UT/ST",
+    "_realmId": "2879",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "eggcond",
+    "name": "Eggstatic Conductor",
+    "category": "UT/ST",
+    "_realmId": "65441",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "eternal_snowflake_wand",
+    "name": "Eternal Snowflake Wand",
+    "category": "UT/ST",
+    "_realmId": "5848",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "frozen_wand",
+    "name": "Frozen Wand",
+    "category": "UT/ST",
+    "_realmId": "5138",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "lethargic_sentience",
+    "name": "Lethargic Sentience",
+    "category": "UT/ST",
+    "_realmId": "8999",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "measuring_wand",
+    "name": "Measuring Wand",
+    "category": "UT/ST",
+    "_realmId": "12070",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "morning_star_of_sweet_miracles",
+    "name": "Morning Star Of Sweet Miracles",
+    "category": "UT/ST",
+    "_realmId": "26748",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "morning_star_of_the_void",
+    "name": "Morning Star of the Void",
+    "category": "UT/ST",
+    "_realmId": "41784",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "present_dispensing_wand",
+    "name": "Present Dispensing Wand",
+    "category": "UT/ST",
+    "_realmId": "9084",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "rainbow_rod",
+    "name": "Rainbow Rod",
+    "category": "UT/ST",
+    "_realmId": "19324",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "scarlet_etched_branch",
+    "name": "Scarlet Etched Branch",
+    "category": "UT/ST",
+    "_realmId": "42292",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "soul_s_guidance",
+    "name": "Soul's Guidance",
+    "category": "UT/ST",
+    "_realmId": "24834",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "spicy_wand_of_spice",
+    "name": "Spicy Wand of Spice",
+    "category": "UT/ST",
+    "_realmId": "3307",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "sprite_wand",
+    "name": "Sprite Wand",
+    "category": "UT/ST",
+    "_realmId": "2635",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "st_abraham_s_wand",
+    "name": "St. Abraham's Wand",
+    "category": "UT/ST",
+    "_realmId": "3101",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "frost_northstar",
+    "name": "The North Star",
+    "category": "UT/ST",
+    "_realmId": "26227",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "wand_of_ancient_terror",
+    "name": "Wand of Ancient Terror",
+    "category": "UT/ST",
+    "_realmId": "3856",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "wand_of_budding_romance",
+    "name": "Wand of Budding Romance",
+    "category": "UT/ST",
+    "_realmId": "8844",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "wand_of_egg_cellence",
+    "name": "Wand of Egg-cellence",
+    "category": "UT/ST",
+    "_realmId": "8854",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "wand_of_geb",
+    "name": "Wand of Geb",
+    "category": "UT/ST",
+    "_realmId": "9055",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "wand_hidden",
+    "name": "Wand of Hidden Knowledge",
+    "category": "UT/ST",
+    "_realmId": "41751",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "wand_of_the_bulwark",
+    "name": "Wand of the Bulwark",
+    "category": "UT/ST",
+    "_realmId": "3076",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "wand_of_the_summoned_one",
+    "name": "Wand of the Summoned One",
+    "category": "UT/ST",
+    "_realmId": "14494",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "frost_winterwand",
+    "name": "Winter's Breath Wand",
+    "category": "UT/ST",
+    "_realmId": "6861",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "anatis_staff",
+    "name": "Anatis Staff",
+    "category": "UT/ST",
+    "_realmId": "3108",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "barely_attuned_magic_thingy",
+    "name": "Barely Attuned Magic Thingy",
+    "category": "UT/ST",
+    "_realmId": "8998",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "qbc_spellblade",
+    "name": "Caramel Spellblade",
+    "category": "UT/ST",
+    "_realmId": "1459",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "elder_heartwood_staff",
+    "name": "Elder Heartwood Staff",
+    "category": "UT/ST",
+    "_realmId": "41749",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "frost_walkingstick",
+    "name": "Frosty's Walking Stick",
+    "category": "UT/ST",
+    "_realmId": "6860",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "hovering_spellblade",
+    "name": "Hovering Spellblade",
+    "category": "UT/ST",
+    "_realmId": "53818",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "k_i_d_d_force",
+    "name": "K.I.D.D. Force",
+    "category": "UT/ST",
+    "_realmId": "1394",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "k_i_d_d_force_2_0",
+    "name": "K.I.D.D. Force 2.0",
+    "category": "UT/ST",
+    "_realmId": "37677",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "koalapow",
+    "name": "KoalaPOW",
+    "category": "UT/ST",
+    "_realmId": "3306",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "legacy_sentient_staff",
+    "name": "Legacy Sentient Staff",
+    "category": "UT/ST",
+    "_realmId": "8615",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "love_heart_spellblade",
+    "name": "Love Heart Spellblade",
+    "category": "UT/ST",
+    "_realmId": "26747",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "screwdriver_staff",
+    "name": "Screwdriver Staff",
+    "category": "UT/ST",
+    "_realmId": "12069",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "frost_snowblindsb",
+    "name": "Snowblind Spellblade",
+    "category": "UT/ST",
+    "_realmId": "26224",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "spellblade_of_the_void",
+    "name": "Spellblade of the Void",
+    "category": "UT/ST",
+    "_realmId": "41781",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "spirit_staff",
+    "name": "Spirit Staff",
+    "category": "UT/ST",
+    "_realmId": "2112",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "staff_of_adoration",
+    "name": "Staff of Adoration",
+    "category": "UT/ST",
+    "_realmId": "8843",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "staff_of_horrific_knowledge",
+    "name": "Staff of Horrific Knowledge",
+    "category": "UT/ST",
+    "_realmId": "3859",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "staff_iceblast",
+    "name": "Staff of Iceblast",
+    "category": "UT/ST",
+    "_realmId": "5847",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "staff_of_silver_wings",
+    "name": "Staff of Silver Wings",
+    "category": "UT/ST",
+    "_realmId": "14493",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "staff_of_the_crystal_serpent",
+    "name": "Staff of the Crystal Serpent",
+    "category": "UT/ST",
+    "_realmId": "3093",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "staff_of_the_rising_sun",
+    "name": "Staff of the Rising Sun",
+    "category": "UT/ST",
+    "_realmId": "8857",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "staff_of_the_saint",
+    "name": "Staff of the Saint",
+    "category": "UT/ST",
+    "_realmId": "20977",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "staff_of_yuletide_carols",
+    "name": "Staff of Yuletide Carols",
+    "category": "UT/ST",
+    "_realmId": "9086",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "the_phylactery",
+    "name": "The Phylactery",
+    "category": "UT/ST",
+    "_realmId": "9059",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_arbiter",
+    "name": "Arbiter's Wrath",
+    "category": "UT/ST",
+    "_realmId": "3310",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "frost_auroratachi",
+    "name": "Aurora Tachi",
+    "category": "UT/ST",
+    "_realmId": "26232",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_ages",
+    "name": "Blade of Ages",
+    "category": "UT/ST",
+    "_realmId": "1399",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_blooming",
+    "name": "Blade of Blooming",
+    "category": "UT/ST",
+    "_realmId": "37682",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_corrupted",
+    "name": "Corrupted Cleaver",
+    "category": "UT/ST",
+    "_realmId": "3860",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_diamond",
+    "name": "Diamond-Bladed Katana",
+    "category": "UT/ST",
+    "_realmId": "8842",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dokunoken",
+    "name": "Doku No Ken",
+    "category": "UT/ST",
+    "_realmId": "3292",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_goodfortune",
+    "name": "Katana of Good Fortune",
+    "category": "UT/ST",
+    "_realmId": "29720",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_krathana",
+    "name": "Krathana",
+    "category": "UT/ST",
+    "_realmId": "23332",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_salju",
+    "name": "Salju",
+    "category": "UT/ST",
+    "_realmId": "9087",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_sawblade",
+    "name": "Sawblade Katana",
+    "category": "UT/ST",
+    "_realmId": "12072",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_skybound",
+    "name": "Skybound Blade",
+    "category": "UT/ST",
+    "_realmId": "14497",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "sweetheart_taichi",
+    "name": "Sweetheart Taichi",
+    "category": "UT/ST",
+    "_realmId": "26750",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_useless",
+    "name": "Useless Katana",
+    "category": "UT/ST",
+    "_realmId": "2324",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_voidblade",
+    "name": "Void Blade",
+    "category": "UT/ST",
+    "_realmId": "29037",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "void_tachi",
+    "name": "Void Tachi",
+    "category": "UT/ST",
+    "_realmId": "41788",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "frost_yuki",
+    "name": "Yuki",
+    "category": "UT/ST",
+    "_realmId": "6863",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "amulet_of_elemental_air",
+    "name": "Amulet of Elemental Air",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "14399",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "amulet_of_elemental_earth",
+    "name": "Amulet of Elemental Earth",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "14401",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "amulet_of_elemental_fire",
+    "name": "Amulet of Elemental Fire",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "14398",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "amulet_of_elemental_water",
+    "name": "Amulet of Elemental Water",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "14400",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "amulet_of_the_great_shaman",
+    "name": "Amulet of the Great Shaman",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "37470",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "autarch_amulet",
+    "name": "Autarch Amulet",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "32418",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "e_y_e",
+    "name": "E.Y.E.",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "15759",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "emblem_of_the_empire",
+    "name": "Emblem of the Empire",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "37469",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "hi_scarab",
+    "name": "Faded Heart Scarab",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "14457",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "hi_hannya",
+    "name": "Fractured Hannya",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "14458",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "frimarra",
+    "name": "Frimarra",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "32724",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "geb_s_lost_hedjet",
+    "name": "Geb's Lost Hedjet",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "1383",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "mayhem_medallion",
+    "name": "Mayhem Medallion",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "32416",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "regal_ring",
+    "name": "Regal Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "1403",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "ring_of_the_northern_light",
+    "name": "Ring of the Northern Light",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "32723",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "ring_of_unbound_love",
+    "name": "Ring of Unbound Love",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "25605",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "ring_of_wrath",
+    "name": "Ring of Wrath",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "32417",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "rose_brooch",
+    "name": "Rose Brooch",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "7357",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "hi_opal",
+    "name": "Sunken Fire Opal Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "14456",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "sweetener_ring",
+    "name": "Sweetener Ring",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "34338",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "thistleleaf_necklace",
+    "name": "Thistleleaf Necklace",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "26036",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "tiara_of_eggscellent_sturdiness",
+    "name": "Tiara of Eggscellent Sturdiness",
+    "category": "UT/ST",
+    "subtype": "Ring",
+    "_realmId": "5037",
+    "_sourceLabel": "Ring"
+  },
+  {
+    "id": "leather_cupid",
+    "name": "Cupid's Garments",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "25604",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_leafdragon",
+    "name": "Leaf Dragon Hide Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "30050",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "hi_lightsynd",
+    "name": "Light Syndicate Attire",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "14426",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_luxurious",
+    "name": "Luxurious Leather",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "1402",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_piratequeen",
+    "name": "Pirate Queen's Brigandine",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "37468",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "leather_apron",
+    "name": "Splatter-proof Apron",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "52022",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "ao_ssh",
+    "name": "Squadron Sheathing",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "1771",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "ao_aeg",
+    "name": "Aegis Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "1770",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_cuirass",
+    "name": "Cuirass of the Black Blade",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "37467",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_eggre",
+    "name": "Eggre Battle Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "5036",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_firedragon",
+    "name": "Fire Dragon Battle Armor",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "30052",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_syndicate",
+    "name": "Heavy Syndicate Attire",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "14428",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "heavy_apron",
+    "name": "Reinforced Apron",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "52023",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "apron_of_conjuring",
+    "name": "Apron of Conjuring",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "52024",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "floral_corset",
+    "name": "Floral Corset",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "7356",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "ao_jrobe",
+    "name": "Judge's Robe",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "1772",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "hi_mysticsynd",
+    "name": "Mystic Syndicate Attire",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "14427",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "wanderer_s_cape",
+    "name": "Wanderer's Cape",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "37466",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "lod_waterrobe",
+    "name": "Water Dragon Silk Robe",
+    "category": "UT/ST",
+    "subtype": "Armor",
+    "_realmId": "30051",
+    "_sourceLabel": "Armor"
+  },
+  {
+    "id": "tome_of_frigid_protection",
+    "name": "Tome of Frigid Protection",
+    "category": "UT/ST",
+    "_realmId": "5854",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "tome_of_holy_furor",
+    "name": "Tome of Holy Furor",
+    "category": "UT/ST",
+    "_realmId": "608",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "tome_of_pain",
+    "name": "Tome of Pain",
+    "category": "UT/ST",
+    "_realmId": "1976",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "tome_of_the_dragon",
+    "name": "Tome of the Dragon",
+    "category": "UT/ST",
+    "_realmId": "26262",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_ttg",
+    "name": "Tome of the Tarnished Gods",
+    "category": "UT/ST",
+    "_realmId": "21227",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_bbuck",
+    "name": "Brutal Buckler",
+    "category": "UT/ST",
+    "_realmId": "20275",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "dragon_slayer",
+    "name": "Dragon Slayer",
+    "category": "UT/ST",
+    "_realmId": "26263",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "esoteric_buckler",
+    "name": "Esoteric Buckler",
+    "category": "UT/ST",
+    "_realmId": "42290",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "shield_of_flowing_clarity",
+    "name": "Shield of Flowing Clarity",
+    "category": "UT/ST",
+    "_realmId": "23328",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "spiteful_scutum",
+    "name": "Spiteful Scutum",
+    "category": "UT/ST",
+    "_realmId": "3395",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "spriteful_shield",
+    "name": "Spriteful Shield",
+    "category": "UT/ST",
+    "_realmId": "5035",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cobra_serpentis_scroll",
+    "name": "Cobra Serpentis Scroll",
+    "category": "UT/ST",
+    "_realmId": "1382",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_css",
+    "name": "Cursed Spire Spell",
+    "category": "UT/ST",
+    "_realmId": "19282",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "jade_storm",
+    "name": "Jade Storm",
+    "category": "UT/ST",
+    "_realmId": "23326",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "penetrating_blast_spell",
+    "name": "Penetrating Blast Spell",
+    "category": "UT/ST",
+    "_realmId": "13988",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "recurring_terror_spell",
+    "name": "Recurring Terror Spell",
+    "category": "UT/ST",
+    "_realmId": "1953",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "vitamine_buster",
+    "name": "Vitamine Buster",
+    "category": "UT/ST",
+    "_realmId": "2217",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "wandering_souls_spell",
+    "name": "Wandering Souls Spell",
+    "category": "UT/ST",
+    "_realmId": "28241",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_sbg",
+    "name": "Seal of the Battle God",
+    "category": "UT/ST",
+    "_realmId": "19973",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cloak_cubic",
+    "name": "Cloak of Cubic Enigma",
+    "category": "UT/ST",
+    "_realmId": "19307",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_cds",
+    "name": "Cloak of the Darkened Sun",
+    "category": "UT/ST",
+    "_realmId": "21228",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cloak_madgod",
+    "name": "Cloak of the Mad God",
+    "category": "UT/ST",
+    "_realmId": "23327",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "double_vision_darts",
+    "name": "Double Vision Darts",
+    "category": "UT/ST",
+    "_realmId": "17849",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_mjav",
+    "name": "Mad Javelin",
+    "category": "UT/ST",
+    "_realmId": "20276",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "q_u_i_v_e_r",
+    "name": "Q.U.I.V.E.R.",
+    "category": "UT/ST",
+    "_realmId": "15761",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "quintessential_quiver",
+    "name": "Quintessential Quiver",
+    "category": "UT/ST",
+    "_realmId": "1401",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "helm_adamantine",
+    "name": "Adamantine Helm",
+    "category": "UT/ST",
+    "_realmId": "14875",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "helm_bubblegum",
+    "name": "Bubblegum Bucket",
+    "category": "UT/ST",
+    "_realmId": "5187",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_hem",
+    "name": "Helm of Exalted Might",
+    "category": "UT/ST",
+    "_realmId": "6938",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "helm_swiftbunny",
+    "name": "Helm of the Swift Bunny",
+    "category": "UT/ST",
+    "_realmId": "2216",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "helm_tipsy",
+    "name": "Tipsy Topper",
+    "category": "UT/ST",
+    "_realmId": "17848",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "bottled_lemonade",
+    "name": "Bottled Lemonade",
+    "category": "UT/ST",
+    "_realmId": "28480",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "bottled_medusozoan",
+    "name": "Bottled Medusozoan",
+    "category": "UT/ST",
+    "_realmId": "2557",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "hi_barrel",
+    "name": "Rusted Barrel",
+    "category": "UT/ST",
+    "_realmId": "14283",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "spirit_s_bane",
+    "name": "Spirit's Bane",
+    "category": "UT/ST",
+    "_realmId": "14698",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_ttox",
+    "name": "Tyrant's Toxin",
+    "category": "UT/ST",
+    "_realmId": "6937",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_dls",
+    "name": "Demon Lord's Skull",
+    "category": "UT/ST",
+    "_realmId": "21010",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ever_green_skull",
+    "name": "Ever Green Skull",
+    "category": "UT/ST",
+    "_realmId": "7355",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "maw_of_malignance",
+    "name": "Maw of Malignance",
+    "category": "UT/ST",
+    "_realmId": "5184",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "perennial_cranium",
+    "name": "Perennial Cranium",
+    "category": "UT/ST",
+    "_realmId": "19350",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "skull_of_endless_torment",
+    "name": "Skull of Endless Torment",
+    "category": "UT/ST",
+    "_realmId": "2321",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_bart",
+    "name": "Blacklight Artifice",
+    "category": "UT/ST",
+    "_realmId": "20962",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "coral_venom_trap",
+    "name": "Coral Venom Trap",
+    "category": "UT/ST",
+    "_realmId": "3100",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "deadly_keg",
+    "name": "Deadly Keg",
+    "category": "UT/ST",
+    "_realmId": "17847",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "sulfuric_stone",
+    "name": "Sulfuric Stone",
+    "category": "UT/ST",
+    "_realmId": "26129",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "hi_artifact",
+    "name": "Forbidden Artifact",
+    "category": "UT/ST",
+    "_realmId": "26276",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "orb_of_aether",
+    "name": "Orb of Aether",
+    "category": "UT/ST",
+    "_realmId": "8386",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_ooc",
+    "name": "Orb of Conquest",
+    "category": "UT/ST",
+    "_realmId": "19969",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "vision_of_draconis",
+    "name": "Vision of Draconis",
+    "category": "UT/ST",
+    "_realmId": "5194",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "prism_of_dire_instability",
+    "name": "Prism of Dire Instability",
+    "category": "UT/ST",
+    "_realmId": "3394",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_psl",
+    "name": "Prism of Shattered Light",
+    "category": "UT/ST",
+    "_realmId": "21210",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "the_heart_of_the_dragon",
+    "name": "The Heart of the Dragon",
+    "category": "UT/ST",
+    "_realmId": "26264",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cnidaria_rod",
+    "name": "Cnidaria Rod",
+    "category": "UT/ST",
+    "_realmId": "2556",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "eggsponential_scepter",
+    "name": "Eggsponential Scepter",
+    "category": "UT/ST",
+    "_realmId": "41739",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "scepter_of_devastation",
+    "name": "Scepter of Devastation",
+    "category": "UT/ST",
+    "_realmId": "1977",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "scepter_of_the_transgressor",
+    "name": "Scepter of the Transgressor",
+    "category": "UT/ST",
+    "_realmId": "42289",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_ssc",
+    "name": "Siege Scepter",
+    "category": "UT/ST",
+    "_realmId": "19298",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "hi_stormcaller",
+    "name": "Storm Caller",
+    "category": "UT/ST",
+    "_realmId": "14265",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "hanagasaku",
+    "name": "Hanagasaku",
+    "category": "UT/ST",
+    "_realmId": "19354",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "igneous_starblossom",
+    "name": "Igneous Starblossom",
+    "category": "UT/ST",
+    "_realmId": "55409",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "midnight_star",
+    "name": "Midnight Star",
+    "category": "UT/ST",
+    "_realmId": "2326",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_rcl",
+    "name": "Rage Claws",
+    "category": "UT/ST",
+    "_realmId": "19291",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_amat",
+    "name": "Amaterasu",
+    "category": "UT/ST",
+    "_realmId": "21002",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "sakura_wakizashi",
+    "name": "Sakura Wakizashi",
+    "category": "UT/ST",
+    "_realmId": "6206",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "shadow_serpent_sidearm",
+    "name": "Shadow Serpent Sidearm",
+    "category": "UT/ST",
+    "_realmId": "21120",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_cwh",
+    "name": "Chief's War Horn",
+    "category": "UT/ST",
+    "_realmId": "19971",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ghost_ship_s_bell",
+    "name": "Ghost Ship's Bell",
+    "category": "UT/ST",
+    "_realmId": "1780",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "joker_timbrel",
+    "name": "Joker Timbrel",
+    "category": "UT/ST",
+    "_realmId": "26258",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "wavecrest_concertina",
+    "name": "Wavecrest Concertina",
+    "category": "UT/ST",
+    "_realmId": "19948",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "crystal_mace",
+    "name": "Crystal Mace",
+    "category": "UT/ST",
+    "_realmId": "14336",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "dragon_mace",
+    "name": "Dragon Mace",
+    "category": "UT/ST",
+    "_realmId": "26259",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "mace_of_the_depths",
+    "name": "Mace of the Depths",
+    "category": "UT/ST",
+    "_realmId": "14212",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_mmace",
+    "name": "Mechanical Mace",
+    "category": "UT/ST",
+    "_realmId": "14245",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "ao_blz",
+    "name": "Blitz Sheath",
+    "category": "UT/ST",
+    "_realmId": "14660",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "kaiken",
+    "name": "Kaiken",
+    "category": "UT/ST",
+    "_realmId": "14817",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "labyrinth_dweller_s_sheath",
+    "name": "Labyrinth Dweller's Sheath",
+    "category": "UT/ST",
+    "_realmId": "14819",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "hi_sheath",
+    "name": "Sheath of Thunderous Rites",
+    "category": "UT/ST",
+    "_realmId": "26275",
+    "_sourceLabel": "Ability"
+  },
+  {
+    "id": "cheerful_chipper",
+    "name": "Cheerful Chipper",
+    "category": "UT/ST",
+    "_realmId": "12163",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "chocsicle",
+    "name": "Chocsicle",
+    "category": "UT/ST",
+    "_realmId": "28479",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "def_test_sword",
+    "name": "Def Test Sword",
+    "category": "UT/ST",
+    "_realmId": "2507",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "eternal_graved_great_sword",
+    "name": "Eternal Graved Great Sword",
+    "category": "UT/ST",
+    "_realmId": "5034",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "flail_gilded",
+    "name": "Gilded Chain Scythe",
+    "category": "UT/ST",
+    "_realmId": "14451",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "ao_hclay",
+    "name": "Henchman's Claymore",
+    "category": "UT/ST",
+    "_realmId": "26095",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "long_sword_1rarity",
+    "name": "Long Sword 1Rarity",
+    "category": "UT/ST",
+    "_realmId": "39345",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "long_sword_2rarity",
+    "name": "Long Sword 2Rarity",
+    "category": "UT/ST",
+    "_realmId": "39346",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "long_sword_3rarity",
+    "name": "Long Sword 3Rarity",
+    "category": "UT/ST",
+    "_realmId": "39347",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "long_sword_4rarity",
+    "name": "Long Sword 4Rarity",
+    "category": "UT/ST",
+    "_realmId": "39348",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "ao_bhd",
+    "name": "Bounty Hunter's Dagger",
+    "category": "UT/ST",
+    "_realmId": "26098",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "def_test_dagger",
+    "name": "Def Test Dagger",
+    "category": "UT/ST",
+    "_realmId": "7013",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_evergreen",
+    "name": "Evergreen Dagger",
+    "category": "UT/ST",
+    "_realmId": "12160",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "duel_pirate",
+    "name": "Pirate's Sidearms",
+    "category": "UT/ST",
+    "_realmId": "14453",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "dag_righthook",
+    "name": "The Right Hook",
+    "category": "UT/ST",
+    "_realmId": "17856",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_bow",
+    "name": "B.O.W.",
+    "category": "UT/ST",
+    "_realmId": "15757",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_brilliance",
+    "name": "Brilliance Bow",
+    "category": "UT/ST",
+    "_realmId": "1400",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_coralsoda",
+    "name": "Coral Soda",
+    "category": "UT/ST",
+    "_realmId": "28478",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "hi_frangible",
+    "name": "Frangible Longbow",
+    "category": "UT/ST",
+    "_realmId": "14448",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_garland",
+    "name": "Garland Bow",
+    "category": "UT/ST",
+    "_realmId": "12165",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_heartstruck",
+    "name": "Heartstruck Bow",
+    "category": "UT/ST",
+    "_realmId": "25606",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_ignis",
+    "name": "Ignis",
+    "category": "UT/ST",
+    "_realmId": "14415",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_leaf",
+    "name": "Leaf Bow",
+    "category": "UT/ST",
+    "_realmId": "3294",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_occult",
+    "name": "Occult Bow",
+    "category": "UT/ST",
+    "_realmId": "42286",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "ao_pbow",
+    "name": "Predator Bow",
+    "category": "UT/ST",
+    "_realmId": "26097",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_sacramental",
+    "name": "Sacramental Crossbow",
+    "category": "UT/ST",
+    "_realmId": "42298",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_spidersilk",
+    "name": "Spider Silk Bow",
+    "category": "UT/ST",
+    "_realmId": "41746",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_sunnyside",
+    "name": "Sunny Side Bow",
+    "category": "UT/ST",
+    "_realmId": "5032",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_tectonus",
+    "name": "Tectonus",
+    "category": "UT/ST",
+    "_realmId": "14416",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bow_thousand",
+    "name": "Thousand Shot",
+    "category": "UT/ST",
+    "_realmId": "2517",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "brass_chamberstick",
+    "name": "Brass Chamberstick",
+    "category": "UT/ST",
+    "_realmId": "12162",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "hi_macuahuitl",
+    "name": "Obsidian Macuahuitl",
+    "category": "UT/ST",
+    "_realmId": "14450",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "ao_twand",
+    "name": "Tyrant's Wand",
+    "category": "UT/ST",
+    "_realmId": "26096",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "wand_of_the_fallen",
+    "name": "Wand of the Fallen",
+    "category": "UT/ST",
+    "_realmId": "6203",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "bogwood_crook",
+    "name": "Bogwood Crook",
+    "category": "UT/ST",
+    "_realmId": "16929",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "ao_ostaff",
+    "name": "Oppressor's Staff",
+    "category": "UT/ST",
+    "_realmId": "26099",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "hi_sekhem",
+    "name": "Royal Sekhem",
+    "category": "UT/ST",
+    "_realmId": "14449",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "staff_staff",
+    "name": "S.T.A.F.F.",
+    "category": "UT/ST",
+    "_realmId": "15758",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "sleigh_bell_staff",
+    "name": "Sleigh Bell Staff",
+    "category": "UT/ST",
+    "_realmId": "12161",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "snow_branch",
+    "name": "Snow Branch",
+    "category": "UT/ST",
+    "_realmId": "41654",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "spring_rose",
+    "name": "Spring Rose",
+    "category": "UT/ST",
+    "_realmId": "7354",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "tezcacoatl_s_tail",
+    "name": "Tezcacoatl's Tail",
+    "category": "UT/ST",
+    "_realmId": "13986",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "ao_boa",
+    "name": "Blade of the Assailant",
+    "category": "UT/ST",
+    "_realmId": "26100",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_bloodsiphon",
+    "name": "Blood Siphoning Katana",
+    "category": "UT/ST",
+    "_realmId": "42284",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "brambletooth_tachi",
+    "name": "Brambletooth Tachi",
+    "category": "UT/ST",
+    "_realmId": "25590",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "qbc_tachi",
+    "name": "Bunny Ear Tachi",
+    "category": "UT/ST",
+    "_realmId": "1461",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_candy",
+    "name": "Candy Katana",
+    "category": "UT/ST",
+    "_realmId": "12164",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_celestial",
+    "name": "Celestial Blade",
+    "category": "UT/ST",
+    "_realmId": "30053",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "hookblade_tachi",
+    "name": "Hookblade Tachi",
+    "category": "UT/ST",
+    "_realmId": "53820",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_kyuuketsuki",
+    "name": "Kyuuketsuki Hitogoroshi",
+    "category": "UT/ST",
+    "_realmId": "41742",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "hi_khopesh",
+    "name": "Ritual Khopesh",
+    "category": "UT/ST",
+    "_realmId": "14452",
+    "_sourceLabel": "Weapon"
+  },
+  {
+    "id": "kat_snowflake",
+    "name": "Snowflake Blade",
+    "category": "UT/ST",
+    "_realmId": "41656",
+    "_sourceLabel": "Weapon"
+  }
+]

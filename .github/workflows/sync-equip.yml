@@ -1,0 +1,55 @@
+# Keeps the tradeable item list in step with the live game. Every six hours
+# (and on demand) it runs scripts/sync-equip.mjs against the extracted client
+# build on builds.him.is; when that adds items it commits the result to
+# `rewrite`, which Railway deploys.
+#
+# GitHub only runs schedules from the default branch, so this file lives on
+# `main` as well as `rewrite`; the job itself always works on `rewrite`.
+name: sync-equip
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-equip
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rewrite
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Sync tradeable items from the extracted client
+        run: node scripts/sync-equip.mjs | tee "$RUNNER_TEMP/sync.log"
+
+      - name: Commit and push when something changed
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "catalog unchanged — nothing to push"
+            exit 0
+          fi
+          npm run typecheck
+          log="$RUNNER_TEMP/sync.log"
+          added=$(sed -n '/^to add:/,/^$/p' "$log" | awk -F'\t' 'NF >= 3 { print $3 }' | paste -sd ', ' -)
+          warnings=$(sed -n '/^WARNING/,/^$/p' "$log")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "catalog: sync tradeable items from equip.xml" -m "Added: ${added:-none (sprites filled)}" -m "$warnings"
+          git push origin HEAD:rewrite
+          echo "pushed: $added"

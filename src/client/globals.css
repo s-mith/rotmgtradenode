@@ -1,0 +1,2940 @@
+/* Registered so the accent can animate: an unregistered custom property
+   changes in one step, a registered <color> interpolates, and everything
+   painted with var(--accent) follows the interpolation. */
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d4a13b;
+}
+@property --accent-hot {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f0bb52;
+}
+
+:root {
+  transition: --accent 600ms ease, --accent-hot 600ms ease;
+  --bg: #0e0f13;
+  --panel: #181a22;
+  --panel-2: #1f222c;
+  --border: #2a2e3a;
+  --text: #e8e6df;
+  --muted: #9aa0ad;
+  --accent: #d4a13b;
+  --accent-hot: #f0bb52;
+  --tab-active-shadow: 0 1px 0 var(--panel);
+  --good: #6ec46e;
+  --bad: #d96666;
+  --shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  /* Themed page scrollbar (Firefox). WebKit selectors below. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+  border: 2px solid var(--bg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--bg);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+header.site {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  transition: color 80ms;
+}
+
+.nav-link:hover {
+  color: var(--text);
+}
+
+.nav-link.active {
+  color: var(--accent-hot);
+}
+
+.pool-tabs {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.title-link {
+  font-size: 26px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title-logo {
+  display: block;
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+
+header.site .tag-col {
+  margin-left: auto;
+  position: relative;
+}
+
+header.site .tag {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+header.site .discord-link {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+header.site .discord-link:hover {
+  color: #5865f2;
+}
+
+.layout {
+  display: grid;
+  /* minmax(0, …): a track's width is its share of the page, never its
+     content's minimum — otherwise a wider row on one side (the four transact
+     tabs on the pool, three on the vault) re-splits the columns every time
+     the view changes and everything shifts sideways. */
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 24px;
+}
+
+/* Left grid cell: the pool with the blog stacked underneath. min-width: 0
+   keeps the pool grid from forcing the column wider than its 2fr share. */
+.layout-left {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Inside the pool panel: the filter rail (left) defines the row height at its
+   natural content size, and the grid column stretches to match it. The rail
+   itself never scrolls (align-self: flex-start below); the pool grid scrolls,
+   and because its column is height-matched to the rail, scrolling begins right
+   at the bottom of the class/slot sidebar. */
+.pool-body {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* The grid column takes the rail's height (via align-items: stretch) and its
+   scroll wrapper is absolutely positioned to fill it — so the wrapper's tall
+   content can't push the row taller than the sidebar. */
+.pool-grid-col {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Filter rail: a labelled Class group over a labelled Slot group, each a
+   2-icon-wide grid. Scrolls independently if taller than the pool. Sits in its
+   own inset well (darker than the panel-2 buttons) so it reads as a section
+   separate from the item grid. */
+.class-rail {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.class-rail-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  padding: 0 2px;
+}
+
+/* Space between a group and the label that starts the next section. */
+.class-rail-group + .class-rail-label {
+  margin-top: 6px;
+}
+
+.class-rail-group {
+  display: grid;
+  grid-template-columns: repeat(2, 40px);
+  grid-auto-rows: 40px;
+  gap: 6px;
+  align-content: start;
+}
+
+.class-rail-btn {
+  width: 40px;
+  height: 40px;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 80ms, background 80ms, transform 80ms;
+}
+
+.class-rail-btn:hover {
+  border-color: var(--accent);
+  background: rgba(212, 161, 59, 0.1);
+  transform: translateY(-1px);
+}
+
+.class-rail-btn.active {
+  border-color: var(--accent);
+  background: rgba(212, 161, 59, 0.22);
+}
+
+.class-rail-icon {
+  width: 100%;
+  height: 100%;
+  /* Deselected: muted grayscale so the rail reads as "off" at rest. */
+  filter: grayscale(1);
+  opacity: 0.7;
+  transition: filter 80ms, opacity 80ms;
+}
+
+/* Hover / selected: recolor the grayscale sprite toward the gold accent
+   (#d4a13b). sepia lays a warm base over the grays, saturate + hue-rotate push
+   it to gold, brightness matches the accent's lightness. */
+.class-rail-btn:hover .class-rail-icon,
+.class-rail-btn.active .class-rail-icon {
+  filter: grayscale(1) sepia(1) saturate(2.6) hue-rotate(2deg) brightness(1.02);
+  opacity: 1;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.panel h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Logged-in IGN heading links to the player's own profile. Inherits the
+   heading colour; only the hover underline marks it as clickable. */
+.profile-name-link {
+  color: inherit;
+}
+.profile-name-link:hover {
+  text-decoration: underline;
+}
+
+/* --- Pool grid (per-instance, 8 wide, scrollable) -------------------- */
+
+.pool-panel {
+  display: flex;
+  flex-direction: column;
+  /* No panel-level height cap: the panel grows to fit the filter rail so the
+     rail never scrolls. The item grid keeps its own scroll cap (see
+     .pool-grid-wrap max-height) so a full pool doesn't run off the page. */
+  /* Without min-width: 0, the panel's grid-track lets the inner grid
+     push wider than its 2fr column and the page scrolls horizontally.
+     This is the standard fix for an overflowing grid child. */
+  min-width: 0;
+}
+
+.pool-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.pool-head h2 {
+  margin: 0;
+}
+
+.pool-count {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+.pool-search {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+  margin-bottom: 12px;
+}
+
+.pool-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Search + sort share one row; the search flexes to fill, sort sits at the
+   end. Overrides the search's standalone bottom margin (the row owns it). */
+.pool-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pool-controls .pool-search {
+  flex: 1 1 auto;
+  margin-bottom: 0;
+}
+
+/* Tag search: chips + a text input sharing one bordered box that wraps onto
+   more lines as chips pile up. Suggestions drop down underneath. */
+.tag-search {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tag-search-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 4px 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: text;
+}
+.tag-search-box.focused {
+  border-color: var(--accent);
+}
+
+.tag-search-input {
+  flex: 1 1 140px;
+  min-width: 140px;
+  background: none;
+  border: none;
+  padding: 3px 2px;
+  color: var(--text);
+  font: inherit;
+}
+.tag-search-input:focus {
+  outline: none;
+}
+
+/* One chip per tag. Border colour says what kind it is: gold for an item,
+   blue for an enchantment, green for an effect. */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 2px 4px 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.tag-chip .pool-tile-sprite,
+.tag-suggest-row .pool-tile-sprite,
+.tag-chip .pool-tile-fallback,
+.tag-suggest-row .pool-tile-fallback {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  font-size: 9px;
+}
+.tag-chip.tag-item { border-color: var(--accent); }
+.tag-chip.tag-ench { border-color: #5aa6ff; }
+.tag-chip.tag-effect { border-color: var(--good); }
+
+.tag-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tag-chip-x {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.tag-chip-x:hover {
+  color: var(--bad);
+}
+
+/* Suggestion list under the box. Grouped by kind with a small header. */
+.tag-suggest {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.tag-suggest-head {
+  padding: 6px 10px 2px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tag-suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 10px;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.tag-suggest-row.active {
+  background: var(--panel-2);
+}
+.tag-suggest-row.tag-item.active { border-left-color: var(--accent); }
+.tag-suggest-row.tag-ench.active { border-left-color: #5aa6ff; }
+.tag-suggest-row.tag-effect.active { border-left-color: var(--good); }
+
+.pool-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.pool-sort select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pool-sort select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Category / subtype filter chip rows. Wrap freely; the sub-row sits a touch
+   tighter and dimmer so the two levels read as a hierarchy. */
+.pool-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.pool-filters-sub {
+  margin-top: -4px;
+  padding-left: 2px;
+}
+
+.chip {
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: color 80ms, border-color 80ms, background 80ms;
+}
+
+.chip:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.chip.active {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.pool-filters-sub .chip {
+  font-size: 11px;
+  padding: 3px 9px;
+}
+
+/* Filter row between the search bar and the grid: the forge-material sliders
+   take the left half, the feed-power slider the right half. */
+.mat-filters {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* Dismantle-material sliders (left half). Four compact rows: material icon +
+   label, the track, then the current threshold. */
+.mat-sliders {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+/* Right-half panel holding the feed-power and enchant-slots sliders, vertically
+   centered to match the forge panel's height. */
+.side-sliders {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+/* Options box between the slider row and the item grid. Same inset-panel
+   look as the slider panels; holds the "stack by rarity & type" checkbox. */
+.pool-options {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.pool-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pool-option input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.pool-option-hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* One slider row: label, track and value on the same line. */
+.side-slider {
+  display: grid;
+  grid-template-columns: 84px 1fr 72px;
+  align-items: center;
+  gap: 10px;
+}
+
+.side-slider-label {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.side-slider input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+}
+.side-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-2);
+  cursor: pointer;
+}
+.side-slider input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-2);
+  cursor: pointer;
+}
+
+.side-slider-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mat-slider {
+  display: grid;
+  grid-template-columns: 18px 62px 1fr 72px;
+  align-items: center;
+  gap: 8px;
+}
+
+.mat-slider-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  justify-self: center;
+}
+
+.mat-slider-label {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+}
+
+.mat-slider input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+}
+.mat-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-2);
+  cursor: pointer;
+}
+.mat-slider input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-2);
+  cursor: pointer;
+}
+
+.mat-slider-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The "X or more" / "exactly X" label is a button that flips the mode. It
+   keeps the plain-text look of the value it replaces. */
+.slider-val-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-bottom: 1px dotted var(--muted);
+}
+.slider-val-toggle:hover {
+  color: var(--accent-hot);
+}
+.slider-val-toggle[aria-pressed="true"] {
+  color: var(--accent);
+  border-bottom-style: solid;
+}
+
+.pool-grid-wrap {
+  /* Absolutely fills its column (which is height-matched to the sidebar), so
+     the grid scrolls starting exactly at the bottom of the class/slot rail. */
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  /* Themed scrollbar (Firefox). WebKit uses ::-webkit-scrollbar below. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.pool-grid-wrap::-webkit-scrollbar {
+  width: 10px;
+}
+
+.pool-grid-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pool-grid-wrap::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+  border: 2px solid var(--panel);
+}
+
+.pool-grid-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* VirtuosoGrid measures item cells to compute items-per-row, so the grid is a
+   flex-wrap flow (not a CSS grid, which fights Virtuoso's positioning and left
+   the tiles staggered/collapsed). Column count comes from the cell width. */
+.pool-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+/* One virtualized tile per cell; 8 across on desktop. Padding replaces the old
+   grid gap so tiles keep their breathing room. */
+.pool-cell {
+  width: 12.5%;
+  box-sizing: border-box;
+  padding: 3px;
+}
+
+@media (max-width: 900px) {
+  .pool-cell {
+    width: 16.6667%;
+  }
+}
+
+@media (max-width: 600px) {
+  .pool-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.pool-tile {
+  position: relative;
+  aspect-ratio: 1;
+  /* Fill the cell. Previously the tile was a direct grid child and CSS grid's
+     default stretch sized it; under VirtuosoGrid each tile sits inside a
+     .pool-cell wrapper, so without this a <button>'s width:auto shrinks to its
+     sprite and the grid looks tiny/sparse. */
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0;
+  font: inherit;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 80ms, background 80ms, transform 80ms;
+}
+
+.pool-tile.clickable {
+  cursor: pointer;
+}
+
+.pool-tile.clickable:hover {
+  border-color: var(--accent);
+  background: rgba(212, 161, 59, 0.1);
+  transform: translateY(-1px);
+}
+
+.pool-tile.in-tray {
+  border-color: var(--accent);
+  background: rgba(212, 161, 59, 0.18);
+  cursor: default;
+}
+
+.pool-tile.unclickable {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pool-tile-sprite,
+.pool-tile-fallback {
+  width: 80%;
+  height: 80%;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.pool-tile-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+/* Sprite fallback used by the tray cells (small box variant). */
+.sprite {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.sprite-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+/* Rarity corner dot in the bottom-right. The Exalt rework uses 1-4
+   enchant slots filled = uncommon/rare/legendary/divine; we just paint
+   a colored dot matching the tier so the corner reads at a glance. */
+.rarity-dot {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.rarity-icon {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 14px;
+  height: 14px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+}
+
+.rarity-icon-wide {
+  width: 28px;
+}
+
+/* The whole tile gets a faint colored border per rarity so even at a
+   distance you can spot a divine vs a common. Common keeps the default
+   neutral border so the grid doesn't look noisy when most items are
+   unenchanted. */
+.pool-tile.rarity-uncommon { border-color: rgba(110, 196, 110, 0.55); }
+.pool-tile.rarity-rare { border-color: rgba(90, 166, 255, 0.55); }
+.pool-tile.rarity-legendary { border-color: rgba(212, 161, 59, 0.65); }
+.pool-tile.rarity-divine { border-color: rgba(226, 106, 217, 0.65); }
+
+.tray-slot.rarity-uncommon { border-color: rgba(110, 196, 110, 0.85) !important; }
+.tray-slot.rarity-rare { border-color: rgba(90, 166, 255, 0.85) !important; }
+.tray-slot.rarity-legendary { border-color: rgba(212, 161, 59, 0.95) !important; }
+.tray-slot.rarity-divine { border-color: rgba(226, 106, 217, 0.95) !important; }
+
+/* Aggregate (deposit-mode) tile: quantity badge bottom-right, non-clickable. */
+.aggregate-tile {
+  cursor: default;
+}
+.aggregate-count {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  /* Explicit white on a near-black pill: --fg was never defined, so this
+     used to inherit the button's default near-black text and vanish into
+     the badge. White-on-dark contrasts on every tile state (dark panel,
+     gold in-tray tint, dimmed unclickable). */
+  color: #fff;
+  background: rgba(0, 0, 0, 0.78);
+  padding: 1px 5px;
+  border-radius: 4px;
+  pointer-events: none;
+  line-height: 1.2;
+}
+/* Empty aggregate (×0): dim the tile so non-empty stock stands out, but
+   keep it interactive enough to read the hover title. */
+.aggregate-tile.aggregate-empty {
+  opacity: 0.4;
+}
+.aggregate-tile.aggregate-empty .aggregate-count {
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--muted);
+}
+
+/* --- Hover tooltip --------------------------------------------------- */
+/* Rendered via React portal into <body> so the scrollable .pool-grid-wrap
+   can't clip it. Position is set inline by the tooltip component using
+   the hovered tile's bounding rect at the time of hover. */
+.pool-tile-tip {
+  min-width: 200px;
+  max-width: 320px;
+  padding: 8px 10px;
+  background: #0b0c10;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+}
+
+.pool-tile-tip-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pool-tile-tip-rarity {
+  text-transform: capitalize;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.pool-tile-tip-rarity.rarity-uncommon { color: #6ec46e; }
+.pool-tile-tip-rarity.rarity-rare { color: #5aa6ff; }
+.pool-tile-tip-rarity.rarity-legendary { color: var(--accent-hot); }
+.pool-tile-tip-rarity.rarity-divine { color: #e26ad9; }
+
+/* Forge dismantle value: "Dismantle" label followed by one count+icon per
+   material tier the item yields. */
+.pool-tile-tip-dismantle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.pool-tile-tip-dismantle-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+.pool-tile-tip-dismantle-mat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+}
+
+.pool-tile-tip-dismantle-mat img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+/* Feed power line in the tooltip. */
+/* In-game style stat block inside the hover card. */
+.tip-stats {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tip-kind {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  color: var(--text);
+  font-weight: 600;
+}
+.tip-tier {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: #0b0c10;
+}
+.tip-classes {
+  font-weight: 400;
+  color: var(--muted);
+}
+.tip-desc {
+  font-style: italic;
+  color: var(--muted);
+}
+.tip-attack + .tip-attack {
+  margin-top: 2px;
+}
+.tip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tip-label {
+  color: var(--muted);
+}
+.tip-val {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.tip-equip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px 8px;
+}
+.tip-dim {
+  color: var(--muted);
+  font-weight: 400;
+}
+.tip-line {
+  color: var(--text);
+}
+/* A number an enchantment changed: the game shows these in green. */
+.tip-boost {
+  color: #6ec46e;
+}
+.tip-x-name {
+  color: var(--accent-hot);
+  font-weight: 600;
+}
+
+.pool-tile-tip-feed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text);
+}
+.pool-tile-tip-feed-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+.pool-tile-tip-feed-val {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pool-tile-tip-enchants {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+}
+
+.pool-tile-tip-enchants li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.pool-tile-tip-enchant-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+.pool-tile-tip-bot {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+form.tx {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+form.tx label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+form.tx input,
+form.tx select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 10px;
+  font: inherit;
+  width: 100%;
+}
+
+form.tx input:focus,
+form.tx select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.tabs {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 14px;
+}
+
+.tabs button {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 8px 2px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabs button.active {
+  color: var(--accent-hot);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+button.submit {
+  background: var(--accent);
+  color: #1a1408;
+  border: none;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+button.submit:hover {
+  background: var(--accent-hot);
+}
+
+/* In-flight cancel: same shape as submit, but reads as a stop, not a go. */
+button.submit.submit-cancel {
+  background: transparent;
+  color: var(--bad);
+  border: 1px solid var(--bad);
+}
+
+button.submit.submit-cancel:hover {
+  background: rgba(217, 102, 102, 0.12);
+}
+
+button.submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.msg {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.msg.ok {
+  background: rgba(110, 196, 110, 0.12);
+  color: var(--good);
+  border: 1px solid rgba(110, 196, 110, 0.3);
+}
+
+.msg.err {
+  background: rgba(217, 102, 102, 0.12);
+  color: var(--bad);
+  border: 1px solid rgba(217, 102, 102, 0.3);
+}
+
+.hint-box {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.hint-box-good {
+  border-color: rgba(110, 196, 110, 0.3);
+  background: rgba(110, 196, 110, 0.05);
+}
+
+.hint-box-bad {
+  border-color: rgba(217, 102, 102, 0.3);
+  background: rgba(217, 102, 102, 0.05);
+}
+
+.hint-box-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.hint-box-cmd code {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.hint-box-copy {
+  background: var(--accent);
+  border: 0;
+  color: #000;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Login panel (copy-paste /tell flow), above Transact. */
+.login {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.login-intro code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+}
+
+.login-who {
+  font-size: 14px;
+}
+
+.login-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.login-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.login-stat-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-hot);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rank tile: "#12 / 345" — the slash and the total render smaller than the
+   player's own rank, with a hair of spacing around the slash. */
+.login-stat-rank-sep {
+  font-size: 0.62em;
+  margin: 0 2px;
+  opacity: 0.7;
+}
+
+.login-stat-rank-total {
+  font-size: 0.62em;
+}
+
+.login-stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.login-tell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.login-tell-cmd {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+  user-select: all;
+  word-break: break-all;
+}
+
+.login-copy {
+  background: var(--accent);
+  border: 0;
+  color: #000;
+  padding: 5px 12px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.login-status {
+  margin: 0;
+  font-size: 13px;
+  color: var(--accent-hot);
+}
+
+.login-primary {
+  background: var(--accent);
+  border: 0;
+  color: #000;
+  padding: 9px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.login-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.login-secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.login-secondary:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.login-err {
+  margin: 0;
+  font-size: 12px;
+  color: var(--bad);
+}
+
+.cancel-open {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+ul.tx-feed {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+ul.tx-feed li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+ul.tx-feed li:last-child {
+  border-bottom: none;
+}
+
+.tx-kind.deposit {
+  color: var(--good);
+}
+
+.tx-kind.withdraw {
+  color: var(--bad);
+}
+
+.tx-kind.raid {
+  color: var(--accent, var(--good));
+}
+
+.tx-time {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.status-pending {
+  color: var(--accent);
+}
+
+.status-claimed {
+  color: var(--good);
+}
+
+.hint {
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(212, 161, 59, 0.06);
+  border: 1px solid rgba(212, 161, 59, 0.2);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.count-picker {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.count-pip {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 8px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.count-pip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.count-pip.active {
+  background: rgba(212, 161, 59, 0.12);
+  border-color: var(--accent);
+  color: var(--accent-hot);
+}
+
+.tray {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.tray-slot {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--panel-2);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font: inherit;
+  cursor: default;
+  overflow: hidden;
+}
+
+.tray-slot.empty .tray-empty-mark {
+  color: var(--border);
+  font-size: 22px;
+  font-weight: 300;
+}
+
+.tray-slot.filled {
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(212, 161, 59, 0.08);
+  cursor: pointer;
+  transition: background 80ms, border-color 80ms;
+}
+
+.tray-slot.filled:hover {
+  background: rgba(217, 102, 102, 0.18);
+  border-color: var(--bad);
+}
+
+.tray-slot img {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  object-fit: contain;
+}
+
+.tray-x {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.tray-slot.filled:hover .tray-x {
+  color: var(--bad);
+}
+
+/* ---- Blog panel (right column) ----------------------------------------- */
+.blog { display: flex; flex-direction: column; gap: 10px; }
+.blog-post { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.blog-post-head {
+  display: flex; align-items: baseline; gap: 10px; width: 100%;
+  padding: 9px 12px; background: transparent; border: 0; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+}
+.blog-post-head:hover .blog-post-title { color: var(--accent-hot); }
+.blog-post-title { font-weight: 600; font-size: 13.5px; flex: 1; }
+.blog-post.open .blog-post-title { color: var(--accent); }
+.blog-post-date { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.blog-body { padding: 0 12px 11px; font-size: 13px; line-height: 1.55; }
+.blog-body p { margin: 0 0 9px; }
+.blog-body p:last-child, .blog-body ul:last-child { margin-bottom: 0; }
+.blog-body ul { margin: 0 0 9px; padding-left: 18px; }
+.blog-body li { margin: 3px 0; }
+.blog-body a { color: var(--accent); }
+.blog-body a:hover { color: var(--accent-hot); }
+
+/* Leaderboard tab buttons stand in for the panel heading, so they get the
+   h2 treatment (uppercase, heading size) on top of the pool-tab base. */
+.board-tabs .nav-link {
+  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.board-tabs .nav-link.active { color: var(--accent); }
+
+/* ---- Comrade profile ---------------------------------------------------- */
+.ign-link { color: inherit; }
+.ign-link:hover { color: var(--accent-hot); text-decoration: underline; }
+
+.board-lookup { margin-bottom: 10px; }
+.board-lookup input {
+  width: 100%; padding: 7px 10px; font: inherit; font-size: 13px;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.board-lookup input:focus { outline: none; border-color: var(--accent); }
+
+.profile-head .profile-id { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.profile-head .profile-id h2 { margin: 0; }
+.profile-points { font-weight: 700; font-size: 16px; }
+.profile-rank { color: var(--muted); font-size: 12px; }
+.profile-stats {
+  display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px;
+  color: var(--muted); font-size: 13px;
+}
+.profile-stats strong { color: var(--text); }
+.profile-sig-sprite {
+  width: 18px; height: 18px; vertical-align: -4px; margin: 0 3px;
+  image-rendering: pixelated;
+}
+.profile-feed-main { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.profile-feed-sprite { width: 18px; height: 18px; image-rendering: pixelated; flex-shrink: 0; }
+.profile-feed-pts { color: var(--muted); font-size: 11px; }
+.profile-feed { max-height: 480px; overflow-y: auto; }
+
+/* Contribution calendar: columns are weeks, Sunday-first. Green = net
+   giver that day, red = net taker; intensity by |net points|. */
+.cal-wrap { overflow-x: auto; padding-bottom: 4px; }
+.cal-months {
+  display: grid; grid-template-columns: repeat(53, 12px); gap: 3px;
+  font-size: 9px; color: var(--muted); margin-bottom: 4px;
+}
+.cal-months span { overflow: visible; white-space: nowrap; }
+.cal { display: flex; gap: 3px; }
+.cal-week { display: flex; flex-direction: column; gap: 3px; }
+.cal-day {
+  width: 12px; height: 12px; border-radius: 2px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  box-sizing: border-box; display: inline-block;
+}
+.cal-day.out { visibility: hidden; }
+.cal-day.give-1 { background: #1d4029; border-color: #295c3a; }
+.cal-day.give-2 { background: #2a6b41; border-color: #2a6b41; }
+.cal-day.give-3 { background: #39955a; border-color: #39955a; }
+.cal-day.give-4 { background: #4fd27d; border-color: #4fd27d; }
+.cal-day.take-1 { background: #4a2323; border-color: #663030; }
+.cal-day.take-2 { background: #713333; border-color: #713333; }
+.cal-day.take-3 { background: #a34444; border-color: #a34444; }
+.cal-day.take-4 { background: #e05c5c; border-color: #e05c5c; }
+.cal-legend {
+  display: flex; align-items: center; gap: 4px; margin-top: 8px;
+  font-size: 10px; color: var(--muted);
+}
+
+.profile-feed-ench {
+  font-size: 10px; color: #b483ff; border: 1px solid #b483ff44;
+  border-radius: 4px; padding: 0 4px; white-space: nowrap;
+}
+
+/* Deposit-grid point value, pinned to the tile top. Amber like the rest of
+   the "value" accents; dark backing so it reads over bright sprites. */
+.points-badge {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--accent-hot);
+  background: rgba(14, 15, 19, 0.75);
+  border-radius: 4px;
+  padding: 0 3px;
+  pointer-events: none;
+}
+
+/* Legend tile in the deposit grid''s first slot — labels the badge
+   positions ("points" top-left, "quantity" bottom-right) around a plain
+   Example wordmark instead of a sprite. */
+.example-tile { border-style: dashed; }
+.example-tile .example-tile-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.example-tile .points-badge,
+.example-tile .aggregate-count {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* Corner badges never escape the tile. The FitBadge component measures the
+   text against the tile and applies transform: scale() when it would
+   overflow — transforms dodge Chrome's minimum-font-size floor, which made
+   plain font-size shrinking silently render too big. nowrap keeps the
+   measurement one-line; no clip/ellipsis, the scale IS the fit. */
+.points-badge,
+.aggregate-count {
+  white-space: nowrap;
+}
+
+/* --- dev console: inventory + trade-window grids -------------------------
+   Separate from .pool-grid, which is a fixed 8-up laid out against the full
+   page width. These sit inside cards in a responsive card grid, so the column
+   count has to follow the card rather than the viewport: auto-fill keeps a
+   Realm-like square-slot grid at any card width. */
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 4px;
+}
+
+.inv-slot {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* An empty slot reads as capacity, not as a missing item — no fill, just the
+   outline, so a half-full bot is legible at a glance. */
+.inv-slot.empty {
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.4;
+}
+
+.inv-slot img {
+  width: 82%;
+  height: 82%;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  object-fit: contain;
+}
+
+/* Shown while the sprite for this id is still being fetched, and kept as the
+   permanent stand-in for ids the asset file doesn't have. */
+.inv-slot-fallback {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  padding: 2px;
+  overflow: hidden;
+  line-height: 1.1;
+}
+
+/* Trade window: the partner's side. `offered` is what they have actually put
+   up, which is the thing an operator is looking for, so it gets the accent
+   treatment; untradeable slots are dimmed to explain why an item is sitting
+   there unofferable. */
+.inv-slot.offered {
+  border-color: var(--accent);
+  background: rgba(212, 161, 59, 0.18);
+}
+
+.inv-slot.untradeable {
+  opacity: 0.45;
+}
+
+.inv-slot-badge {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text);
+  text-shadow: 0 0 3px #000, 0 0 2px #000;
+  pointer-events: none;
+}
+
+/* --- donator name effects (components/PlayerName.tsx) ------------------- */
+/* Every rule here is toggled by a class the component picks from a fixed
+   set; the only value that comes from the DB is a hex out of the 16-colour
+   Minecraft table, applied inline. */
+
+.mc-name {
+  /* inline-block so background-clip:text has a box to clip against, and so
+     the name keeps its own baseline inside the tx-feed rows. */
+  display: inline-block;
+  white-space: pre;
+}
+
+.mc-bold { font-weight: 700; }
+.mc-italic { font-style: italic; }
+.mc-underline { text-decoration: underline; }
+.mc-strike { text-decoration: line-through; }
+.mc-underline.mc-strike { text-decoration: underline line-through; }
+
+/* §k. Monospace keeps the width steady while the glyphs churn, so a
+   scrambling name doesn't shove the rest of the row around. */
+.mc-obf {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Gradient + rainbow fills. -webkit- prefix is still required: every
+   engine ships background-clip:text only under it. */
+.mc-fill {
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.mc-anim {
+  animation: mc-sweep 3.5s linear infinite;
+}
+
+@keyframes mc-sweep {
+  from { background-position: 0% 50%; }
+  to { background-position: -200% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-anim { animation: none; }
+}
+
+/* --- the player's own effect menu (components/NameCustomizer.tsx) -------- */
+
+.mc-menu {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.mc-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.mc-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mc-row-label {
+  width: 100%;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Colour swatches. aria-pressed carries the selected state; the ring is
+   drawn with box-shadow so it doesn't shift the grid. */
+.mc-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mc-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.mc-chip {
+  padding: 5px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mc-chip[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+  font-weight: 600;
+}
+
+.mc-menu-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.mc-menu-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+/* Operator console: blog editor */
+.blog-editor { display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .blog-editor { grid-template-columns: 1fr; } }
+.blog-editor-list { display: flex; flex-direction: column; gap: 6px; }
+.blog-editor-item { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
+.blog-editor-item:hover, .blog-editor-item.active { border-color: var(--accent); }
+.blog-editor-item-title { font-weight: 600; font-size: 13px; }
+.blog-editor-item-meta { color: var(--muted); font-size: 11px; display: flex; gap: 8px; }
+.blog-editor-draft { color: var(--accent-hot); text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; }
+.blog-editor-form { display: flex; flex-direction: column; gap: 10px; }
+.blog-editor-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.blog-editor-form input, .blog-editor-form textarea { font: inherit; font-size: 13px; color: inherit; background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; }
+.blog-editor-form textarea { min-height: 340px; resize: vertical; line-height: 1.5; }
+.blog-editor-row { display: grid; grid-template-columns: 1fr 160px; gap: 10px; }
+.blog-editor-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.blog-editor-link { color: var(--muted); font-size: 12px; margin-left: auto; }
+.blog-editor-error { color: var(--accent-hot); font-size: 12px; margin: 0; }
+.blog-editor-notice { color: var(--muted); font-size: 12px; margin: 0; }
+.blog-editor-preview .blog-post-head { cursor: default; }
+
+/* Redeem-skin tab and missions (ported from the skinredeeming branch) */
+/* Redeem-skin catalog tile: sprite stacked over a wrapping name caption, so
+   the (non-interactive) grid reads as a labelled gallery rather than the
+   name-on-hover trade tiles. */
+.skin-tile {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 6px 4px;
+  /* Sprite + up-to-two lines of name don't fit a hard square; let the tile
+     grow to its content and keep a floor so short names still align. */
+  aspect-ratio: auto;
+  min-height: 84px;
+  cursor: default;
+}
+
+.skin-tile .pool-tile-sprite {
+  width: 64%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.skin-tile-name {
+  font-size: 10px;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--muted);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Missions panel — swaps in for Transact while Redeem-skin is active. */
+.missions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.missions-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.missions-tokens {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.missions-token-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: rgba(212, 161, 59, 0.18);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.missions-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: rgba(212, 161, 59, 0.1);
+  font-size: 13px;
+}
+
+.missions-selected-sprite {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+.mission-list {
+  list-style: none;
+  margin: 0;
+  /* Right padding keeps cards clear of the scrollbar gutter. */
+  padding: 2px 4px 2px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Cap the list so a long mission set scrolls inside the panel instead of
+     stretching the whole aside. */
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.mission-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.mission-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mission-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.mission-list::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+.mission-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mission-card.mission-done {
+  border-color: rgba(110, 196, 110, 0.55);
+}
+
+/* Milestone mission with rewards banked but not yet maxed — accent, not green. */
+.mission-card.mission-earned {
+  border-color: var(--accent);
+}
+
+.mission-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mission-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.mission-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6ec46e;
+  border: 1px solid rgba(110, 196, 110, 0.55);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.mission-earned .mission-badge {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.mission-desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.mission-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.mission-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+
+.mission-done .mission-bar-fill {
+  background: #6ec46e;
+}
+
+.mission-negative .mission-bar-fill {
+  background: var(--bad);
+}
+
+.mission-negative .mission-badge {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
+.mission-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mission-redeem {
+  margin-top: 2px;
+  padding: 7px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #1a1205;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 80ms, opacity 80ms;
+}
+
+.mission-redeem:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.mission-redeem:disabled {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+.missions-claimed {
+  margin: 0;
+  font-size: 12px;
+  color: #6ec46e;
+  line-height: 1.4;
+}
+
+
+/* Skin gallery: no filter rail to borrow a height from, so the grid wrapper
+   sits in normal flow with its own scroll cap. */
+.pool-body.no-rail .pool-grid-wrap { position: static; max-height: 520px; }
+
+/* Missions panel: character type, server, and the redemption in flight. */
+.missions-setup { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.missions-pool { display: flex; gap: 10px; }
+.missions-server { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-left: auto; }
+.missions-server select { font: inherit; font-size: 12px; color: inherit; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; }
+.missions-active { border: 1px solid var(--accent); border-radius: 6px; background: rgba(212, 161, 59, 0.1); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.missions-active.done { border-color: rgba(110, 196, 110, 0.55); background: rgba(110, 196, 110, 0.08); }
+.missions-active.cancelled { border-color: var(--border); background: transparent; }
+.missions-cancel { background: transparent; border: none; color: var(--muted); font-size: 12px; cursor: pointer; text-decoration: underline; }
+.missions-cmd { display: block; padding: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); font-size: 13px; user-select: all; }
+.missions-error { margin: 0; color: var(--bad); font-size: 12px; }
+
+/* Operator console: skins stock and redemptions */
+.skins-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.skins-table th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.skins-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.skins-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.redeem-status.fulfilled { color: #6ec46e; }
+.redeem-status.cancelled { color: var(--muted); }
+.redeem-status.claimed, .redeem-status.pending { color: var(--accent); }
+
+.skins-deposit { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.skins-deposit select { font: inherit; font-size: 13px; color: inherit; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+
+/* Linked characters on the login card. */
+.login-chars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--border);
+}
+.login-chars-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.login-chars-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.login-char-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.login-char {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.login-char-active {
+  border-color: var(--muted);
+}
+.login-char-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.login-char-tag {
+  font-size: 11px;
+  color: var(--muted);
+}
+.login-char-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.login-char-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.login-char-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--muted);
+}
+.login-char-btn-danger:hover:not(:disabled) {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.login-link-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+/* My vault header: allocation switch and the dedicated bot's status. */
+.vault-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.vault-alloc {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.vault-alloc-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.vault-alloc-count {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 700;
+  color: var(--text);
+}
+.vault-bot strong {
+  color: var(--text);
+}
+
+/* ---- Bookmark tabs: the pool and personal storage ------------------------- */
+/* Personal storage recolours the whole site: every accent (headings, active
+   tabs, submit buttons, badges) turns blue while the My Vault or My Wishlist
+   bookmark is selected. Set from Vault.tsx as data-view on <html>. */
+:root[data-view="vault"],
+:root[data-view="wishlist"] {
+  --accent: #7fb2f0;
+  --accent-hot: #a3c9f7;
+}
+
+.pool-stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bookmarks {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 0 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.bookmark {
+  position: relative;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  color: var(--muted);
+  padding: 9px 18px 8px;
+  margin-bottom: -1px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: color 80ms, background 80ms;
+}
+
+.bookmark:hover {
+  color: var(--text);
+}
+
+/* A small "beta" mark beside a tab's name. */
+.bookmark-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  vertical-align: 1px;
+}
+
+/* A count pinned to a tab's top-right corner: raids gathering a headcount. */
+.bookmark-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--bg, #111);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 18px;
+  text-align: center;
+  text-transform: none;
+  box-shadow: 0 0 0 2px var(--panel-2);
+  pointer-events: none;
+}
+
+.bookmark.active {
+  background: var(--panel);
+  color: var(--accent);
+  border-color: var(--border);
+  /* Paint over the panel's top border so the tab reads as part of it. */
+  box-shadow: var(--tab-active-shadow);
+  padding-bottom: 9px;
+  margin-bottom: -2px;
+}
+
+.pool-panel.bookmarked {
+  border-top-left-radius: 0;
+}
+
+/* In Flight: the character's open requests. */
+.inflight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.inflight-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.inflight-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.inflight-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+.inflight-title {
+  min-width: 0;
+  color: var(--muted);
+}
+.inflight-title strong {
+  color: var(--text);
+  text-transform: capitalize;
+}
+.inflight-time {
+  color: var(--muted);
+}
+.inflight-items {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---- My Wishlist ----------------------------------------------------- */
+/* The third bookmark shares the vault's blue (set alongside it above). */
+.wish {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 6px;
+}
+.wish-intro,
+.wish-empty {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+.wish-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.wish-row {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.wish-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  padding-top: 9px;
+}
+.wish-pool {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.wish-pool-active {
+  color: var(--text);
+  border-color: var(--text);
+}
+.wish-rule-pool {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.wish-slots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.wish-slots select,
+.wish-slots input {
+  padding: 7px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+}
+.wish-slots input {
+  width: 64px;
+}
+.wish-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+.wish-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wish-group-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.wish-group-row .tag-search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.wish-group-x {
+  padding: 8px 6px;
+  font-size: 16px;
+  line-height: 1;
+}
+.wish-or,
+.wish-or-inline {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+.wish-or {
+  padding: 2px 0 6px 6px;
+}
+.wish-or-inline {
+  margin: 0 6px;
+}
+.wish-add-or {
+  align-self: flex-start;
+  font-size: 12px;
+}
+.wish-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.wish-error {
+  color: var(--bad);
+  font-size: 13px;
+  margin: 0;
+}
+.wish-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wish-rule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+.wish-rule.off {
+  opacity: 0.55;
+}
+.wish-rule-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.wish-rule-text {
+  min-width: 0;
+}
+.wish-rule-name {
+  font-weight: 600;
+}
+.wish-rule-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+.wish-rule-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  grid-row: span 2;
+  font-size: 12px;
+}
+.wish-rule-match {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.wish-rule-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.wish-help {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ---- Dev console layout --------------------------------------------- */
+/* Categories run along the top (.pool-tabs); the category's tools list down
+   the left, the selected tool fills the rest. */
+.dev-body {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.dev-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 16px;
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 16px;
+}
+.dev-side .nav-link {
+  text-align: left;
+}
+.dev-main {
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .dev-body {
+    grid-template-columns: 1fr;
+  }
+  .dev-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 0 0 10px;
+    position: static;
+  }
+  .wish-row {
+    grid-template-columns: 1fr;
+  }
+}
+.wish-rule-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 4px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+.wish-rule-slot-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ---- Deposit trade size (TxForm) ------------------------------------------- */
+/* Two shapes of bot to ask for: an empty one (8 free slots) or an empty one
+   with a backpack (16). One trade either way. */
+.deposit-size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 2px 0 8px;
+}
+.deposit-size .login-char-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- Raids (mock-up) ------------------------------------------------------ */
+.raids-controls { flex-wrap: wrap; }
+.raids-controls .pool-search { flex: 1 1 180px; min-width: 0; margin-bottom: 0; }
+.raids-select { max-width: 100%; }
+.raids-select, .raid-create select, .raid-create input, .raid-create textarea {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+}
+.raids-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.raids-chips-right { margin-left: auto; display: flex; gap: 6px; }
+.raids-err { margin: 0 0 10px; }
+.raid-afk-timer { margin-left: 6px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.raid-you { font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 5px; }
+.raid-afk-pick { padding: 6px 8px; }
+.raid-status-popping { background: var(--accent-hot); }
+.raid-watch { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
+.raid-watch b { color: var(--text); }
+.raid-watch .ok { color: var(--good); }
+.raid-watch .bad { color: var(--bad, #f66); }
+.raid-verdict { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 1px 6px; border: 1px solid var(--border); color: var(--text); }
+.raid-verdict-confirmed { border-color: var(--good); color: var(--good); }
+.raid-verdict-none { border-color: var(--bad, #f66); color: var(--bad, #f66); }
+.raid-verdict-other { border-color: var(--accent-hot); color: var(--accent-hot); }
+.raid-pop-now { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 6px; background: var(--panel); font-weight: 700; }
+.raid-pop-now.wait { border-color: var(--border); font-weight: 400; color: var(--muted); }
+.raid-pops { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.raid-present { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.raid-record { display: inline-flex; gap: 4px; margin-left: 4px; font-size: 11px; }
+.raid-record > span { border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; color: var(--muted); }
+.raid-record .raid-record-ok { border-color: var(--good); color: var(--good); }
+.raid-record .raid-record-bad { border-color: var(--bad, #f66); color: var(--bad, #f66); }
+.raid-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* Realmhunted cards: a raid card with no expand pane; calls are chips. */
+.hunt-card { cursor: default; }
+.hunt-note { margin: 0; }
+.hunt-calls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+.hunt-call.ok { border-color: var(--good); }
+.hunt-call.bad { border-color: var(--bad, #f66); color: var(--muted); }
+/* Sub-tab counters: raids in headcount next to Keys, open parties next to Realmhunting. */
+.tab-badge { display: inline-block; margin-left: 6px; min-width: 16px; padding: 0 5px; border-radius: 8px; background: var(--accent); color: var(--bg, #111); font-size: 10px; font-weight: 800; line-height: 16px; text-align: center; vertical-align: 1px; }
+/* A name with a copy button (party names on raid and hunt cards). */
+.copy-text { display: inline-flex; align-items: center; gap: 5px; }
+.copy-btn { font: inherit; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; padding: 0 5px; border: 1px solid var(--border); border-radius: 3px; background: transparent; color: var(--muted); cursor: pointer; }
+.copy-btn:hover { color: var(--text); border-color: var(--muted); }
+.raid-card {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 80ms, background 80ms;
+}
+.raid-card:hover { border-color: var(--muted); }
+.raid-card.active { border-color: var(--accent); }
+.raid-card.ended { opacity: 0.55; }
+.raid-portal { width: 56px; height: 56px; display: grid; place-items: center; }
+.raid-portal img, .raid-chosen img, .raid-pick img, .raid-key-icon { image-rendering: pixelated; }
+.raid-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.raid-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.raid-title strong { font-size: 15px; }
+.raid-status { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 4px; padding: 1px 6px; color: var(--bg); background: var(--muted); }
+.raid-status-headcount { background: var(--accent); }
+.raid-status-afk { background: var(--accent-hot); }
+.raid-status-running { background: var(--good); }
+.raid-status-ended { background: var(--muted); }
+.raid-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 12px; }
+.raid-meta b { color: var(--text); }
+.raid-rl { font-size: 10px; font-weight: 700; color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 0 3px; margin-left: 2px; }
+.raid-reacts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+.raid-count { color: var(--muted); margin-right: 4px; }
+.raid-react { border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--text); }
+.raid-actions { display: flex; gap: 6px; }
+.raid-btn {
+  background: var(--accent);
+  color: var(--bg);
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.raid-btn:hover { background: var(--accent-hot); }
+.raid-btn-quiet { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.raid-btn-quiet:hover { background: var(--panel-2); }
+/* The expanded pane lives inside the card: a full-width grid row whose track
+   animates 0fr -> 1fr, so the card grows to fit whatever the pane holds. */
+.raid-expand {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-rows: 0fr;
+  margin: -12px 0 0; /* swallow the card's row gap while folded */
+  transition: grid-template-rows 240ms ease;
+}
+.raid-card.active .raid-expand { grid-template-rows: 1fr; }
+.raid-expand-inner { min-height: 0; overflow: hidden; }
+.raid-detail {
+  margin-top: 12px;
+  padding: 12px 0 2px;
+  border-top: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 180ms ease, transform 240ms ease;
+}
+.raid-card.active .raid-detail { opacity: 1; transform: none; transition-delay: 60ms; }
+.raid-card.active { cursor: default; }
+.raid-loc-hidden { font-style: italic; }
+.raid-loc-line { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.raid-loc-line:last-of-type { margin-bottom: 12px; }
+.raid-loc-line.revealed { color: var(--text); }
+.raid-detail h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+/* The description sits in the card preview: one clipped line while folded,
+   the whole text once the card is open. */
+.raid-desc { margin: 0; font-size: 13px; }
+.raid-card:not(.active) .raid-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.raid-names { display: flex; flex-wrap: wrap; gap: 4px; }
+.raid-name { font-size: 12px; border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
+.raid-name.leader { border-color: var(--accent); color: var(--accent); }
+.raid-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .raid-expand, .raid-detail { transition: none; }
+}
+.raid-create { display: flex; flex-direction: column; gap: 6px; }
+.raid-create label { margin-top: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+.raid-chosen { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--accent); border-radius: 8px; background: var(--panel-2); }
+.raid-pick-search { margin-bottom: 0; }
+.raid-pick-grid { display: flex; flex-wrap: wrap; gap: 4px; max-height: 176px; overflow-y: auto; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.raid-pick { width: 40px; height: 40px; display: grid; place-items: center; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 0; cursor: pointer; }
+.raid-pick:hover { border-color: var(--muted); }
+.raid-pick.active { border-color: var(--accent); background: var(--panel-2); }
+.raid-create-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.raid-create-row > div { display: flex; flex-direction: column; gap: 6px; }
+.raid-create-row input, .raid-create-row select { width: 100%; box-sizing: border-box; }
+.raid-limit { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); background: var(--bg); }
+.raid-post { margin-top: 12px; }
+@media (max-width: 600px) {
+  .raid-card { grid-template-columns: 48px minmax(0, 1fr); }
+  .raid-actions { grid-column: 1 / -1; }
+}

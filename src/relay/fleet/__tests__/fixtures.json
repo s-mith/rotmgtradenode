@@ -1,0 +1,300 @@
+{
+ "guids": [
+  {
+   "email": "a@example.com",
+   "botGuid": "CBaM2A39U0qw8QrxDxMD_gCvLUOrXBQy"
+  },
+  {
+   "email": "Bot.Seven+x@mail.test",
+   "botGuid": "iJ18npSJ5AlJxKrS1ajCgAQ1SW8t8vdM"
+  },
+  {
+   "email": "\u00fcn\u00efcode@example.com",
+   "botGuid": "lswAyPAMX9fRLSf3CwnnWFqwWvVxTwKw"
+  }
+ ],
+ "pins": [
+  {
+   "guid": "a@example.com",
+   "hosts": [
+    "10.0.0.1",
+    "10.0.0.2",
+    "10.0.0.3",
+    "10.0.0.4",
+    "10.0.0.5",
+    "10.0.0.6",
+    "10.0.0.7",
+    "10.0.0.8",
+    "10.0.0.9",
+    "10.0.0.10",
+    "10.0.0.11",
+    "10.0.0.12"
+   ],
+   "preference": [
+    "10.0.0.4",
+    "10.0.0.11",
+    "10.0.0.12",
+    "10.0.0.9",
+    "10.0.0.2",
+    "10.0.0.10",
+    "10.0.0.1",
+    "10.0.0.5",
+    "10.0.0.7",
+    "10.0.0.8",
+    "10.0.0.6",
+    "10.0.0.3"
+   ]
+  },
+  {
+   "guid": "b@example.com",
+   "hosts": [
+    "10.0.0.1",
+    "10.0.0.2",
+    "10.0.0.3",
+    "10.0.0.4",
+    "10.0.0.5",
+    "10.0.0.6",
+    "10.0.0.7",
+    "10.0.0.8",
+    "10.0.0.9",
+    "10.0.0.10",
+    "10.0.0.11",
+    "10.0.0.12"
+   ],
+   "preference": [
+    "10.0.0.6",
+    "10.0.0.10",
+    "10.0.0.5",
+    "10.0.0.8",
+    "10.0.0.4",
+    "10.0.0.7",
+    "10.0.0.1",
+    "10.0.0.9",
+    "10.0.0.12",
+    "10.0.0.2",
+    "10.0.0.11",
+    "10.0.0.3"
+   ]
+  },
+  {
+   "guid": "c@example.com",
+   "hosts": [
+    "10.0.0.1",
+    "10.0.0.2",
+    "10.0.0.3",
+    "10.0.0.4",
+    "10.0.0.5",
+    "10.0.0.6",
+    "10.0.0.7",
+    "10.0.0.8",
+    "10.0.0.9",
+    "10.0.0.10",
+    "10.0.0.11",
+    "10.0.0.12"
+   ],
+   "preference": [
+    "10.0.0.4",
+    "10.0.0.3",
+    "10.0.0.6",
+    "10.0.0.2",
+    "10.0.0.7",
+    "10.0.0.11",
+    "10.0.0.1",
+    "10.0.0.8",
+    "10.0.0.5",
+    "10.0.0.9",
+    "10.0.0.10",
+    "10.0.0.12"
+   ]
+  }
+ ],
+ "api": {
+  "secret": "ssssssssssssssssssssssssssssssssssssssss",
+  "now": 1700000000000,
+  "nonce": "fixednonce_0123456789",
+  "calls": [
+   {
+    "path": "/api/bot/heartbeat",
+    "body": {
+     "botGuid": "botguid1",
+     "alias": "Alias",
+     "ign": "IgnName",
+     "server": "USEast",
+     "freeSlots": 7,
+     "status": "idle",
+     "seasonal": false,
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "5198988622487b40d3d38062c1c471c30badde58359d8045db201e419c18f5bf"
+    }
+   },
+   {
+    "path": "/api/bot/claim-deposit",
+    "body": {
+     "botGuid": "botguid1",
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "d380c6ae86a3ada6811e163d17ddd3c2d3f74184275e9843a5548ed56ca4950a",
+     "freeSlots": 5
+    }
+   },
+   {
+    "path": "/api/bot/claim-deposit",
+    "body": {
+     "botGuid": "botguid1",
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "7b4e0ca10c0c39ab1d09d60b35590faeb7ae1afcfa2dc4d7e7ff9b0367e36b8b"
+    }
+   },
+   {
+    "path": "/api/bot/claim-withdraw",
+    "body": {
+     "botGuid": "botguid1",
+     "inventory": [
+      {
+       "itemId": "patk",
+       "qty": 2
+      },
+      {
+       "itemId": "ubatk",
+       "qty": 1
+      }
+     ],
+     "instanceIds": [
+      "inst-b",
+      "inst-a"
+     ],
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "00d93774f9efece53326c12d7212d55ad08ae9f19827fbed28ead7875e375762"
+    }
+   },
+   {
+    "path": "/api/bot/fulfill",
+    "body": {
+     "botGuid": "botguid1",
+     "requestId": 42,
+     "items": [
+      {
+       "itemId": "ubatk",
+       "qty": 1
+      },
+      {
+       "itemId": "patk",
+       "qty": 2
+      }
+     ],
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "ddfa9a9b95186a1d6e562e778d31b9c53ba8fa20f44993a17b203fa779d6245b",
+     "units": [
+      {
+       "itemId": "patk",
+       "enchants": 0
+      },
+      {
+       "itemId": "ubatk",
+       "enchants": 2
+      },
+      {
+       "itemId": "patk",
+       "enchants": 0
+      }
+     ]
+    }
+   },
+   {
+    "path": "/api/bot/fulfill",
+    "body": {
+     "botGuid": "botguid1",
+     "requestId": 43,
+     "items": [
+      {
+       "itemId": "patk",
+       "qty": 1
+      }
+     ],
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "dd5bede2949e50d4c8b0ad2bf02af14a6308f2242986de00da330000a04dd8aa"
+    }
+   },
+   {
+    "path": "/api/bot/withdraw-fulfill",
+    "body": {
+     "botGuid": "botguid1",
+     "requestId": 44,
+     "items": [
+      {
+       "itemId": "ubatk",
+       "qty": 1
+      }
+     ],
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "fc4957e0220deb2acc759a67b4adea46d78bec49c2ddbc3beb36771276443601",
+     "instanceIds": [
+      "z-inst",
+      "a-inst"
+     ]
+    }
+   },
+   {
+    "path": "/api/bot/withdraw-fulfill",
+    "body": {
+     "botGuid": "botguid1",
+     "requestId": 45,
+     "items": [
+      {
+       "itemId": "ubatk",
+       "qty": 1
+      }
+     ],
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "884c028984a43ade4ed7644c117189e6d3c00977da63e5f858eaf10f25b810e8"
+    }
+   },
+   {
+    "path": "/api/bot/register-pool",
+    "body": {
+     "readyCount": 123,
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "74ae8c3d8f41d0ba47b4c361f5a1e182d799111e47cc394af613a6f868be9fc6"
+    }
+   },
+   {
+    "path": "/api/bot/unclaim",
+    "body": {
+     "botGuid": "botguid1",
+     "requestId": 46,
+     "kind": "deposit",
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "7dda660c7245177ff6c99933ee09d14fb7eeb11aaffc81e5bd64a04a11046a41"
+    }
+   },
+   {
+    "path": "/api/bot/give-up",
+    "body": {
+     "botGuid": "botguid1",
+     "requestId": 47,
+     "kind": "withdraw",
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "c602e58f9c1d3666dde15c360a11f2f9a1647a8be63409f18e37187ac3da39b3"
+    }
+   },
+   {
+    "path": "/api/bot/list-pending",
+    "body": {
+     "nonce": "fixednonce_0123456789",
+     "timestamp": 1700000000000,
+     "signature": "e7c7f795f37a4eb8d8ff1d792e17ee5ae1542b37689402b641b831986c489205"
+    }
+   }
+  ]
+ }
+}

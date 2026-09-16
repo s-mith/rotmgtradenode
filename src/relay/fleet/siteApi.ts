@@ -1,0 +1,260 @@
+// HMAC-signed client for the site's /api/bot/* endpoints. Payload strings
+// must match the routes in src/server/api/bot exactly. Kept as HTTP so the
+// relay can run against a separately deployed site during the transition;
+// an in-process implementation of the same interface is the next step.
+import { createHash, createHmac, randomBytes } from "node:crypto";
+
+export type ApiResult<T = Record<string, unknown>> = ({ ok: true } & T) | { ok: false; error: string; status: number | null };
+export interface ItemQty {
+  itemId: string;
+  qty: number;
+}
+export interface Assignment {
+  kind: "deposit" | "withdraw";
+  requestId: number;
+  ign: string;
+  server: string;
+  itemCount?: number;
+  /** Deposits: the operator queued this one for character skins; the bot may take them. */
+  skins?: boolean;
+  items?: ItemQty[];
+  instanceIds?: string[] | null;
+  botIgn?: string;
+  /** Personal storage: the account whose items these are (null for the pool). */
+  vault?: number | null;
+}
+export interface PendingWithdraw {
+  id: number;
+  server: string;
+  items: ItemQty[];
+  targetBotGuid: string | null;
+  instanceIds: string[] | null;
+  seasonal: boolean;
+  vaultUserId?: number | null;
+}
+export interface PendingDeposit {
+  id: number;
+  server: string;
+  /** The one trade's size: only a bot with this many free slots may claim it (16 = an empty backpack bot). */
+  itemCount: number;
+  /** The same number; kept for the wire shape. */
+  declaredCount: number;
+  seasonal: boolean;
+  /** What the player said they are bringing, when they said. */
+  items?: ItemQty[];
+  /** Personal storage: only this account's vault bot may claim it. */
+  vaultUserId?: number | null;
+  vaultBotGuid?: string | null;
+}
+/** A physical item a vault deposit just received, as the tracker knows it. */
+export interface ReceivedInstance {
+  instanceId: string;
+  itemId: string;
+  enchants: number;
+}
+/** One account's personal storage, as the fleet needs it. */
+export interface FleetVault {
+  userId: number;
+  /** The bot its items should be packed onto; null until the site assigns one. */
+  botGuid: string | null;
+  seasonal: boolean;
+  items: { instanceId: string; itemId: string; botGuid: string | null; reserved: boolean }[];
+}
+
+/** One server's load as account/servers reports it (0..1). */
+export interface ServerUsageReport {
+  name: string;
+  usage: number;
+}
+
+/** Free trade slots per pool across every account on the roster, online or not. */
+export interface PoolRoom {
+  seasonal: number;
+  nonseasonal: number;
+}
+
+export interface SiteApi {
+  heartbeat(p: { botGuid: string; alias: string; ign: string; server: string; freeSlots: number; status: "idle" | "busy" | "offline"; seasonal: boolean }): Promise<ApiResult>;
+  /** `preferRequestId`: the row this bot should take if it is still open (a deposit routed to its collector). */
+  claimDeposit(botGuid: string, freeSlots?: number, preferRequestId?: number | null): Promise<ApiResult<{ assignment: Assignment | null }>>;
+  claimWithdraw(botGuid: string, inventory: ItemQty[], instanceIds: string[]): Promise<ApiResult<{ assignment: Assignment | null }>>;
+  /** `instances`: vault deposits name the physical items received so the site can record who owns them. */
+  fulfillDeposit(botGuid: string, requestId: number, items: ItemQty[], units?: { itemId: string; enchants: number }[] | null, instances?: ReceivedInstance[] | null): Promise<ApiResult>;
+  fulfillWithdraw(botGuid: string, requestId: number, items: ItemQty[], instanceIds?: string[]): Promise<ApiResult>;
+  /** Pool size, plus the room left per pool across the whole roster — what
+   *  the site's fulfill-time "is the vault full?" check reads. */
+  registerPool(readyCount: number, room?: PoolRoom): Promise<ApiResult>;
+  /** Every server's current load, fresh from Realm; `null` means the fetch failed and the last reading should age out. The site gates trades on it. */
+  reportServerUsage(servers: ServerUsageReport[] | null, error?: string): Promise<ApiResult>;
+  unclaim(botGuid: string, requestId: number, kind: "deposit" | "withdraw"): Promise<ApiResult<{ unclaimed?: boolean }>>;
+  giveUp(botGuid: string, requestId: number, kind: "deposit" | "withdraw"): Promise<ApiResult<{ cancelled?: boolean }>>;
+  /** `vaultBots`: bots dedicated to somebody's personal storage — not pool bots, whatever they hold. */
+  listPending(): Promise<ApiResult<{ withdraws: PendingWithdraw[]; deposits: PendingDeposit[]; vaultBots?: string[] }>>;
+  /** Every vault with items in it: what to pack where, and what never to offer or move for the pool. */
+  listVaults(): Promise<ApiResult<{ vaults: FleetVault[] }>>;
+  /** The fleet moved these owned items onto `botGuid`. */
+  vaultMoved(instanceIds: string[], botGuid: string): Promise<ApiResult<{ moved?: number }>>;
+  readonly timeoutMs: number;
+  readonly stats: ApiStats;
+}
+
+export class ApiStats {
+  calls = 0;
+  errors = 0;
+  totalMs = 0;
+  maxMs = 0;
+  slowest = "";
+  record(path: string, ms: number, ok: boolean): void {
+    this.calls++;
+    if (!ok) this.errors++;
+    this.totalMs += ms;
+    if (ms > this.maxMs) {
+      this.maxMs = ms;
+      this.slowest = path;
+    }
+  }
+  drain(): { calls: number; errors: number; avgMs: number; maxMs: number; slowest: string } | null {
+    if (!this.calls) return null;
+    const out = { calls: this.calls, errors: this.errors, avgMs: this.totalMs / this.calls, maxMs: this.maxMs, slowest: this.slowest };
+    this.calls = 0;
+    this.errors = 0;
+    this.totalMs = 0;
+    this.maxMs = 0;
+    this.slowest = "";
+    return out;
+  }
+}
+
+function sha256(s: string): string {
+  return createHash("sha256").update(s, "utf8").digest("hex");
+}
+export function itemsHash(items: ItemQty[]): string {
+  return sha256(items.map((i) => `${i.itemId}:${i.qty}`).sort().join(","));
+}
+
+export class HttpSiteApi implements SiteApi {
+  readonly stats = new ApiStats();
+  private readonly base: string;
+  private readonly secret: Buffer;
+  private readonly clock: () => number;
+  private readonly mintNonce: () => string;
+  constructor(baseUrl: string, secret: string, readonly timeoutMs = 10_000, hooks: { now?: () => number; nonce?: () => string } = {}) {
+    if (!secret || secret.length < 32) throw new Error("site secret must be at least 32 chars");
+    this.base = baseUrl.replace(/\/$/, "");
+    this.secret = Buffer.from(secret, "utf8");
+    this.clock = hooks.now ?? Date.now;
+    this.mintNonce = hooks.nonce ?? (() => randomBytes(16).toString("base64url"));
+  }
+  static fromEnv(prefix: "COMMUNISM" | "CAPITALISM"): HttpSiteApi | null {
+    const url = process.env[`${prefix}_URL`];
+    const secret = process.env[`${prefix}_SECRET`];
+    if (!url || !secret) return null;
+    return new HttpSiteApi(url, secret);
+  }
+
+  private sign(payload: string): string {
+    return createHmac("sha256", this.secret).update(payload, "utf8").digest("hex");
+  }
+  /** Build the signed body for `path` without sending it (tests, in-process callers). */
+  signedBody(path: string, body: Record<string, unknown>): Record<string, unknown> {
+    void path;
+    return body;
+  }
+  protected async post<T>(path: string, body: Record<string, unknown>): Promise<ApiResult<T>> {
+    const started = Date.now();
+    let res: Response;
+    try {
+      res = await fetch(`${this.base}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (e) {
+      this.stats.record(path, Date.now() - started, false);
+      return { ok: false, error: `network: ${(e as Error).message}`, status: null };
+    }
+    this.stats.record(path, Date.now() - started, res.status < 400);
+    let data: Record<string, unknown>;
+    try {
+      data = await res.json();
+    } catch {
+      return { ok: false, error: `non-json response: ${res.status}`, status: res.status };
+    }
+    if (res.status >= 400) return { ok: false, error: String(data.error ?? `http ${res.status}`), status: res.status };
+    return data as ApiResult<T>;
+  }
+  private auth(payloadParts: (string | number)[]) {
+    const ts = this.clock();
+    const nonce = this.mintNonce();
+    const payload = [...payloadParts, ts, nonce].join("|");
+    return { nonce, timestamp: ts, signature: this.sign(payload) };
+  }
+
+  heartbeat(p: { botGuid: string; alias: string; ign: string; server: string; freeSlots: number; status: string; seasonal: boolean }) {
+    const auth = this.auth(["heartbeat", p.botGuid, p.server, p.freeSlots, p.status]);
+    return this.post("/api/bot/heartbeat", { ...p, ...auth });
+  }
+  claimDeposit(botGuid: string, freeSlots?: number, preferRequestId?: number | null) {
+    const auth = freeSlots === undefined ? this.auth(["claim-deposit", botGuid]) : this.auth(["claim-deposit", botGuid, freeSlots]);
+    const body: Record<string, unknown> = { botGuid, ...auth };
+    if (freeSlots !== undefined) body.freeSlots = freeSlots;
+    if (preferRequestId != null) body.preferRequestId = preferRequestId;
+    return this.post<{ assignment: Assignment | null }>("/api/bot/claim-deposit", body);
+  }
+  claimWithdraw(botGuid: string, inventory: ItemQty[], instanceIds: string[]) {
+    const invCanonical = inventory.map((i) => `${i.itemId}:${i.qty}`).sort().join(",");
+    const instCanonical = [...instanceIds].sort().join(",");
+    const invHash = sha256(`${invCanonical}|${instCanonical}`);
+    const auth = this.auth(["claim-withdraw", botGuid, invHash]);
+    return this.post<{ assignment: Assignment | null }>("/api/bot/claim-withdraw", { botGuid, inventory, instanceIds, ...auth });
+  }
+  fulfillDeposit(botGuid: string, requestId: number, items: ItemQty[], units?: { itemId: string; enchants: number }[] | null, instances?: ReceivedInstance[] | null) {
+    const clean = (units ?? []).filter((u) => typeof u.itemId === "string" && Number.isInteger(u.enchants) && u.enchants >= 0);
+    const parts: (string | number)[] = ["fulfill", botGuid, requestId, itemsHash(items)];
+    if (clean.length) parts.push(sha256(clean.map((u) => `${u.itemId}:${u.enchants}`).sort().join(",")));
+    const auth = this.auth(parts);
+    const body: Record<string, unknown> = { botGuid, requestId, items, ...auth };
+    if (clean.length) body.units = clean;
+    // Unsigned and only present for vault deposits; the HTTP site predates them.
+    if (instances?.length) body.instances = instances;
+    return this.post("/api/bot/fulfill", body);
+  }
+  fulfillWithdraw(botGuid: string, requestId: number, items: ItemQty[], instanceIds: string[] = []) {
+    const inst = instanceIds.filter((x) => typeof x === "string");
+    const instCanonical = [...inst].sort().join(",");
+    const parts: (string | number)[] = ["withdraw-fulfill", botGuid, requestId, itemsHash(items)];
+    if (instCanonical) parts.push(instCanonical);
+    const auth = this.auth(parts);
+    const body: Record<string, unknown> = { botGuid, requestId, items, ...auth };
+    if (inst.length) body.instanceIds = inst;
+    return this.post("/api/bot/withdraw-fulfill", body);
+  }
+  // The HTTP site has no field for the room report (its body is fixed by the
+  // wire fixtures); a site behind this client keeps answering from presence.
+  registerPool(readyCount: number, _room?: PoolRoom) {
+    return this.post("/api/bot/register-pool", { readyCount, ...this.auth(["register-pool", readyCount]) });
+  }
+  // Server load reaches the site's gate only when the fleet runs in-process;
+  // the HTTP protocol predates it, so a remote site keeps every server open.
+  async reportServerUsage(): Promise<ApiResult> {
+    return { ok: true };
+  }
+  // Personal storage lives in the site's database and is served only when the
+  // fleet runs in-process; the HTTP protocol predates it.
+  async listVaults(): Promise<ApiResult<{ vaults: FleetVault[] }>> {
+    return { ok: true, vaults: [] };
+  }
+  async vaultMoved(): Promise<ApiResult<{ moved?: number }>> {
+    return { ok: true, moved: 0 };
+  }
+  unclaim(botGuid: string, requestId: number, kind: "deposit" | "withdraw") {
+    return this.post<{ unclaimed?: boolean }>("/api/bot/unclaim", { botGuid, requestId, kind, ...this.auth(["unclaim", botGuid, kind, requestId]) });
+  }
+  giveUp(botGuid: string, requestId: number, kind: "deposit" | "withdraw") {
+    return this.post<{ cancelled?: boolean }>("/api/bot/give-up", { botGuid, requestId, kind, ...this.auth(["give-up", botGuid, kind, requestId]) });
+  }
+  listPending() {
+    return this.post<{ withdraws: PendingWithdraw[]; deposits: PendingDeposit[] }>("/api/bot/list-pending", { ...this.auth(["list-pending"]) });
+  }
+}

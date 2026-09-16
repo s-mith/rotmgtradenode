@@ -1,0 +1,106 @@
+{
+  "packets": [
+    {
+      "name": "GOTOQUESTROOM",
+      "id": 48,
+      "fields": {},
+      "hex": "0000000530"
+    },
+    {
+      "name": "CONVERTSEASONALCHARACTER",
+      "id": 154,
+      "fields": {},
+      "hex": "000000059a"
+    },
+    {
+      "name": "CLAIMDAILYLOGINREWARD",
+      "id": 3,
+      "fields": {
+        "claimKey": "ahNyZWFsbW9mdGhlbWFkZ29kaHJkcg",
+        "claimType": "nonconsecutive"
+      },
+      "hex": "0000003503001e61684e795a5746736257396d6447686c6257466b5a32396b61484a6b6367000e6e6f6e636f6e7365637574697665"
+    },
+    {
+      "name": "CLAIMDAILYLOGINRESPONSE",
+      "id": 93,
+      "fields": {
+        "message": "Reward claimed"
+      },
+      "hex": "000000155d000e52657761726420636c61696d6564"
+    },
+    {
+      "name": "CLAIMREWARDRESULT",
+      "id": 237,
+      "fields": {
+        "success": true,
+        "claimKey": "ahNyZWFsbW9mdGhlbWFkZ29kaHJkcg",
+        "claimType": "nonconsecutive"
+      },
+      "hex": "00000036ed01001e61684e795a5746736257396d6447686c6257466b5a32396b61484a6b6367000e6e6f6e636f6e7365637574697665"
+    },
+    {
+      "name": "VAULTINFO",
+      "id": 117,
+      "fields": {
+        "last": true,
+        "vaultObjectId": 1001,
+        "materialObjectId": 1002,
+        "giftObjectId": 1003,
+        "potionObjectId": 1004,
+        "spoilsObjectId": 1005,
+        "vaultContents": [
+          -1,
+          -1,
+          2591,
+          -1,
+          -1,
+          -1,
+          -1,
+          -1
+        ],
+        "materialContents": [],
+        "giftContents": [
+          3180,
+          3180,
+          3180,
+          -1
+        ],
+        "potionContents": [
+          2592
+        ],
+        "spoilsContents": [
+          -1,
+          -1
+        ],
+        "tail": [
+          0,
+          1,
+          2
+        ]
+      },
+      "hex": "0000002c7501a90faa0fab0fac0fad0f0841419f2841414141410004ac31ac31ac314101a028024141000102"
+    },
+    {
+      "name": "VAULTINFO",
+      "id": 117,
+      "fields": {
+        "last": false,
+        "vaultObjectId": 7,
+        "materialObjectId": -1,
+        "giftObjectId": 9,
+        "potionObjectId": -1,
+        "spoilsObjectId": -1,
+        "vaultContents": [],
+        "materialContents": [],
+        "giftContents": [
+          3180
+        ],
+        "potionContents": [],
+        "spoilsContents": [],
+        "tail": []
+      },
+      "hex": "0000001275000741094141000001ac310000"
+    }
+  ]
+}

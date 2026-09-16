@@ -1,0 +1,2767 @@
+{
+  "sep": {
+    "name": "Staff of Extreme Prejudice",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "fpm": {
+    "name": "Fitted Protective Matrix",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hpm": {
+    "name": "Heavy Protective Matrix",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "mpm": {
+    "name": "Magic Protective Matrix",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "cca": {
+    "name": "Candy-Coated Armor",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "aod": {
+    "name": "Amulet of Dispersion",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "sunj": {
+    "name": "Sun's Judgement",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "fbld": {
+    "name": "Fire Blade",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "coc": {
+    "name": "Comet of Calamity",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "dued": {
+    "name": "Dueling Daggers",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "snbw": {
+    "name": "Snowblind Wand",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "fst": {
+    "name": "Foramite Staff",
+    "common": 30,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "acsl": {
+    "name": "Acidic Slasher",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "wlw": {
+    "name": "Warlord Wand",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "gagl": {
+    "name": "Gaseous Glaive",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "blzb": {
+    "name": "Blazon Bow",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ser": {
+    "name": "Snake Eye Ring",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "dblade": {
+    "name": "Demon Blade",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "dbow": {
+    "name": "Doom Bow",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "ross": {
+    "name": "Ring of Skeletal Specters",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "spider_shuriken": {
+    "name": "Spider Shuriken",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "almandine_ring_of_wrath": {
+    "name": "Almandine Ring of Wrath",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 10
+  },
+  "brewer_s_bangle": {
+    "name": "Brewer's Bangle",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "candy_ring": {
+    "name": "Candy Ring",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "captain_s_ring": {
+    "name": "Captain's Ring",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "coral_ring": {
+    "name": "Coral Ring",
+    "common": 40,
+    "rare": 20,
+    "legendary": null,
+    "mythical": null
+  },
+  "corsair": {
+    "name": "Corsair Ring",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "crystal_bone_ring": {
+    "name": "Crystal Bone Ring",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "crystal_key": {
+    "name": "Crystal Key",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "enchanted_ice_shard": {
+    "name": "Enchanted Ice Shard",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "experimental_ring": {
+    "name": "Experimental Ring",
+    "common": 30,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "fairy_ring": {
+    "name": "Fairy Ring",
+    "common": 20,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "geb_s_ring_of_wisdom": {
+    "name": "Geb's Ring of Wisdom",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 10
+  },
+  "legacy_forgotten_ring": {
+    "name": "Legacy Forgotten Ring",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 10
+  },
+  "legacy_ring_of_pure_wishes": {
+    "name": "Legacy Ring of Pure Wishes",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 10
+  },
+  "legacy_spectral_ring_of_horrors": {
+    "name": "Legacy Spectral Ring of Horrors",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 10
+  },
+  "mask_of_anubis": {
+    "name": "Mask of Anubis",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "mask_of_cnidaria": {
+    "name": "Mask of Cnidaria",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "mask_of_lightning": {
+    "name": "Mask of Lightning",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "mask_of_mucus": {
+    "name": "Mask of Mucus",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "oryxmas_ornament_energized": {
+    "name": "Oryxmas Ornament Energized",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "oryxmas_ornament_exposed": {
+    "name": "Oryxmas Ornament Exposed",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "oryxmas_ornament_weak": {
+    "name": "Oryxmas Ornament Weak",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "ring_of_divine_faith": {
+    "name": "Ring of Divine Faith",
+    "common": 30,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "ring_of_the_covetous_heart": {
+    "name": "Ring of the Covetous Heart",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 10
+  },
+  "ring_of_the_nile": {
+    "name": "Ring of the Nile",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ring_of_the_pyramid": {
+    "name": "Ring of the Pyramid",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ring_of_the_sphinx": {
+    "name": "Ring of the Sphinx",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "spider_s_eye_ring": {
+    "name": "Spider's Eye Ring",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "leather_cheater": {
+    "name": "Cheater Light Armor",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "leather_chocolate": {
+    "name": "Chocolate Armor",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "leather_coralsilk": {
+    "name": "Coral Silk Armor",
+    "common": 40,
+    "rare": 20,
+    "legendary": null,
+    "mythical": null
+  },
+  "leather_construction": {
+    "name": "Fitted Construction Vest",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_drakehide": {
+    "name": "Frost Drake Hide Armor",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "leather_greaterhosen": {
+    "name": "Greaterhosen",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "leather_harlequin": {
+    "name": "Harlequin Armor",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "leather_skuld": {
+    "name": "Legacy Mantle of Skuld",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 15
+  },
+  "leather_snakeskin": {
+    "name": "Snakeskin Armor",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "leather_spectral": {
+    "name": "Spectral Cloth Armor",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "heavy_almandine": {
+    "name": "Almandine Armor of Anger",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 15
+  },
+  "bbp": {
+    "name": "Berserker's Breastplate",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "heavy_cask": {
+    "name": "Cask Corslet",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "heavy_cheater": {
+    "name": "Cheater Heavy Armor",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_citadel": {
+    "name": "Frost Citadel Armor",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "heavy_construction": {
+    "name": "Heavy Construction Vest",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "heavy_fairyplate": {
+    "name": "Legacy Fairy Plate",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 15
+  },
+  "lovebite_armor": {
+    "name": "Lovebite Armor",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "heavy_resurrected": {
+    "name": "Resurrected Warrior's Armor",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "heavy_warped": {
+    "name": "Warped Mantle",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "chasuble_of_holy_light": {
+    "name": "Chasuble of Holy Light",
+    "common": 30,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "cheater_robe": {
+    "name": "Cheater Robe",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_elemrobe": {
+    "name": "Frost Elementalist Robe",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "legacy_robe_of_twilight": {
+    "name": "Legacy Robe of Twilight",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "magic_construction_vest": {
+    "name": "Magic Construction Vest",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "robe_of_the_mad_scientist": {
+    "name": "Robe of the Mad Scientist",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "robe_of_the_tlatoani": {
+    "name": "Robe of the Tlatoani",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "shendyt_of_geb": {
+    "name": "Shendyt of Geb",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 15
+  },
+  "soulless_robe": {
+    "name": "Soulless Robe",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 15
+  },
+  "tlatoani_s_shroud": {
+    "name": "Tlatoani's Shroud",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "woodland_robe": {
+    "name": "Woodland Robe",
+    "common": 20,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "book_of_geb": {
+    "name": "Book of Geb",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "botany_book": {
+    "name": "Botany Book",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "necronomicon": {
+    "name": "Necronomicon",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "tome_of_holy_protection": {
+    "name": "Tome of Holy Protection",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "tome_of_moral_support": {
+    "name": "Tome of Moral Support",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "tome_of_purification": {
+    "name": "Tome of Purification",
+    "common": 30,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "onyx_shield_of_the_mad_god": {
+    "name": "Onyx Shield of the Mad God",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "shield_of_pogmur": {
+    "name": "Shield of Pogmur",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "snakeskin_shield": {
+    "name": "Snakeskin Shield",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "legacy_ancient_spell_pierce": {
+    "name": "Legacy Ancient Spell: Pierce",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "random_spell_extraction_device": {
+    "name": "Random Spell Extraction Device",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "spelling_spell": {
+    "name": "Spelling Spell",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "legacy_seal_of_the_enchanted_forest": {
+    "name": "Legacy Seal of the Enchanted Forest",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "sandstone_seal": {
+    "name": "Sandstone Seal",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "scholar_s_seal": {
+    "name": "Scholar's Seal",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "seal_of_eternal_life": {
+    "name": "Seal of Eternal Life",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "cloak_planewalker": {
+    "name": "Cloak of the Planewalker",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "cloak_ghastly": {
+    "name": "Legacy Ghastly Drape",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "cloak_mirror": {
+    "name": "Mirror Cloak",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "archerang": {
+    "name": "Archerang",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "cocoon_quiver": {
+    "name": "Cocoon Quiver",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "helm_amber": {
+    "name": "Amber Encrusted Helmet",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "helm_challenger": {
+    "name": "Challenger Helm",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "lightning_in_a_bottle": {
+    "name": "Lightning in a Bottle",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "mighty_stein": {
+    "name": "Mighty Stein",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "murky_toxin": {
+    "name": "Murky Toxin",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "plague_poison": {
+    "name": "Plague Poison",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "cracked_crystal_skull": {
+    "name": "Cracked Crystal Skull",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "epiphany_skull": {
+    "name": "Epiphany Skull",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "sealed_crystal_skull": {
+    "name": "Sealed Crystal Skull",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "helium_trap": {
+    "name": "Helium Trap",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "mimicry_trap": {
+    "name": "Mimicry Trap",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "painbow": {
+    "name": "Painbow",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "enchantment_orb": {
+    "name": "Enchantment Orb",
+    "common": 30,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "karma_orb": {
+    "name": "Karma Orb",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "orb_of_sweet_demise": {
+    "name": "Orb of Sweet Demise",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "soul_of_the_bearer": {
+    "name": "Soul of the Bearer",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "titan_s_heart_2": {
+    "name": "Titan's Heart",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "fool_s_prism": {
+    "name": "Fool's Prism",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "ghostly_prism": {
+    "name": "Ghostly Prism",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "heart_of_gold_prism": {
+    "name": "Heart of Gold Prism",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "prism_of_dancing_swords": {
+    "name": "Prism of Dancing Swords",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "prismimic": {
+    "name": "Prismimic",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "honey_scepter": {
+    "name": "Honey Scepter",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "honey_scepter_supreme": {
+    "name": "Honey Scepter Supreme",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "scepter_of_fulmination": {
+    "name": "Scepter of Fulmination",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "clover_star": {
+    "name": "Clover Star",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "unshuriken": {
+    "name": "Unshuriken",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "nsfwakizashi": {
+    "name": "NSFWakizashi",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "ronin_s_wakizashi": {
+    "name": "Ronin's Wakizashi",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "wakizashi_of_crossing_fires": {
+    "name": "Wakizashi of Crossing Fires",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "wakizashi_of_eastern_winds": {
+    "name": "Wakizashi of Eastern Winds",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "lullaby": {
+    "name": "Lullaby",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "pharaoh_s_requiem": {
+    "name": "Pharaoh's Requiem",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "snake_charmer_pungi": {
+    "name": "Snake Charmer Pungi",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "mace_of_the_celestial_forest": {
+    "name": "Mace of the Celestial Forest",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "recursion_mace": {
+    "name": "Recursion Mace",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "quartermaster_scabbard": {
+    "name": "Quartermaster Scabbard",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "volcanic_sheath": {
+    "name": "Volcanic Sheath",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "draconic_insignia": {
+    "name": "Draconic Insignia",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_hsig": {
+    "name": "Hawkmaster Sigil",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "sharktooth_sigil": {
+    "name": "Sharktooth Sigil",
+    "common": 40,
+    "rare": 20,
+    "legendary": null,
+    "mythical": null
+  },
+  "sigil_of_the_rubber_duck": {
+    "name": "Sigil of the Rubber Duck",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "silken_sigil": {
+    "name": "Silken Sigil",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "ancient_stone_sword": {
+    "name": "Ancient Stone Sword",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "apocalypse_feather": {
+    "name": "Apocalypse Feather",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "arap": {
+    "name": "Arcane Rapier",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "crystalsword": {
+    "name": "Crystal Sword",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "doctor_swordsworth": {
+    "name": "Doctor Swordsworth",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "qbc_eggbasher": {
+    "name": "Egg Basher",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "enchiceblade": {
+    "name": "Enchanted Ice Blade",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "ffabulous_fflail": {
+    "name": "FFabulous FFlail",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "hammer_sword": {
+    "name": "Hammer Sword",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "keychain_cutlass": {
+    "name": "Keychain Cutlass",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "flail_lament": {
+    "name": "Lament of the Frozen Prisoner",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "legacy_pixie_enchanted_sword": {
+    "name": "Legacy Pixie-Enchanted Sword",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "mmace_mmurderer": {
+    "name": "MMace MMurderer",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "pkcutlass": {
+    "name": "Pirate King's Cutlass",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_saintnic": {
+    "name": "Saint Nicolas' Blade",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "flail_seismic": {
+    "name": "Seismic Flail",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "silex_s_hammer": {
+    "name": "Silex's Hammer",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "spectral_sword": {
+    "name": "Spectral Sword",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "swordillum": {
+    "name": "Sword of Illumination",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "sword_of_the_mad_god": {
+    "name": "Sword of the Mad God",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "sword_of_the_rainbow_s_end": {
+    "name": "Sword of the Rainbow's End",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "the_crimson_blade": {
+    "name": "The Crimson Blade",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_dirk": {
+    "name": "Blood Coated Dirk",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "bdag": {
+    "name": "Bone Dagger",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "duel_boomerang": {
+    "name": "Boomerang Blades",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_chicken": {
+    "name": "Chicken Leg of Doom",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_corruption": {
+    "name": "Corruption Cutter",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_amethyst": {
+    "name": "Dagger of the Amethyst Prism",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_rabbit": {
+    "name": "Dagger of the Hasteful Rabbit",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_frostlich": {
+    "name": "Frost Lich's Finger",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "duel_frostbite": {
+    "name": "Frostbite Blades",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_groovymango": {
+    "name": "Groovy Mango",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "duel_hatchling": {
+    "name": "Hatchling Blades",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_etherite": {
+    "name": "Legacy Etherite Dagger",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "dag_marionette": {
+    "name": "Marionette Ravager",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_mistermango": {
+    "name": "Mister Mango",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_poisonfang": {
+    "name": "Poison Fang Dagger",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_prismatic": {
+    "name": "Prismatic Slasher",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_spatula": {
+    "name": "Spatula Dagger",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_spirit": {
+    "name": "Spirit Dagger",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_toyknife": {
+    "name": "Toy Knife",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_arctic": {
+    "name": "Arctic Bow",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_baked": {
+    "name": "Baked Bow",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_mstar": {
+    "name": "Bow of the Morning Star",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_bramble": {
+    "name": "Bramble Bow",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_butter": {
+    "name": "Butter Bow",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_clover": {
+    "name": "Clover Bow",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_coral": {
+    "name": "Coral Bow",
+    "common": 40,
+    "rare": 20,
+    "legendary": null,
+    "mythical": null
+  },
+  "longbow_harpoon": {
+    "name": "Harpoon Longbow",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_icicle": {
+    "name": "Icicle Launcher",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_glacierbow": {
+    "name": "Longbow of the Great Glacier",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_nailgun": {
+    "name": "Nail Gun Bow",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_stringstick": {
+    "name": "Precisely Calibrated Stringstick",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_robobow": {
+    "name": "Robobow",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "qbc_shardlauncher": {
+    "name": "Shard Launcher",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "acidic_aspergillum": {
+    "name": "Acidic Aspergillum",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "caduceus_of_current_craziness": {
+    "name": "Caduceus of Current Craziness",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "caduceus_of_enlightened_chaos": {
+    "name": "Caduceus Of Enlightened Chaos",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "ceremonial_wand": {
+    "name": "Ceremonial Wand",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "qbc_ovipositor": {
+    "name": "Chocolate Ovipositor",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "cwand": {
+    "name": "Conducting Wand",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "crystal_wand": {
+    "name": "Crystal Wand",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "eggcond": {
+    "name": "Eggstatic Conductor",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "eternal_snowflake_wand": {
+    "name": "Eternal Snowflake Wand",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "frozen_wand": {
+    "name": "Frozen Wand",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "lethargic_sentience": {
+    "name": "Lethargic Sentience",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "measuring_wand": {
+    "name": "Measuring Wand",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "rainbow_rod": {
+    "name": "Rainbow Rod",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "scarlet_etched_branch": {
+    "name": "Scarlet Etched Branch",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "soul_s_guidance": {
+    "name": "Soul's Guidance",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "spicy_wand_of_spice": {
+    "name": "Spicy Wand of Spice",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "sprite_wand": {
+    "name": "Sprite Wand",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "st_abraham_s_wand": {
+    "name": "St. Abraham's Wand",
+    "common": 30,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_northstar": {
+    "name": "The North Star",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "wand_of_egg_cellence": {
+    "name": "Wand of Egg-cellence",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "wand_of_geb": {
+    "name": "Wand of Geb",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "wand_hidden": {
+    "name": "Wand of Hidden Knowledge",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "wand_of_the_bulwark": {
+    "name": "Wand of the Bulwark",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_winterwand": {
+    "name": "Winter's Breath Wand",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "anatis_staff": {
+    "name": "Anatis Staff",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "barely_attuned_magic_thingy": {
+    "name": "Barely Attuned Magic Thingy",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "qbc_spellblade": {
+    "name": "Caramel Spellblade",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "elder_heartwood_staff": {
+    "name": "Elder Heartwood Staff",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_walkingstick": {
+    "name": "Frosty's Walking Stick",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "hovering_spellblade": {
+    "name": "Hovering Spellblade",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "k_i_d_d_force": {
+    "name": "K.I.D.D. Force",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "k_i_d_d_force_2_0": {
+    "name": "K.I.D.D. Force 2.0",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "koalapow": {
+    "name": "KoalaPOW",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "legacy_sentient_staff": {
+    "name": "Legacy Sentient Staff",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "screwdriver_staff": {
+    "name": "Screwdriver Staff",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_snowblindsb": {
+    "name": "Snowblind Spellblade",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "spirit_staff": {
+    "name": "Spirit Staff",
+    "common": 30,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "staff_iceblast": {
+    "name": "Staff of Iceblast",
+    "common": 20,
+    "rare": 5,
+    "legendary": null,
+    "mythical": null
+  },
+  "staff_of_the_crystal_serpent": {
+    "name": "Staff of the Crystal Serpent",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "staff_of_the_saint": {
+    "name": "Staff of the Saint",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "the_phylactery": {
+    "name": "The Phylactery",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "kat_arbiter": {
+    "name": "Arbiter's Wrath",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_auroratachi": {
+    "name": "Aurora Tachi",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_ages": {
+    "name": "Blade of Ages",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_blooming": {
+    "name": "Blade of Blooming",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "dokunoken": {
+    "name": "Doku No Ken",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_goodfortune": {
+    "name": "Katana of Good Fortune",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_krathana": {
+    "name": "Krathana",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_sawblade": {
+    "name": "Sawblade Katana",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_useless": {
+    "name": "Useless Katana",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_voidblade": {
+    "name": "Void Blade",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "frost_yuki": {
+    "name": "Yuki",
+    "common": 15,
+    "rare": null,
+    "legendary": null,
+    "mythical": null
+  },
+  "autarch_amulet": {
+    "name": "Autarch Amulet",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "e_y_e": {
+    "name": "E.Y.E.",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_scarab": {
+    "name": "Faded Heart Scarab",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_hannya": {
+    "name": "Fractured Hannya",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "frimarra": {
+    "name": "Frimarra",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "mayhem_medallion": {
+    "name": "Mayhem Medallion",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ring_of_the_northern_light": {
+    "name": "Ring of the Northern Light",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ring_of_unbound_love": {
+    "name": "Ring of Unbound Love",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 10
+  },
+  "ring_of_wrath": {
+    "name": "Ring of Wrath",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "rose_brooch": {
+    "name": "Rose Brooch",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_opal": {
+    "name": "Sunken Fire Opal Ring",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "sweetener_ring": {
+    "name": "Sweetener Ring",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "thistleleaf_necklace": {
+    "name": "Thistleleaf Necklace",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "tiara_of_eggscellent_sturdiness": {
+    "name": "Tiara of Eggscellent Sturdiness",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 10
+  },
+  "leather_cupid": {
+    "name": "Cupid's Garments",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 15
+  },
+  "leather_leafdragon": {
+    "name": "Leaf Dragon Hide Armor",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_lightsynd": {
+    "name": "Light Syndicate Attire",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_ssh": {
+    "name": "Squadron Sheathing",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_aeg": {
+    "name": "Aegis Armor",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "heavy_eggre": {
+    "name": "Eggre Battle Armor",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 15
+  },
+  "heavy_firedragon": {
+    "name": "Fire Dragon Battle Armor",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "heavy_syndicate": {
+    "name": "Heavy Syndicate Attire",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "floral_corset": {
+    "name": "Floral Corset",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_jrobe": {
+    "name": "Judge's Robe",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_mysticsynd": {
+    "name": "Mystic Syndicate Attire",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "lod_waterrobe": {
+    "name": "Water Dragon Silk Robe",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "tome_of_frigid_protection": {
+    "name": "Tome of Frigid Protection",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "tome_of_holy_furor": {
+    "name": "Tome of Holy Furor",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "tome_of_pain": {
+    "name": "Tome of Pain",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "tome_of_the_dragon": {
+    "name": "Tome of the Dragon",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_ttg": {
+    "name": "Tome of the Tarnished Gods",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_bbuck": {
+    "name": "Brutal Buckler",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "dragon_slayer": {
+    "name": "Dragon Slayer",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "esoteric_buckler": {
+    "name": "Esoteric Buckler",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "shield_of_flowing_clarity": {
+    "name": "Shield of Flowing Clarity",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "spiteful_scutum": {
+    "name": "Spiteful Scutum",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "spriteful_shield": {
+    "name": "Spriteful Shield",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "ao_css": {
+    "name": "Cursed Spire Spell",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "jade_storm": {
+    "name": "Jade Storm",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "penetrating_blast_spell": {
+    "name": "Penetrating Blast Spell",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "recurring_terror_spell": {
+    "name": "Recurring Terror Spell",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "vitamine_buster": {
+    "name": "Vitamine Buster",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "wandering_souls_spell": {
+    "name": "Wandering Souls Spell",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_sbg": {
+    "name": "Seal of the Battle God",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "cloak_cubic": {
+    "name": "Cloak of Cubic Enigma",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_cds": {
+    "name": "Cloak of the Darkened Sun",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "cloak_madgod": {
+    "name": "Cloak of the Mad God",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "double_vision_darts": {
+    "name": "Double Vision Darts",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_mjav": {
+    "name": "Mad Javelin",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "q_u_i_v_e_r": {
+    "name": "Q.U.I.V.E.R.",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "helm_adamantine": {
+    "name": "Adamantine Helm",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "helm_bubblegum": {
+    "name": "Bubblegum Bucket",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_hem": {
+    "name": "Helm of Exalted Might",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "helm_swiftbunny": {
+    "name": "Helm of the Swift Bunny",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "helm_tipsy": {
+    "name": "Tipsy Topper",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bottled_lemonade": {
+    "name": "Bottled Lemonade",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bottled_medusozoan": {
+    "name": "Bottled Medusozoan",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_barrel": {
+    "name": "Rusted Barrel",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "spirit_s_bane": {
+    "name": "Spirit's Bane",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_ttox": {
+    "name": "Tyrant's Toxin",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_dls": {
+    "name": "Demon Lord's Skull",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ever_green_skull": {
+    "name": "Ever Green Skull",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "maw_of_malignance": {
+    "name": "Maw of Malignance",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "perennial_cranium": {
+    "name": "Perennial Cranium",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "skull_of_endless_torment": {
+    "name": "Skull of Endless Torment",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_bart": {
+    "name": "Blacklight Artifice",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "coral_venom_trap": {
+    "name": "Coral Venom Trap",
+    "common": 40,
+    "rare": 20,
+    "legendary": null,
+    "mythical": null
+  },
+  "deadly_keg": {
+    "name": "Deadly Keg",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "sulfuric_stone": {
+    "name": "Sulfuric Stone",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_artifact": {
+    "name": "Forbidden Artifact",
+    "common": null,
+    "rare": 40,
+    "legendary": 15,
+    "mythical": null
+  },
+  "orb_of_aether": {
+    "name": "Orb of Aether",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_ooc": {
+    "name": "Orb of Conquest",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "vision_of_draconis": {
+    "name": "Vision of Draconis",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "prism_of_dire_instability": {
+    "name": "Prism of Dire Instability",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_psl": {
+    "name": "Prism of Shattered Light",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "the_heart_of_the_dragon": {
+    "name": "The Heart of the Dragon",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "cnidaria_rod": {
+    "name": "Cnidaria Rod",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "eggsponential_scepter": {
+    "name": "Eggsponential Scepter",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "scepter_of_devastation": {
+    "name": "Scepter of Devastation",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "scepter_of_the_transgressor": {
+    "name": "Scepter of the Transgressor",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_ssc": {
+    "name": "Siege Scepter",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_stormcaller": {
+    "name": "Storm Caller",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "hanagasaku": {
+    "name": "Hanagasaku",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "igneous_starblossom": {
+    "name": "Igneous Starblossom",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "midnight_star": {
+    "name": "Midnight Star",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_rcl": {
+    "name": "Rage Claws",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_amat": {
+    "name": "Amaterasu",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "sakura_wakizashi": {
+    "name": "Sakura Wakizashi",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "shadow_serpent_sidearm": {
+    "name": "Shadow Serpent Sidearm",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_cwh": {
+    "name": "Chief's War Horn",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ghost_ship_s_bell": {
+    "name": "Ghost Ship's Bell",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "joker_timbrel": {
+    "name": "Joker Timbrel",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "wavecrest_concertina": {
+    "name": "Wavecrest Concertina",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "crystal_mace": {
+    "name": "Crystal Mace",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "dragon_mace": {
+    "name": "Dragon Mace",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "mace_of_the_depths": {
+    "name": "Mace of the Depths",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_mmace": {
+    "name": "Mechanical Mace",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_blz": {
+    "name": "Blitz Sheath",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "kaiken": {
+    "name": "Kaiken",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "labyrinth_dweller_s_sheath": {
+    "name": "Labyrinth Dweller's Sheath",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_sheath": {
+    "name": "Sheath of Thunderous Rites",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "cheerful_chipper": {
+    "name": "Cheerful Chipper",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "chocsicle": {
+    "name": "Chocsicle",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "eternal_graved_great_sword": {
+    "name": "Eternal Graved Great Sword",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "flail_gilded": {
+    "name": "Gilded Chain Scythe",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_hclay": {
+    "name": "Henchman's Claymore",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_bhd": {
+    "name": "Bounty Hunter's Dagger",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_evergreen": {
+    "name": "Evergreen Dagger",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "duel_pirate": {
+    "name": "Pirate's Sidearms",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "dag_righthook": {
+    "name": "The Right Hook",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_bow": {
+    "name": "B.O.W.",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_coralsoda": {
+    "name": "Coral Soda",
+    "common": 40,
+    "rare": 20,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_frangible": {
+    "name": "Frangible Longbow",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_garland": {
+    "name": "Garland Bow",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_heartstruck": {
+    "name": "Heartstruck Bow",
+    "common": null,
+    "rare": null,
+    "legendary": null,
+    "mythical": 20
+  },
+  "bow_leaf": {
+    "name": "Leaf Bow",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_occult": {
+    "name": "Occult Bow",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_pbow": {
+    "name": "Predator Bow",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_sacramental": {
+    "name": "Sacramental Crossbow",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_spidersilk": {
+    "name": "Spider Silk Bow",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_sunnyside": {
+    "name": "Sunny Side Bow",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bow_thousand": {
+    "name": "Thousand Shot",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "brass_chamberstick": {
+    "name": "Brass Chamberstick",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_macuahuitl": {
+    "name": "Obsidian Macuahuitl",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_twand": {
+    "name": "Tyrant's Wand",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "wand_of_the_fallen": {
+    "name": "Wand of the Fallen",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "bogwood_crook": {
+    "name": "Bogwood Crook",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_ostaff": {
+    "name": "Oppressor's Staff",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_sekhem": {
+    "name": "Royal Sekhem",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "staff_staff": {
+    "name": "S.T.A.F.F.",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "sleigh_bell_staff": {
+    "name": "Sleigh Bell Staff",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "snow_branch": {
+    "name": "Snow Branch",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "spring_rose": {
+    "name": "Spring Rose",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "tezcacoatl_s_tail": {
+    "name": "Tezcacoatl's Tail",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "ao_boa": {
+    "name": "Blade of the Assailant",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_bloodsiphon": {
+    "name": "Blood Siphoning Katana",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "brambletooth_tachi": {
+    "name": "Brambletooth Tachi",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "qbc_tachi": {
+    "name": "Bunny Ear Tachi",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_candy": {
+    "name": "Candy Katana",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_celestial": {
+    "name": "Celestial Blade",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "hookblade_tachi": {
+    "name": "Hookblade Tachi",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_kyuuketsuki": {
+    "name": "Kyuuketsuki Hitogoroshi",
+    "common": 30,
+    "rare": 15,
+    "legendary": null,
+    "mythical": null
+  },
+  "hi_khopesh": {
+    "name": "Ritual Khopesh",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  },
+  "kat_snowflake": {
+    "name": "Snowflake Blade",
+    "common": 40,
+    "rare": 30,
+    "legendary": null,
+    "mythical": null
+  }
+}

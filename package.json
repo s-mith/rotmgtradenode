@@ -1,0 +1,57 @@
+{
+  "name": "rotmgcommunism",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"tsx watch src/server/main.ts\" \"vite\"",
+    "dev:api": "tsx watch src/server/main.ts",
+    "prebuild": "node scripts/build-spritesheet.mjs",
+    "build": "vite build && node scripts/precompress.mjs dist/client && npm run build:server && npm run build:relay && npm run build:accountgen",
+    "build:server": "esbuild src/server/main.ts --bundle --platform=node --target=node22 --format=esm --packages=external --sourcemap --outfile=dist/server/main.js",
+    "build:sprites": "node scripts/build-spritesheet.mjs",
+    "gen:routes": "node scripts/gen-routes.mjs",
+    "sync:equip": "node scripts/sync-equip.mjs",
+    "start": "node dist/server/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gen:fixtures": "python3 scripts/gen-relay-fixtures.py ../rotmgcommunismpyrelay && python3 scripts/gen-relay-fleet-fixtures.py ../rotmgcommunismpyrelay && python3 scripts/gen-walker-fixtures.py ../accountgen/tutorial-state/pyrelay",
+    "relay": "tsx src/relay/main.ts",
+    "build:relay": "esbuild src/relay/main.ts --bundle --platform=node --target=node22 --format=esm --packages=external --sourcemap --outfile=dist/relay/main.js",
+    "build:resources": "node scripts/build-realm-resources.mjs ../accountgen/tutorial-state/pyrelay/Resources",
+    "accountgen": "tsx src/accountgen/main.ts",
+    "build:accountgen": "esbuild src/accountgen/main.ts --bundle --platform=node --target=node22 --format=esm --packages=external --sourcemap --outfile=dist/accountgen/main.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "better-sqlite3": "^13.0.1",
+    "fast-xml-parser": "^5.11.1",
+    "hono": "^4.13.5",
+    "https-proxy-agent": "^9.1.0",
+    "imapflow": "^1.7.8",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router-dom": "^7.18.3",
+    "react-virtuoso": "^4.18.11",
+    "sharp": "^0.34.5",
+    "socks": "^2.8.9",
+    "socks-proxy-agent": "^10.1.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.12",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.13",
+    "typescript": "5.7.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.1": true
+  },
+  "type": "module"
+}

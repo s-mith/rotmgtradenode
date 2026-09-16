@@ -1,0 +1,164 @@
+{
+ "packets": [
+  {
+   "name": "TELEPORT",
+   "id": 1,
+   "fields": {
+    "objectId": -1,
+    "playerName": "Aki"
+   },
+   "hex": "0000000e01ffffffff0003416b69"
+  },
+  {
+   "name": "TELEPORT",
+   "id": 1,
+   "fields": {
+    "objectId": 190836,
+    "playerName": ""
+   },
+   "hex": "0000000b010002e9740000"
+  },
+  {
+   "name": "CREATEPARTY",
+   "id": 200,
+   "fields": {
+    "description": "realmhunt Moonlight Village US",
+    "minPowerLevel": 0,
+    "maxPartySize": 50,
+    "activity": 2,
+    "maxedStatReq": 0,
+    "privacy": 1,
+    "serverIndex": 5
+   },
+   "hex": "0000002cc8001e7265616c6d68756e74204d6f6f6e6c696768742056696c6c61676520555300003202000105"
+  },
+  {
+   "name": "PARTYACTION",
+   "id": 204,
+   "fields": {
+    "playerId": 65535,
+    "actionId": 5
+   },
+   "hex": "00000008ccffff05"
+  },
+  {
+   "name": "PARTYACTION",
+   "id": 204,
+   "fields": {
+    "playerId": 12,
+    "actionId": 7
+   },
+   "hex": "00000008cc000c07"
+  },
+  {
+   "name": "PARTYACTIONRESULT",
+   "id": 207,
+   "fields": {
+    "playerId": 12,
+    "result": 6
+   },
+   "hex": "00000008cf000c06"
+  },
+  {
+   "name": "PARTYINVITE",
+   "id": 208,
+   "fields": {
+    "partyId": 9707,
+    "inviterName": "Stockings"
+   },
+   "hex": "00000014d0000025eb000953746f636b696e6773"
+  },
+  {
+   "name": "PARTYINVITERESPONSE",
+   "id": 209,
+   "fields": {
+    "partyId": 9707,
+    "accept": 1
+   },
+   "hex": "0000000ad1000025eb01"
+  },
+  {
+   "name": "PARTYMEMBERINFO",
+   "id": 210,
+   "fields": {
+    "partyId": 0,
+    "unknownShort": 0,
+    "maxSize": 0,
+    "players": [],
+    "description": ""
+   },
+   "hex": "00000010d20000000000000000000000"
+  },
+  {
+   "name": "PARTYMEMBERINFO",
+   "id": 210,
+   "fields": {
+    "partyId": 9707,
+    "unknownShort": 1,
+    "maxSize": 50,
+    "players": [
+     {
+      "playerId": 7,
+      "name": "Stockings",
+      "classId": 782,
+      "skinId": 0
+     }
+    ],
+    "description": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "hex": "00000049d2000025eb00013200010007000953746f636b696e6773030e0000002878787878787878787878787878787878787878787878787878787878787878787878787878787878"
+  },
+  {
+   "name": "PARTYMEMBERADDED",
+   "id": 212,
+   "fields": {
+    "playerId": 12,
+    "name": "Aki",
+    "classId": 768,
+    "skinId": 0
+   },
+   "hex": "00000010d4000c0003416b6903000000"
+  },
+  {
+   "name": "PARTYLIST",
+   "id": 214,
+   "fields": {
+    "packetNumber": 255,
+    "parties": [
+     {
+      "description": "puppy",
+      "partyId": 9707,
+      "minPowerLevel": 0,
+      "size": 2,
+      "maxSize": 50,
+      "activity": 0,
+      "privacy": 1,
+      "minStats": 0,
+      "serverIndex": 0
+     }
+    ]
+   },
+   "hex": "0000001bd6ff000100057075707079000025eb0000023200010000"
+  },
+  {
+   "name": "PARTYJOINREQUEST",
+   "id": 215,
+   "fields": {
+    "partyId": 9707,
+    "state": 1
+   },
+   "hex": "0000000ad7000025eb01"
+  },
+  {
+   "name": "PARTYJOINREQUESTRESPONSE",
+   "id": 217,
+   "fields": {
+    "name": "Aki",
+    "classId": 768,
+    "skinId": 2,
+    "state": 3
+   },
+   "hex": "0000000fd90003416b690300000203"
+  }
+ ]
+}
