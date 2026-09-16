@@ -101,5 +101,8 @@
         "dmg"
       ]
     }
+  },
+  "exports": {
+    "./shared/*": "./src/shared/*.ts"
   }
 }
