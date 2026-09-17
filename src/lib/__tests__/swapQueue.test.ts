@@ -31,7 +31,7 @@ describe("swap jobs", () => {
     const off = q.onSwapResult((rid, swap, result) => heard.push({ rid, swap, result }));
     q.reportSwap(db, BOT, id, { ok: true, gave: [{ itemId: "patk", qty: 1 }], gaveInstanceIds: ["inst-1"], got: [{ itemId: "pdef", qty: 1 }], partnerIgn: "TheirBot" });
     off();
-    expect(heard).toEqual([{ rid: id, swap: { rendezvousId: 42, role: "give", gets: [{ itemId: "pdef", qty: 1 }] }, result: expect.objectContaining({ ok: true }) }]);
+    expect(heard).toEqual([{ rid: id, swap: { rendezvousId: 42, role: "give", gets: [{ itemId: "pdef", qty: 1 }], vaultUserId: null }, result: expect.objectContaining({ ok: true }) }]);
     expect(db.prepare("SELECT status FROM withdraw_requests WHERE id = ?").get(id)).toEqual({ status: "fulfilled" });
     expect(db.prepare("SELECT COUNT(*) AS n FROM transactions").get()).toEqual({ n: 0 });
     expect(q.swapJobsFor(db, 42)).toEqual([{ id, status: "fulfilled" }]);

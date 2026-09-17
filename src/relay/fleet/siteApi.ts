@@ -15,6 +15,8 @@ export interface SwapSpec {
   role: "give" | "take";
   /** What this bot receives, catalog shape. */
   gets: ItemQty[];
+  /** Phase 4b: a guest's swap; what arrives becomes theirs (see swapReceived). */
+  vaultUserId?: number | null;
 }
 export interface SwapResult {
   ok: boolean;
@@ -116,6 +118,8 @@ export interface SiteApi {
   vaultMoved(instanceIds: string[], botGuid: string): Promise<ApiResult<{ moved?: number }>>;
   /** A swap row's outcome, success or not (replaces fulfill/giveUp for swap rows). */
   reportSwap?(botGuid: string, requestId: number, result: SwapResult): Promise<ApiResult>;
+  /** Phase 4b: the instances a guest's swap brought in, once the tracker knows them. */
+  swapReceived?(botGuid: string, requestId: number, vaultUserId: number, instances: ReceivedInstance[]): Promise<ApiResult>;
   readonly timeoutMs: number;
   readonly stats: ApiStats;
 }

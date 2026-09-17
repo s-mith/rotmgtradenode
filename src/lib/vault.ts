@@ -246,7 +246,10 @@ export function ensureVaultBot(db: Database.Database, userId: number, seasonal: 
   const s = seasonal ? 1 : 0;
   const cur = vaultHalf(db, userId, seasonal).botGuid;
   if (cur) return cur;
+  // Dedicated mode: a bot backs one half only (shared mode lets halves share).
+  const taken = sharedVaultBots() ? new Set<string>() : vaultBotGuids(db);
   for (const g of candidates) {
+    if (taken.has(g)) continue;
     try {
       const r = db.prepare("UPDATE vault_halves SET bot_guid = ?, bot_since = ? WHERE user_id = ? AND seasonal = ? AND bot_guid IS NULL").run(g, now, userId, s);
       if (r.changes) return g;
@@ -271,6 +274,31 @@ export function releaseVaultBotIfEmpty(db: Database.Database, userId: number, se
   }
   if (vaultCount(db, userId, seasonal) > 0 || openVaultRequests(db, userId, seasonal) > 0) return false;
   return db.prepare("UPDATE vault_halves SET bot_guid = NULL, bot_since = NULL WHERE user_id = ? AND seasonal = ? AND bot_guid IS NOT NULL").run(userId, seasonal ? 1 : 0).changes > 0;
+}
+
+/** Node mode (SHARED_VAULT_BOTS=1): vault halves share bots with the pool and with each other. */
+export const sharedVaultBots = (): boolean => process.env.SHARED_VAULT_BOTS === "1";
+
+/**
+ * Shared mode: any same-pool bot with room, holding whatever it holds. The
+ * bot already holding most of this user's items comes first, then the one
+ * with the most room, so a guest's vault tends to stay on one account.
+ */
+export function sharedVaultBotCandidates(db: Database.Database, pool: PyrelayPool, seasonal: boolean, userId: number, limit = 12): string[] {
+  const meta = pool.botMeta ?? {};
+  const caps = pool.capacities ?? {};
+  const mine = new Map<string, number>();
+  for (const r of db.prepare("SELECT bot_guid, COUNT(*) AS n FROM vault_items WHERE user_id = ? AND bot_guid IS NOT NULL GROUP BY bot_guid").all(userId) as { bot_guid: string; n: number }[]) mine.set(r.bot_guid, r.n);
+  const scored: { g: string; mine: number; free: number }[] = [];
+  for (const [g, m] of Object.entries(meta)) {
+    if ((m.seasonal !== false) !== seasonal || m.suspended) continue;
+    const held = Object.values(pool.bots[g] ?? {}).reduce((a, b) => a + b, 0);
+    const free = (caps[g] ?? 8) - held;
+    if (free <= 0) continue;
+    scored.push({ g, mine: mine.get(g) ?? 0, free });
+  }
+  scored.sort((a, b) => b.mine - a.mine || b.free - a.free || a.g.localeCompare(b.g));
+  return scored.slice(0, limit).map((s) => s.g);
 }
 
 /**

@@ -13,6 +13,7 @@ import NodeTab from "./NodeTab";
 import SiteHeader from "@/components/SiteHeader";
 import ProxiesTab from "./ProxiesTab";
 import OffersTab from "./OffersTab";
+import SharesTab from "./SharesTab";
 
 // The control panel: everything about running the node. Each tool lives in
 // exactly one category; the categories run across the top and the
@@ -29,6 +30,7 @@ type DevTab =
   | "backpacks"
   | "deposits"
   | "offers"
+  | "shares"
   | "itempoints"
   | "servercontrols"
   | "tutorials"
@@ -64,6 +66,7 @@ const CATEGORIES: { id: DevCategory; label: string; tabs: { id: DevTab; label: s
     id: "players",
     label: "Players",
     tabs: [
+      { id: "shares", label: "Shared vaults" },
       { id: "features", label: "Feature access" },
       { id: "wishlists", label: "Wishlists" },
       { id: "vaultcaps", label: "Vault caps" },
@@ -235,6 +238,7 @@ export default function DevSettingsPage() {
           {tab === "accounts" && <AccountsTab password={password} />}
           {tab === "backpacks" && <BackpacksTab password={password} />}
           {tab === "offers" && <OffersTab password={password} />}
+          {tab === "shares" && <SharesTab password={password} />}
           {tab === "deposits" && <DepositsTab password={password} />}
           {tab === "itempoints" && <ItemPointsTab password={password} />}
           {tab === "servercontrols" && <ServerControlTab password={password} />}

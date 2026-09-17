@@ -478,6 +478,18 @@ export function registerEmbeddedSwaps(s: EmbeddedSwaps | undefined): void {
 export function swaps(): EmbeddedSwaps | null {
   return globalThis.__embedded_swaps__ ?? null;
 }
+// Shared vaults (src/node/guests.ts).
+type EmbeddedGuests = import("@/node/guests").GuestCoordinator;
+declare global {
+  // eslint-disable-next-line no-var
+  var __embedded_guests__: EmbeddedGuests | undefined;
+}
+export function registerEmbeddedGuests(g: EmbeddedGuests | undefined): void {
+  globalThis.__embedded_guests__ = g;
+}
+export function guests(): EmbeddedGuests | null {
+  return globalThis.__embedded_guests__ ?? null;
+}
 
 export const accountgen = {
   /** Pass the browser's `w` cursor string straight through. */

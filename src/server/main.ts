@@ -42,6 +42,7 @@ installWishlistScanner();
 // then talks to it in memory, and the two share one lifecycle.
 let fleet: { stop(): void; proxies: import("@/relay/fleet/proxyPool").ProxyPool; nodeSettings: import("@/node/settings").NodeSettingsStore } | null = null;
 let swapsRef: { stop(): void } | null = null;
+let guestsRef: { stop(): void } | null = null;
 if (process.env.RELAY_EMBEDDED === "1") {
   const [{ Fleet }, { createControlPlane, poolPayload }, { registerEmbeddedRelay, registerEmbeddedPool }, { LocalSiteApi }, { notifyPoolChanged }] = await Promise.all([
     import("@/relay/fleet/fleet"),
@@ -63,6 +64,12 @@ if (process.env.RELAY_EMBEDDED === "1") {
   registerEmbeddedSwaps(swaps);
   swaps.start();
   swapsRef = swaps;
+  // Shared vaults (design doc §6.5): grants mirrored from the hub, guest requests executed here.
+  const [{ GuestCoordinator }, { registerEmbeddedGuests }] = await Promise.all([import("@/node/guests"), import("@/lib/devauth")]);
+  const guestsSvc = new GuestCoordinator({ db: getDb, hub: f.hub, swaps, pool: () => poolPayload(f), log: (l) => console.log(l) });
+  registerEmbeddedGuests(guestsSvc);
+  guestsSvc.start();
+  guestsRef = guestsSvc;
 }
 
 // Optional: the onboarding service (tutorial walks for owner-added
@@ -100,6 +107,7 @@ function shutdown(signal: string) {
   console.log(`[server] ${signal} received, shutting down`);
   stopScheduler();
   swapsRef?.stop();
+  guestsRef?.stop();
   fleet?.stop();
   // Open SSE streams keep connections alive; don't wait on them forever.
   const force = setTimeout(() => process.exit(0), 5_000);

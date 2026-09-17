@@ -144,10 +144,12 @@ export type OfferStatusWire = "open" | "accepted" | "cancelled" | "expired" | "v
 
 export interface OfferWire {
   id: number;
-  /** The poster's hub display name, for the browse page. */
+  /** The poster's hub display name (a guest's, when posted on their behalf). */
   poster: string;
   /** True on the poster's own node. */
   mine: boolean;
+  /** Phase 4b: set when a guest of the node posted it. */
+  onBehalfOf?: number | null;
   botIgn: string;
   seasonal: boolean;
   server: string;
@@ -159,6 +161,8 @@ export interface OfferWire {
 }
 
 export interface CreateOfferRequest {
+  /** Phase 4b: the offer is a guest's (their vault items), shown under their name. */
+  onBehalfOf?: number;
   botIgn: string;
   seasonal: boolean;
   /** Where the poster's bot will meet the taker. */
@@ -168,6 +172,8 @@ export interface CreateOfferRequest {
 }
 
 export interface AcceptOfferRequest {
+  /** Phase 4b: the acceptor is a guest of this node. */
+  onBehalfOf?: number;
   botIgn: string;
   /** The taker's items that cover the offer's want lines, in want-line order. */
   items: OfferItemWire[];
@@ -217,4 +223,85 @@ export interface NodeLimitsWire {
   maxItemsPerSide: number;
   completedSwaps: number;
   frozen: boolean;
+}
+
+// --- phase 4b: shared vaults (design doc §6.5) --------------------------------
+
+export type GrantRole = "deposit" | "withdraw-own" | "withdraw-any" | "co-owner";
+
+/** One guest's access to one node: their personal vault there. */
+export interface GrantWire {
+  id: number;
+  nodeId: string;
+  guest: { userId: number; displayName: string; email?: string };
+  /** The IGN the guest trades from; the node's bot trades with this name only. */
+  ign: string;
+  slotsSeasonal: number;
+  slotsNonseasonal: number;
+  role: GrantRole;
+  /** May the guest post and accept offers with their vault items. */
+  trade: boolean;
+  /** Owner paused this guest (requests refused, offers hidden) without revoking. */
+  paused: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateGrantRequest {
+  /** The guest's hub account, by email. */
+  email: string;
+  ign: string;
+  slotsSeasonal: number;
+  slotsNonseasonal: number;
+  role: GrantRole;
+  trade: boolean;
+}
+export type UpdateGrantRequest = Partial<Pick<CreateGrantRequest, "ign" | "slotsSeasonal" | "slotsNonseasonal" | "role" | "trade">> & { paused?: boolean };
+
+/** What a node publishes about one guest's vault half. */
+export interface GuestVaultHalfWire {
+  slots: number;
+  used: number;
+  /** Items the guest owns in this half; `ref` is the node's handle, `name` the catalog name. */
+  items: { ref: string; itemId: string; name: string; enchants: number[] | null; count: number; online: boolean }[];
+}
+export interface PublishVaultsRequest {
+  guests: { userId: number; seasonal: GuestVaultHalfWire; nonseasonal: GuestVaultHalfWire }[];
+  at: number;
+}
+
+export type GuestRequestKind = "deposit" | "withdraw" | "offer-create" | "offer-accept" | "offer-cancel";
+export type GuestRequestState = "pending" | "taken" | "done" | "failed" | "expired";
+
+/** A guest's intent, queued on the hub and executed by the owner's node. */
+export interface GuestRequestWire {
+  id: number;
+  nodeId: string;
+  guest: { userId: number; displayName: string };
+  ign: string;
+  kind: GuestRequestKind;
+  seasonal: boolean;
+  /** deposit / withdraw: where the guest will meet the bot. offer-create: where the poster's bot meets a taker. */
+  server: string | null;
+  /** deposit: how many items the guest brings (trade size). */
+  count: number | null;
+  /** withdraw / offer-create: the guest's item refs (from the published vault). */
+  refs: string[] | null;
+  /** offer-create: want lines. */
+  want: WantLineWire[] | null;
+  /** offer-accept / offer-cancel. */
+  offerId: number | null;
+  state: GuestRequestState;
+  createdAt: number;
+  /** Set by the node's result. */
+  result: { ok: boolean; error?: string; detail?: string; requestId?: number; offerId?: number } | null;
+}
+
+export interface GuestRequestResult {
+  ok: boolean;
+  error?: string;
+  detail?: string;
+  /** deposit / withdraw: the node's queue row id. offer-*: the hub offer id. */
+  requestId?: number;
+  offerId?: number;
 }

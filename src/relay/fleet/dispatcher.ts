@@ -79,6 +79,8 @@ interface PendingVaultAttach {
   /** Instance ids on the bot before the trade. */
   before: Set<string>;
   since: number;
+  /** Phase 4b: a guest's swap; attach what arrived to this vault user instead of fulfilling a deposit. */
+  swapVaultUser?: number;
 }
 const VAULT_ATTACH_MAX_MS = 8_000;
 
@@ -739,6 +741,9 @@ export class Dispatcher {
       // reportSwap rather than fulfill.
       const sa = a as SiteAssignment & { kind: "withdraw" };
       this.swapAssignments.set(acc.guid, sa);
+      // A guest's swap: remember what the bot held, so what arrives can be
+      // told apart and attached to the guest's vault (resolveVaultAttaches).
+      if (a.swap.vaultUserId != null) this.preTradeInstances.set(acc.guid, new Set(Object.values(this.tracker.instancesFor(acc.botGuid)).map((i) => i.instanceId)));
       const now = Date.now();
       this.lastActive.set(acc.guid, now);
       const session = this.sessionFor(acc);
@@ -796,6 +801,12 @@ export class Dispatcher {
       void report.then((r) => {
         if (!r.ok) this.log(`swap #${requestId} report failed: ${r.error}`);
       }).catch((e) => this.log(`swap #${requestId} report raised: ${String(e)}`));
+      if (result.ok && swapRow.swap?.vaultUserId != null && result.got.length) {
+        const before = this.preTradeInstances.get(acc.guid) ?? new Set<string>();
+        const units = result.got.flatMap((g) => Array.from({ length: g.qty }, () => ({ itemId: g.itemId, enchants: 0 })));
+        this.pendingVaultAttach.push({ acc, requestId, received: result.got, units, before, since: Date.now(), swapVaultUser: swapRow.swap.vaultUserId });
+      }
+      this.preTradeInstances.delete(acc.guid);
       this.clearAssignment(acc, session);
       this.partnerWaitSince.delete(acc.guid);
       this.lastActive.set(acc.guid, Date.now());
@@ -924,6 +935,12 @@ export class Dispatcher {
       if (!complete && !gone && now - p.since < VAULT_ATTACH_MAX_MS) continue;
       if (!complete) this.log(`${p.acc.alias} vault deposit #${p.requestId}: matched ${matched.length} of ${p.units.length} received item(s) to tracker instances`);
       this.pendingVaultAttach = this.pendingVaultAttach.filter((x) => x !== p);
+      if (p.swapVaultUser != null) {
+        // A guest's swap: no fulfil (reportSwap closed the row); just the ownership of what arrived.
+        const call = this.api.swapReceived?.(p.acc.botGuid, p.requestId, p.swapVaultUser, matched);
+        void call?.then((r) => { if (!r.ok) this.log(`swap #${p.requestId} attach failed: ${r.error}`); }).catch((e) => this.log(`swap #${p.requestId} attach raised: ${String(e)}`));
+        continue;
+      }
       this.reportFulfill({ kind: "deposit", botGuid: p.acc.botGuid, requestId: p.requestId, items: p.received, units: p.units, instances: matched, attempts: 0 });
     }
   }

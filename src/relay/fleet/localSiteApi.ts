@@ -71,4 +71,7 @@ export class LocalSiteApi implements SiteApi {
   async reportSwap(botGuid: string, requestId: number, result: SwapResult): Promise<ApiResult> {
     return this.run("swap-report", () => ({ ...queue.reportSwap(this.db(), botGuid, requestId, result) }));
   }
+  async swapReceived(_botGuid: string, requestId: number, vaultUserId: number, instances: ReceivedInstance[]): Promise<ApiResult> {
+    return this.run("swap-received", () => ({ attached: queue.attachSwapReceived(this.db(), requestId, vaultUserId, instances) }));
+  }
 }

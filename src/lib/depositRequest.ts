@@ -13,7 +13,7 @@ import { MAX_TRADE_SLOTS } from "./depositSizes";
 import { pyrelay } from "./devauth";
 import { openRequestsFor } from "./cancelCode";
 import { sweepStaleRequests } from "./timeouts";
-import { ensureVaultBot, poolName, vaultBotCandidates, vaultBotGuids, vaultCount, vaultHalf } from "./vault";
+import { ensureVaultBot, poolName, sharedVaultBotCandidates, sharedVaultBots, vaultBotCandidates, vaultBotGuids, vaultCount, vaultHalf } from "./vault";
 
 export type CreateDepositOk = {
   ok: true;
@@ -113,7 +113,7 @@ export async function createDepositRequest(
     slots = Math.min(slots, left);
     if (!s.botGuid) {
       if (!poolResp.ok) return { ok: false, status: 503, error: "Bot service unavailable — try again in a minute." };
-      botCandidates = vaultBotCandidates(db, poolResp.data, s.seasonal, vaultUserId);
+      botCandidates = sharedVaultBots() ? sharedVaultBotCandidates(db, poolResp.data, s.seasonal, vaultUserId) : vaultBotCandidates(db, poolResp.data, s.seasonal, vaultUserId);
       if (!botCandidates.length) return { ok: false, status: 503, error: "No free bot for your vault right now — try again in a minute." };
     }
   }
@@ -237,7 +237,7 @@ export async function createDepositRequest(
       .prepare(
         `INSERT INTO deposit_requests
            (ign, ign_lower, server, item_count, remaining_count, status, group_id, seasonal, items_json, vault_user_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
       )
       .run(ign, ignLower, server, slots, slots, groupId, seasonal, itemsJson, vaultUserId, now, now);
     return { kind: "ok" as const, requestId: Number(result.lastInsertRowid) };

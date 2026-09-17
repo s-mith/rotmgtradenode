@@ -7,6 +7,7 @@
 // is no HTTP protocol, no signature, no nonce between them any more.
 //
 // Bot presence comes from lib/fleetPresence.ts, not a table.
+import { sharedVaultBots } from "./vault";
 import type Database from "better-sqlite3";
 import { ITEM_BY_ID } from "./catalog";
 import { poolRoomForDeposits } from "./capacity";
@@ -22,7 +23,7 @@ export type ItemQty = { itemId: string; qty: number };
 export type Unit = { itemId: string; enchants: number };
 
 /** A cross-node swap on a withdraw row (design doc §6.2). */
-export type SwapSpec = { rendezvousId: number; role: "give" | "take"; gets: ItemQty[] };
+export type SwapSpec = { rendezvousId: number; role: "give" | "take"; gets: ItemQty[]; /** Phase 4b: the guest whose vault the items belong to (and receive into). */ vaultUserId?: number | null };
 export type SwapResult = { ok: boolean; gave: ItemQty[]; gaveInstanceIds: string[]; got: ItemQty[]; partnerIgn: string; error?: string; partnerAbsent?: boolean };
 
 export type Assignment =
@@ -389,7 +390,7 @@ function parseSwap(raw: string | null): SwapSpec | null {
   if (!raw) return null;
   try {
     const j = JSON.parse(raw) as SwapSpec;
-    return j && (j.role === "give" || j.role === "take") && Array.isArray(j.gets) ? { rendezvousId: Number(j.rendezvousId), role: j.role, gets: j.gets } : null;
+    return j && (j.role === "give" || j.role === "take") && Array.isArray(j.gets) ? { rendezvousId: Number(j.rendezvousId), role: j.role, gets: j.gets, vaultUserId: j.vaultUserId == null ? null : Number(j.vaultUserId) } : null;
   } catch {
     return null;
   }
@@ -405,9 +406,9 @@ export function createSwapJob(db: Database.Database, job: { server: string; botG
   if (!job.give.length || !job.giveInstanceIds.length) throw new QueueError("a swap side must give at least one item");
   if (!job.partnerIgn) throw new QueueError("partner IGN required");
   const now = Date.now();
-  const r = db.prepare(`INSERT INTO withdraw_requests (ign, ign_lower, server, items_json, status, target_bot_guid, instance_ids_json, seasonal, created_at, updated_at, swap_json)
-    VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`)
-    .run(job.partnerIgn, job.partnerIgn.toLowerCase(), job.server, JSON.stringify(job.give), job.botGuid, JSON.stringify(job.giveInstanceIds), job.seasonal ? 1 : 0, now, now, JSON.stringify(job.swap));
+  const r = db.prepare(`INSERT INTO withdraw_requests (ign, ign_lower, server, items_json, status, target_bot_guid, instance_ids_json, seasonal, vault_user_id, created_at, updated_at, swap_json)
+    VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`)
+    .run(job.partnerIgn, job.partnerIgn.toLowerCase(), job.server, JSON.stringify(job.give), job.botGuid, JSON.stringify(job.giveInstanceIds), job.seasonal ? 1 : 0, job.swap.vaultUserId ?? null, now, now, JSON.stringify(job.swap));
   const id = Number(r.lastInsertRowid);
   recordEvent(db, "withdraw", id, "swap-queued", job.botGuid, { rendezvousId: job.swap.rendezvousId, role: job.swap.role });
   return id;
@@ -424,6 +425,25 @@ export function cancelSwapJob(db: Database.Database, requestId: number, why: str
   const r = db.prepare("UPDATE withdraw_requests SET status = 'cancelled', updated_at = ? WHERE id = ? AND swap_json IS NOT NULL AND status IN ('pending','claimed')").run(Date.now(), requestId);
   if (r.changes) recordEvent(db, "withdraw", requestId, "swap-cancelled", null, { why });
   return r.changes > 0;
+}
+
+/** Phase 4b: the physical items a guest's swap brought in, once the tracker has seen them, become the guest's. */
+export function attachSwapReceived(db: Database.Database, requestId: number, vaultUserId: number, instances: ReceivedInstance[]): number {
+  const row = db.prepare("SELECT seasonal, claimed_by, swap_json FROM withdraw_requests WHERE id = ?").get(requestId) as { seasonal: number; claimed_by: string | null; swap_json: string | null } | undefined;
+  if (!row || !row.swap_json) throw new QueueError("Not a swap row");
+  const now = Date.now();
+  const ins = db.prepare("INSERT OR IGNORE INTO vault_items (instance_id, user_id, item_id, enchants, seasonal, bot_guid, source, created_at) VALUES (?, ?, ?, ?, ?, ?, 'deposit', ?)");
+  const ev = db.prepare("INSERT INTO vault_events (user_id, ign, event, instance_id, item_id, detail, at) VALUES (?, '', 'traded-in', ?, ?, ?, ?)");
+  let n = 0;
+  db.transaction(() => {
+    for (const i of instances) {
+      if (ins.run(i.instanceId, vaultUserId, i.itemId, i.enchants, row.seasonal, row.claimed_by, now).changes) {
+        n++;
+        ev.run(vaultUserId, i.instanceId, i.itemId, JSON.stringify({ requestId }), now);
+      }
+    }
+  })();
+  return n;
 }
 
 type SwapListener = (requestId: number, swap: SwapSpec, result: SwapResult) => void;
@@ -446,6 +466,13 @@ export function reportSwap(db: Database.Database, botGuid: string, requestId: nu
     if (row.claimed_by && row.claimed_by !== botGuid) throw new QueueError("This request was claimed by a different bot");
     db.prepare("UPDATE withdraw_requests SET status = ?, updated_at = ? WHERE id = ?").run(result.ok ? "fulfilled" : "failed", now, requestId);
     recordEvent(db, "withdraw", requestId, result.ok ? "swap-done" : "swap-failed", botGuid, result);
+    // A guest's items left their vault: drop the ownership rows (the
+    // received ones are attached once the tracker sees them, attachSwapReceived).
+    if (result.ok && spec.vaultUserId != null) {
+      const del = db.prepare("DELETE FROM vault_items WHERE instance_id = ? AND user_id = ?");
+      const ev = db.prepare("INSERT INTO vault_events (user_id, ign, event, instance_id, item_id, detail, at) VALUES (?, ?, 'traded-away', ?, NULL, ?, ?)");
+      for (const id of result.gaveInstanceIds) if (del.run(id, spec.vaultUserId).changes) ev.run(spec.vaultUserId, result.partnerIgn, id, JSON.stringify({ requestId, rendezvousId: spec.rendezvousId }), now);
+    }
     return spec;
   }).immediate();
   presence.setStatus(botGuid, "idle", now);
@@ -533,7 +560,8 @@ export function listPending(db: Database.Database): { withdraws: PendingWithdraw
       }
       return out;
     });
-  const vaultBots = (db.prepare("SELECT bot_guid FROM vault_halves WHERE bot_guid IS NOT NULL").all() as { bot_guid: string }[]).map((r) => r.bot_guid);
+  // Shared mode: no bot is anybody's alone, so the fleet treats them all as pool bots.
+  const vaultBots = sharedVaultBots() ? [] : (db.prepare("SELECT bot_guid FROM vault_halves WHERE bot_guid IS NOT NULL").all() as { bot_guid: string }[]).map((r) => r.bot_guid);
   return { withdraws, deposits, vaultBots };
 }
 

@@ -194,6 +194,31 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    // 6: a bot may back more than one vault half. On a node with a handful
+    // of accounts, guests' vaults share the owner's bots (design doc §6.5),
+    // so the dedicated-bot rule from the shared pool goes. SQLite cannot
+    // drop a UNIQUE from a column, so the table is rebuilt without it.
+    id: 6,
+    name: "shared_vault_bots",
+    up(db) {
+      db.exec(`
+        CREATE TABLE vault_halves_new (
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          seasonal INTEGER NOT NULL,
+          slots INTEGER NOT NULL DEFAULT 0,
+          bot_guid TEXT,
+          bot_since INTEGER,
+          PRIMARY KEY (user_id, seasonal)
+        );
+        INSERT INTO vault_halves_new (user_id, seasonal, slots, bot_guid, bot_since)
+          SELECT user_id, seasonal, slots, bot_guid, bot_since FROM vault_halves;
+        DROP TABLE vault_halves;
+        ALTER TABLE vault_halves_new RENAME TO vault_halves;
+        CREATE INDEX IF NOT EXISTS vault_halves_bot ON vault_halves (bot_guid);
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database, migrations: Migration[] = MIGRATIONS): number[] {

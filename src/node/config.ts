@@ -58,6 +58,9 @@ export function applyNodeDefaults(): NodeConfig {
   // The desk bot waits where trades default to meeting (the trade desk's
   // default server), so a one-account node is already in place.
   setDefault("LOGIN_DESK_SERVERS", "USSouth3,USWest4,USMidWest2");
+  // A guest's vault shares the owner's bots (design doc §6.5); no dedicated
+  // vault bots on a node with a handful of accounts.
+  setDefault("SHARED_VAULT_BOTS", "1");
   // What the hub and telemetry see as this node's version: package.json's,
   // unless the shell (or a release) set it.
   if (!process.env.ROTMGTRADE_VERSION) {

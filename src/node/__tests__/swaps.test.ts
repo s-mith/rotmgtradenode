@@ -61,7 +61,7 @@ describe("SwapCoordinator", () => {
     expect(calls[0].body).toMatchObject({ botIgn: "MyBot", seasonal: true, server: "USSouth3", give: [{ ref: "r1", itemId: "patk", count: 0 }], want: [{ itemId: "pdef", qty: 1 }] });
     // Offered items are no longer free.
     expect(c.held().map((h) => h.instanceId).sort()).toEqual(["i-pdef-ench", "i-pdef-plain"]);
-    expect(c.status().localOffers).toEqual([{ offerId: 5, side: "poster", botGuid: BOT, refs: { r1: "i-patk" }, status: "open" }]);
+    expect(c.status().localOffers).toEqual([{ offerId: 5, side: "poster", botGuid: BOT, refs: { r1: "i-patk" }, status: "open", localUserId: null }]);
   });
 
   it("previews the plainest fit for someone else's offer, accepts, and queues the swap row from the rendezvous", async () => {

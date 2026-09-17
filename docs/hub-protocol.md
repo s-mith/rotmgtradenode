@@ -87,3 +87,45 @@ Rules the hub enforces:
   `maxItemsPerSide = min(24, 4 + 2 * completedSwaps)`. A frozen node's
   offers are hidden.
 - Offers expire after 14 days.
+
+## Phase 4b: shared vaults (v1 additions)
+
+Grants (§6.5) live on the hub, keyed by node; the node mirrors them into its
+per-user vault tables and does every physical thing. Types are in
+`src/shared/hubWire.ts` (`GrantWire`, `PublishVaultsRequest`,
+`GuestRequestWire`, `GuestRequestResult`).
+
+Node-signed:
+
+| Method | Path | Body → reply |
+| --- | --- | --- |
+| GET | `/api/v1/grants` | → `{ grants: GrantWire[] }` this node's grants |
+| POST | `/api/v1/grants` | `CreateGrantRequest` → `{ grant }` (404 unknown email, 409 already granted) |
+| PUT | `/api/v1/grants/:id` | `UpdateGrantRequest` → `{ grant }` |
+| DELETE | `/api/v1/grants/:id` | → `{ ok }` revoke |
+| POST | `/api/v1/vaults/publish` | `PublishVaultsRequest` → `{ ok }` replaces the node's published guest vaults |
+| GET | `/api/v1/guest-requests` | → `{ requests: GuestRequestWire[] }` pending ones for this node; marks them `taken` |
+| POST | `/api/v1/guest-requests/:id/result` | `GuestRequestResult` → `{ ok, state }` |
+
+Offers: `CreateOfferRequest.onBehalfOf` / `AcceptOfferRequest.onBehalfOf`
+name a guest of the calling node; the hub checks a grant with `trade` and
+not `paused` exists for that node and user, records `offers.for_user_id`,
+and shows the guest as `poster`. Limits, attestations and freezes stay per
+node.
+
+Website (cookie session, for guests):
+
+- `GET /vaults`: every node the user has a grant on: owner, node name,
+  online, slots used/granted per half, role, trade.
+- `GET /vaults/:nodeId`: the published vault (both halves) with forms:
+  deposit (seasonal, server, count), withdraw (pick refs, server), and, when
+  `trade`: create offer (refs + want lines), accept an open offer, cancel
+  one of mine. Each form queues a `GuestRequestWire`; the page lists the
+  guest's recent requests with state and result.
+- The node polls, executes, and posts the result. A request nobody takes
+  within 30 minutes becomes `expired`.
+
+Rules the hub enforces: a request needs an unpaused grant; `withdraw` needs
+role ≥ withdraw-own (co-owner and withdraw-any may also withdraw the
+owner's pool items, which the node checks); `offer-*` needs `trade`;
+`deposit` count ≤ the half's free slots as last published.
