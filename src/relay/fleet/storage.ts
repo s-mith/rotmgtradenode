@@ -1,10 +1,15 @@
 // Account storage (docs/relay/STORAGE.md): the vault chests, the potion
 // rack, the Gift Chest and the seasonal spoils chest an account has beyond
-// its character's trade slots. The operator queues moves per account in
-// the console; a run logs each account in, walks it into the Vault, does
-// the moves as INVSWAPs against the containers VAULTINFO names, and
-// records what every container holds. Nothing here runs by itself, and
-// the dispatcher leaves an account alone while its trip lasts.
+// its character's trade slots, and the trade slots of the characters the
+// fleet is not playing. Everything tradeable in them is listed in the pool
+// under an identity of its own (storedInstances); a withdraw that names one
+// has the dispatcher order a fetch (StorageService.fetch): the account logs
+// in as the character that can reach the item, walks into the Vault for
+// whatever sits in a container, and the tracker then holds it like any
+// other. The operator can also queue moves by hand from the console; a run
+// logs each account in and does them as INVSWAPs against the containers
+// VAULTINFO names. The dispatcher leaves an account alone while a trip
+// drives it.
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -57,8 +62,14 @@ export interface ContainerSnapshot {
   objectId: number;
   /** Object type per slot, -1 for empty: VAULTINFO's list, kept current through this node's own moves. */
   slots: number[];
-  /** What this node put in a slot itself (bank / rack in): the instance keeps its identity on the way back. */
-  placed: Record<number, Instance>;
+  /**
+   * The identity of what each tradeable slot holds. What this node put there
+   * itself (bank / rack in) keeps its instance, enchants included; anything
+   * else is given an id the first time it is seen and keeps it while the
+   * slot's type holds, so the pool can name it and a withdraw picked before
+   * the trip still means the same item afterwards.
+   */
+  instances: Record<number, Instance>;
 }
 export type Containers = Record<ContainerKind, ContainerSnapshot>;
 
@@ -68,15 +79,39 @@ export interface AccountStorageState {
   botGuid: string;
   lastVisitAt: number | null;
   containers: Containers | null;
+  /** Which side's character read `containers` (the Gift Chest is per side); null before a visit. */
+  viewSeasonal?: boolean | null;
   /** Non-catalog items on the character at the last visit (the tracker only knows catalog items). */
   untracked?: UntrackedSlot[];
   chars: CharDetail[] | null;
   charsAt: number | null;
+  /** The character the tracker's snapshot describes (its LOAD id), once a login said. */
+  loginCharId?: number | null;
+  /**
+   * Trade-slot items of the characters the fleet is not playing, by
+   * character id then slot (from char/list's Equipment). Ids are kept while
+   * the slot's type holds, and an item the tracker knew keeps its id when
+   * the fleet switches away from its character.
+   */
+  charItems?: Record<string, Record<number, Instance>>;
   moves: Move[];
   lastRun: { at: number; ok: boolean; error: string | null; summary: string } | null;
   lastError: string | null;
 }
-const emptyState = (acc: BotAccount): AccountStorageState => ({ alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, lastVisitAt: null, containers: null, chars: null, charsAt: null, moves: [], lastRun: null, lastError: null });
+const emptyState = (acc: BotAccount): AccountStorageState => ({ alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, lastVisitAt: null, containers: null, viewSeasonal: null, chars: null, charsAt: null, loginCharId: null, charItems: {}, moves: [], lastRun: null, lastError: null });
+
+/** Where a stored item is: a container slot, or a trade slot of a character the fleet is not playing. */
+export type StoredWhere = { kind: ContainerKind; slot: number } | { kind: "char"; charId: number; slot: number; className: string; level: number };
+/** Which pool halves a character of the account could carry a stored item to. */
+export interface PoolSides {
+  seasonal: boolean;
+  nonseasonal: boolean;
+}
+/** An item the account holds beyond the played character's trade slots, as the pool lists it. */
+export interface StoredInstance extends Instance {
+  where: StoredWhere;
+  pools: PoolSides;
+}
 
 /** Player classes by object type, for the character list. */
 export const CLASS_NAMES: Record<number, string> = {
@@ -97,12 +132,28 @@ export function nameOfType(objectType: number): { itemId: string | null; name: s
 export class StorageStore {
   private readonly accounts = new Map<string, AccountStorageState>();
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Bumped whenever a state changes: the pool payload is rebuilt when it moves. */
+  private rev = 0;
+  /** Fired after any change (the site re-serves the pool). */
+  onChange: (() => void) | null = null;
   constructor(private readonly file: string) {
     try {
       if (fs.existsSync(file)) {
         const raw = JSON.parse(fs.readFileSync(file, "utf8")) as { accounts?: Record<string, AccountStorageState> };
         // Moves from before a move carried its type and name are dropped; they are cheap to queue again.
-        for (const [g, st] of Object.entries(raw.accounts ?? {})) this.accounts.set(g, { ...st, moves: Array.isArray(st.moves) ? st.moves.filter((m) => Number.isInteger(m.objectType) && typeof m.name === "string") : [] });
+        for (const [g, st] of Object.entries(raw.accounts ?? {})) {
+          const moves = Array.isArray(st.moves) ? st.moves.filter((m) => Number.isInteger(m.objectType) && typeof m.name === "string") : [];
+          // A file from before every slot had an identity named only what this node placed.
+          if (st.containers) {
+            for (const k of CONTAINER_KINDS) {
+              const c = st.containers[k] as ContainerSnapshot & { placed?: Record<number, Instance> };
+              if (!c) continue;
+              c.instances ??= c.placed ?? {};
+              delete c.placed;
+            }
+          }
+          this.accounts.set(g, { ...st, moves, charItems: st.charItems ?? {} });
+        }
       }
     } catch (e) {
       console.log(`storage: failed to load ${file}: ${String(e)}`);
@@ -120,6 +171,9 @@ export class StorageStore {
   get(botGuid: string): AccountStorageState | undefined {
     return this.accounts.get(botGuid);
   }
+  revision(): number {
+    return this.rev;
+  }
   save(): void {
     if (this.saveTimer) clearTimeout(this.saveTimer);
     this.saveTimer = null;
@@ -132,11 +186,172 @@ export class StorageStore {
       console.log(`storage: failed to save ${this.file}: ${String(e)}`);
     }
   }
+  /** Something changed: write it soon, and tell the pool. */
   requestSave(): void {
+    this.rev++;
+    this.onChange?.();
     if (this.saveTimer) return;
     this.saveTimer = setTimeout(() => this.save(), 2_000);
     this.saveTimer.unref?.();
   }
+}
+
+// --- what the account holds beyond its trade slots (pure) ----------------------------
+
+/** Only a character that exists and lives can carry an item to a pool; without a char list the account's own flag stands in. */
+function sidesOf(st: AccountStorageState, accSeasonal: boolean): PoolSides {
+  const live = (st.chars ?? []).filter((c) => !c.dead);
+  if (!st.chars) return { seasonal: accSeasonal, nonseasonal: !accSeasonal };
+  return { seasonal: live.some((c) => c.seasonal), nonseasonal: live.some((c) => !c.seasonal) };
+}
+
+/**
+ * Every tradeable item in the account's containers and on its other
+ * characters, with the pool halves it can be handed out in. The vault chests
+ * and the potion rack are reachable by any character of the account; the
+ * Gift Chest only by the side that read it (it is one chest per side); the
+ * seasonal spoils chest only by a non-seasonal character; a character's own
+ * items by its side. `loginCharId` is the character the tracker describes,
+ * whose trade slots are the pool proper.
+ */
+export function storedInstances(st: AccountStorageState, loginCharId: number | null, accSeasonal: boolean): StoredInstance[] {
+  const out: StoredInstance[] = [];
+  const has = sidesOf(st, accSeasonal);
+  const none = (p: PoolSides) => !p.seasonal && !p.nonseasonal;
+  const c = st.containers;
+  if (c) {
+    const side = st.viewSeasonal ?? accSeasonal;
+    const poolsFor: Record<ContainerKind, PoolSides> = {
+      vault: { seasonal: has.seasonal, nonseasonal: has.nonseasonal },
+      rack: { seasonal: has.seasonal, nonseasonal: has.nonseasonal },
+      gift: { seasonal: side && has.seasonal, nonseasonal: !side && has.nonseasonal },
+      spoils: { seasonal: false, nonseasonal: has.nonseasonal },
+    };
+    for (const kind of CONTAINER_KINDS) {
+      const pools = poolsFor[kind];
+      if (none(pools)) continue;
+      const cont = c[kind];
+      if (!cont) continue;
+      for (const [s, inst] of Object.entries(cont.instances)) {
+        const slot = Number(s);
+        if (cont.slots[slot] !== toObjType(inst.itemId)) continue;
+        out.push({ ...inst, enchantments: [...inst.enchantments], where: { kind, slot }, pools });
+      }
+    }
+  }
+  for (const ch of st.chars ?? []) {
+    if (ch.dead || ch.id === loginCharId) continue;
+    const pools: PoolSides = { seasonal: ch.seasonal, nonseasonal: !ch.seasonal };
+    const items = st.charItems?.[String(ch.id)] ?? {};
+    for (const [s, inst] of Object.entries(items)) {
+      out.push({ ...inst, enchantments: [...inst.enchantments], where: { kind: "char", charId: ch.id, slot: Number(s), className: CLASS_NAMES[ch.objectType] ?? `class ${ch.objectType}`, level: ch.level }, pools });
+    }
+  }
+  return out;
+}
+
+/** The trade slots of a char/list Equipment list: past the 4 equipment slots, as many as it lists. */
+const TRADE_SLOT_FIRST = 4;
+
+/**
+ * Bring `charItems` in line with the char list: every tradeable item in a
+ * trade slot of a character other than `loginCharId` gets an identity, kept
+ * from before while the slot's type holds. The played character's entry
+ * goes (the tracker describes it), and so do characters no longer listed.
+ */
+export function reconcileCharItems(st: AccountStorageState, loginCharId: number | null, now: number): void {
+  const next: Record<string, Record<number, Instance>> = {};
+  for (const ch of st.chars ?? []) {
+    if (ch.id === loginCharId || ch.dead) continue;
+    const prev = st.charItems?.[String(ch.id)] ?? {};
+    const items: Record<number, Instance> = {};
+    (ch.equipment ?? []).forEach((type, slot) => {
+      if (slot < TRADE_SLOT_FIRST || type <= 0 || !isPoolItem(type)) return;
+      const itemId = toCatalogId(type);
+      if (!itemId) return;
+      const kept = prev[slot];
+      items[slot] = kept && kept.itemId === itemId ? kept : { instanceId: randomUUID().replace(/-/g, ""), itemId, enchantments: [], capturedAt: now / 1000 };
+    });
+    if (Object.keys(items).length) next[String(ch.id)] = items;
+  }
+  st.charItems = next;
+}
+
+/** What a withdraw needs on the character that is not there: named items, or so many of a type. */
+export interface FetchNeed {
+  instanceIds: string[];
+  items: { itemId: string; qty: number }[];
+}
+export interface FetchPlan {
+  ok: boolean;
+  error: string | null;
+  /** Log in as this character first (its items are wanted); null = the played one. */
+  charId: number | null;
+  /** Container -> character moves, each naming the stored instance it brings. */
+  moves: Move[];
+}
+
+/**
+ * How to get `need` onto a character of the account, for the `seasonal`
+ * pool: named items are found in storage (a container, or one other
+ * character — never two, and never mixed with the played character's own
+ * items, which one trade could not carry together); a count of a type is
+ * filled from the containers only. Pure; the trip checks slots live.
+ */
+export function planFetch(st: AccountStorageState, need: FetchNeed, o: { loginCharId: number | null; accSeasonal: boolean; seasonal: boolean; tracked: Record<number, Instance> }): FetchPlan {
+  const side = o.seasonal ? "seasonal" : "nonseasonal";
+  const stored = storedInstances(st, o.loginCharId, o.accSeasonal).filter((s) => s.pools[side]);
+  const byId = new Map(stored.map((s) => [s.instanceId, s]));
+  const onChar = new Set(Object.values(o.tracked).map((i) => i.instanceId));
+  const picks: StoredInstance[] = [];
+  let charId: number | null = null;
+  let playedNamed = false;
+  for (const id of need.instanceIds) {
+    if (onChar.has(id)) {
+      playedNamed = true;
+      continue;
+    }
+    const s = byId.get(id);
+    if (!s) return { ok: false, error: `${id.slice(0, 8)} is not in this account's storage`, charId: null, moves: [] };
+    if (s.where.kind === "char") {
+      if (charId !== null && charId !== s.where.charId) return { ok: false, error: "the items are on two different characters", charId: null, moves: [] };
+      charId = s.where.charId;
+    }
+    picks.push(s);
+  }
+  if (charId !== null && playedNamed) return { ok: false, error: "the items are on two different characters", charId: null, moves: [] };
+  // The played character must be of the wanted side to hand the items over; otherwise one that is logs in.
+  const played = (st.chars ?? []).find((c) => c.id === o.loginCharId);
+  const playedSide = played ? played.seasonal : o.accSeasonal;
+  if (charId === null && playedSide !== o.seasonal) {
+    const room = (c: CharDetail) => Object.keys(st.charItems?.[String(c.id)] ?? {}).length;
+    const other = (st.chars ?? []).filter((c) => !c.dead && c.seasonal === o.seasonal).sort((a, b) => room(a) - room(b))[0];
+    if (!other) return { ok: false, error: `no ${o.seasonal ? "seasonal" : "non-seasonal"} character on the account`, charId: null, moves: [] };
+    charId = other.id;
+  }
+  const taken = new Set(picks.map((p) => p.instanceId));
+  for (const it of need.items) {
+    let left = it.qty;
+    // Containers first, the rack before the vault for potions (that is where they live), the gift and spoils chests last.
+    const order: Record<string, number> = { rack: 0, vault: 1, gift: 2, spoils: 3 };
+    const cands = stored.filter((s) => s.itemId === it.itemId && s.where.kind !== "char" && !taken.has(s.instanceId)).sort((a, b) => order[a.where.kind] - order[b.where.kind]);
+    for (const s of cands) {
+      if (left <= 0) break;
+      picks.push(s);
+      taken.add(s.instanceId);
+      left--;
+    }
+    if (left > 0) return { ok: false, error: `only ${it.qty - left} of ${it.qty} ${ITEM_BY_ID.get(it.itemId)?.name ?? it.itemId} in storage`, charId: null, moves: [] };
+  }
+  const moves: Move[] = [];
+  const OUT: Record<ContainerKind, MoveKind> = { vault: "unbank", rack: "rackOut", gift: "giftOut", spoils: "spoilsOut" };
+  for (const p of picks) {
+    if (p.where.kind === "char") continue;
+    const type = toObjType(p.itemId);
+    if (type === undefined) continue;
+    moves.push({ id: randomUUID().slice(0, 8), kind: OUT[p.where.kind], itemId: p.itemId, objectType: type, name: ITEM_BY_ID.get(p.itemId)?.name ?? p.itemId, slot: p.where.slot, instanceId: p.instanceId, queuedAt: Date.now() });
+  }
+  return { ok: true, error: null, charId, moves };
 }
 
 // --- planning one move (pure) ---------------------------------------------------------
@@ -237,10 +452,32 @@ export function untrackedSlots(inv: number[], tradeSlots: number): UntrackedSlot
 export interface StorageTripOptions {
   moves: Move[];
   tracked: Record<number, Instance>;
+  /**
+   * Items on the character that may be banked to make room when the moves
+   * bring in more than the free trade slots hold (a fetch for a withdraw
+   * onto a full character). Taken in order, only as many as needed.
+   */
+  bankable?: Instance[];
   log: (line: string) => void;
   now: () => number;
   timeouts?: Partial<typeof STORAGE_TIMEOUTS>;
   onStep?: (label: string) => void;
+}
+
+/** Bank moves for as many of `bankable` as the inbound moves lack free slots for; [] when they fit. */
+export function roomMoves(inv: number[], tradeSlots: number, inbound: number, bankable: Instance[], now: number): Move[] {
+  let free = 0;
+  for (let i = 4; i < 4 + tradeSlots && i < inv.length; i++) if (inv[i] === -1) free++;
+  const short = inbound - free;
+  if (short <= 0) return [];
+  const out: Move[] = [];
+  for (const inst of bankable) {
+    if (out.length >= short) break;
+    const type = toObjType(inst.itemId);
+    if (type === undefined) continue;
+    out.push({ id: randomUUID().slice(0, 8), kind: "bank", itemId: inst.itemId, objectType: type, name: ITEM_BY_ID.get(inst.itemId)?.name ?? inst.itemId, instanceId: inst.instanceId, queuedAt: now });
+  }
+  return out;
 }
 
 /**
@@ -276,11 +513,16 @@ export async function runStorageTrip(client: GameClient, o: StorageTripOptions):
     // A mirror of what the server holds, moved along as each swap is confirmed.
     const inv = [...client.playerData.inv];
     const containers: PlanInput["containers"] = { vault: { objectId: view.vault.objectId, slots: [...view.vault.slots] }, rack: { objectId: view.potion.objectId, slots: [...view.potion.slots] }, gift: { objectId: view.gift.objectId, slots: [...view.gift.slots] }, spoils: { objectId: view.spoils.objectId, slots: [...view.spoils.slots] } };
+    // A fetch onto a full character banks what it may first, so the items it brings have slots to land in.
+    const inbound = o.moves.filter((m) => !TO_CONTAINER[m.kind]).length;
+    const room = o.bankable?.length ? roomMoves(inv, client.playerData.tradeSlots, inbound, o.bankable, o.now()) : [];
+    if (room.length) steps.push(`banking ${room.length} item(s) to make room`);
+    const moves = [...room, ...o.moves];
     let n = 0;
-    for (const move of o.moves) {
+    for (const move of moves) {
       n++;
       const label = `${move.kind} ${move.name}`;
-      step(`move ${n}/${o.moves.length}: ${label}`);
+      step(`move ${n}/${moves.length}: ${label}`);
       const plan = planMove(move, { playerObjectId: client.objectId, inv, tradeSlots: client.playerData.tradeSlots, containers, tracked: o.tracked });
       if (!plan.ok) {
         res.outcomes.push({ move, ok: false, detail: plan.error, slot: null });
@@ -357,6 +599,8 @@ export interface StorageServiceOptions {
 
 export interface CharRow extends CharDetail {
   className: string;
+  /** Tradeable items in its trade slots, when it is not the character being played. */
+  items: number;
 }
 export interface AccountSummary {
   alias: string;
@@ -371,6 +615,8 @@ export interface AccountSummary {
   chars: CharRow[] | null;
   /** The character the account logs in with, when set. */
   preferredCharId: number | null;
+  /** The character the tracker's snapshot describes, once a login said. */
+  loginCharId: number | null;
   moves: Move[];
   lastRun: AccountStorageState["lastRun"];
   lastError: string | null;
@@ -380,6 +626,8 @@ export interface AccountSummary {
     rack: { used: number; slots: number };
     gift: { items: number; tradeable: number };
     spoils: { items: number; tradeable: number };
+    /** Tradeable items on the characters the fleet is not playing. */
+    otherChars: number;
   };
 }
 export interface SlotRow {
@@ -388,7 +636,14 @@ export interface SlotRow {
   itemId: string | null;
   name: string;
   tradeable: boolean;
-  placedInstanceId: string | null;
+  /** The identity the pool lists it under; null for an item the node does not trade. */
+  instanceId: string | null;
+}
+export interface CharItemRow {
+  slot: number;
+  instanceId: string;
+  itemId: string;
+  name: string;
 }
 export interface AccountDetail extends AccountSummary {
   character: { slot: number; instanceId: string; itemId: string; name: string; enchantments: number[]; potion: boolean }[];
@@ -398,13 +653,40 @@ export interface AccountDetail extends AccountSummary {
   rack: SlotRow[];
   gift: SlotRow[];
   spoils: SlotRow[];
+  /** Tradeable items on the characters the fleet is not playing, by character id. */
+  charItems: Record<string, CharItemRow[]>;
 }
 
 const STAGGER_MS = Number(process.env.STORAGE_STAGGER_MS ?? 3000);
+/** Fetches for withdraws that may drive accounts at once (each is one login on one exit). */
+const FETCH_MAX_CONCURRENT = Number(process.env.STORAGE_FETCH_MAX_CONCURRENT ?? 2);
+
+export interface FetchOptions {
+  /** The pool half the withdraw is for: decides which side's character may carry the items. */
+  seasonal: boolean;
+  /** Items on the character that must stay there (named by other open withdraws, personal property). */
+  keep?: Set<string>;
+  /** Item types other open withdraws draw on this bot for: not banked to make room. */
+  keepItems?: Set<string>;
+  /** For the log. */
+  why?: string;
+}
+export type FetchResult =
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+      /** Nothing to retry: the items are not in storage as the request names them. */
+      permanent?: boolean;
+      /** No trip was made: the account was not free (a trade, a run, too many fetches). Ask again soon. */
+      busy?: boolean;
+    };
 
 export class StorageService {
   readonly run: RunState = freshRun();
   private readonly activity = new Map<string, string>();
+  /** Accounts a withdraw fetch is driving right now. */
+  private readonly fetching = new Set<string>();
   private cancelled = false;
   private readonly now: () => number;
   constructor(private readonly o: StorageServiceOptions) {
@@ -419,9 +701,49 @@ export class StorageService {
   activityOf(guid: string): string | null {
     return this.activity.get(guid) ?? null;
   }
+  /** Moves whenever what any account stores changes (the pool payload keys on it). */
+  revision(): number {
+    return this.o.store.revision();
+  }
   private setActivity(guid: string, label: string | null): void {
     if (label === null) this.activity.delete(guid);
     else this.activity.set(guid, label);
+  }
+
+  /**
+   * Every login: remember which character the tracker is about to describe,
+   * and refresh what the others carry from the char list just read. When the
+   * character changed since the last login, the previous one's tracked items
+   * become its stored items (ids kept), and the new one's known items are
+   * promised to the tracker so they keep theirs.
+   */
+  onLogin(acc: BotAccount, client: GameClient): void {
+    const st = this.o.store.for(acc);
+    const cl = client.lastCharList;
+    if (cl) {
+      st.chars = cl.chars;
+      st.charsAt = this.now();
+    }
+    const charId = client.charId;
+    if (charId < 0) return;
+    const prev = st.loginCharId ?? null;
+    if (prev !== null && prev !== charId) {
+      const tracked = this.o.sd.tracker.instancesFor(acc.botGuid);
+      st.charItems ??= {};
+      if (Object.keys(tracked).length) st.charItems[String(prev)] = tracked;
+      for (const inst of Object.values(st.charItems[String(charId)] ?? {})) this.o.sd.tracker.expectArrival(acc.botGuid, inst);
+      this.log(`storage: ${acc.alias} logs in as character ${charId} (was ${prev}) — ${Object.keys(tracked).length} item(s) stay listed on the other one`);
+    }
+    st.loginCharId = charId;
+    reconcileCharItems(st, charId, this.now());
+    this.o.store.requestSave();
+  }
+
+  /** What the account holds beyond the played character's trade slots, for the pool. */
+  storedFor(acc: BotAccount): StoredInstance[] {
+    const st = this.o.store.get(acc.botGuid);
+    if (!st) return [];
+    return storedInstances(st, st.loginCharId ?? null, acc.seasonalOrDefault);
   }
 
   private counts(acc: BotAccount, st: AccountStorageState): AccountSummary["counts"] {
@@ -435,6 +757,7 @@ export class StorageService {
       rack: { used: c ? used(c.rack.slots) : 0, slots: c ? c.rack.slots.length : 0 },
       gift: { items: c ? used(c.gift.slots) : 0, tradeable: c ? tradeable(c.gift.slots) : 0 },
       spoils: { items: c ? used(c.spoils.slots) : 0, tradeable: c ? tradeable(c.spoils.slots) : 0 },
+      otherChars: Object.values(st.charItems ?? {}).reduce((a, items) => a + Object.keys(items).length, 0),
     };
   }
   private summary(acc: BotAccount): AccountSummary {
@@ -442,8 +765,8 @@ export class StorageService {
     const busy = !!(acc.client && acc.client.active) || acc.assignedRequestId !== null || acc.inUse || this.activity.has(acc.guid);
     return {
       alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, ign: this.o.sd.tracker.ignFor(acc.botGuid) ?? "", seasonal: acc.seasonalOrDefault, suspended: !!acc.suspended, busy,
-      lastVisitAt: st.lastVisitAt, charsAt: st.charsAt, chars: st.chars ? st.chars.map((ch) => ({ ...ch, className: CLASS_NAMES[ch.objectType] ?? `class ${ch.objectType}` })) : null,
-      preferredCharId: acc.info.charId ?? null, moves: st.moves, lastRun: st.lastRun, lastError: st.lastError, counts: this.counts(acc, st),
+      lastVisitAt: st.lastVisitAt, charsAt: st.charsAt, chars: st.chars ? st.chars.map((ch) => ({ ...ch, className: CLASS_NAMES[ch.objectType] ?? `class ${ch.objectType}`, items: Object.keys(st.charItems?.[String(ch.id)] ?? {}).length })) : null,
+      preferredCharId: acc.info.charId ?? null, loginCharId: st.loginCharId ?? null, moves: st.moves, lastRun: st.lastRun, lastError: st.lastError, counts: this.counts(acc, st),
     };
   }
   status(): { run: RunState; accounts: AccountSummary[] } {
@@ -463,12 +786,16 @@ export class StorageService {
       c.slots.forEach((t, slot) => {
         if (t <= 0) return;
         const n = nameOfType(t);
-        out.push({ slot, objectType: t, itemId: n.itemId, name: n.name, tradeable: n.tradeable, placedInstanceId: c.placed[slot]?.instanceId ?? null });
+        out.push({ slot, objectType: t, itemId: n.itemId, name: n.name, tradeable: n.tradeable, instanceId: c.instances[slot]?.instanceId ?? null });
       });
       return out;
     };
     const character = Object.entries(this.o.sd.tracker.instancesFor(acc.botGuid)).map(([slot, i]) => ({ slot: Number(slot), instanceId: i.instanceId, itemId: i.itemId, name: ITEM_BY_ID.get(i.itemId)?.name ?? i.itemId, enchantments: i.enchantments, potion: isPotion(i.itemId) })).sort((a, b) => a.slot - b.slot);
-    return { ...this.summary(acc), character, untracked: st.untracked ?? [], vault: rows(st.containers?.vault), rack: rows(st.containers?.rack), gift: rows(st.containers?.gift), spoils: rows(st.containers?.spoils) };
+    const charItems: Record<string, CharItemRow[]> = {};
+    for (const [id, items] of Object.entries(st.charItems ?? {})) {
+      charItems[id] = Object.entries(items).map(([slot, i]) => ({ slot: Number(slot), instanceId: i.instanceId, itemId: i.itemId, name: ITEM_BY_ID.get(i.itemId)?.name ?? i.itemId })).sort((a, b) => a.slot - b.slot);
+    }
+    return { ...this.summary(acc), character, untracked: st.untracked ?? [], vault: rows(st.containers?.vault), rack: rows(st.containers?.rack), gift: rows(st.containers?.gift), spoils: rows(st.containers?.spoils), charItems };
   }
 
   /** Queue moves for an account. Each is checked against what the node knows now; the trip checks again against the live vault. */
@@ -507,7 +834,7 @@ export class StorageService {
         if (!n.itemId) return { ok: false, error: `${n.name} is not an item the node trades` };
         if ((a.kind === "giftOut" || a.kind === "spoilsOut") && !n.tradeable) return { ok: false, error: `${n.name} is not tradeable` };
         if (st.moves.some((m) => m.kind === a.kind && m.slot === slot)) return { ok: false, error: `${n.name} is already queued` };
-        out.push({ id: randomUUID().slice(0, 8), kind: a.kind, itemId: n.itemId, objectType: c.slots[slot], name: n.name, slot, queuedAt: this.now() });
+        out.push({ id: randomUUID().slice(0, 8), kind: a.kind, itemId: n.itemId, objectType: c.slots[slot], name: n.name, slot, instanceId: c.instances[slot]?.instanceId, queuedAt: this.now() });
       }
     }
     st.moves.push(...out);
@@ -569,41 +896,95 @@ export class StorageService {
     }
   }
   private async one(acc: BotAccount, refresh: boolean): Promise<"ok" | "failed" | "skipped"> {
+    const st = this.o.store.for(acc);
+    if (this.fetching.has(acc.guid)) {
+      st.lastError = "fetching for a withdraw";
+      return "skipped";
+    }
+    const r = await this.trip(acc, refresh ? [] : [...st.moves], { label: "storage" });
+    return r.verdict;
+  }
+
+  /**
+   * Bring what a withdraw needs onto a character of the account: log in as
+   * the character that has the items (the played one unless they are on
+   * another), walk into the Vault for whatever is in a container, and leave
+   * the tracker describing the result. The dispatcher then routes the
+   * withdraw to the bot as usual. One fetch per account at a time, a few
+   * at once fleet-wide; an account busy with a trade or a storage run is
+   * refused and tried again later.
+   */
+  async fetch(acc: BotAccount, need: FetchNeed, o: FetchOptions): Promise<FetchResult> {
+    const { sd, store } = this.o;
+    const st = store.for(acc);
+    if (this.fetching.has(acc.guid)) return { ok: false, error: "a fetch is already on its way", busy: true };
+    if (this.fetching.size >= FETCH_MAX_CONCURRENT) return { ok: false, error: "too many fetches at once", busy: true };
+    if (this.run.running && this.run.current.includes(acc.alias)) return { ok: false, error: "a storage run has the account", busy: true };
+    const plan = planFetch(st, need, { loginCharId: st.loginCharId ?? null, accSeasonal: acc.seasonalOrDefault, seasonal: o.seasonal, tracked: sd.tracker.instancesFor(acc.botGuid) });
+    if (!plan.ok) return { ok: false, error: plan.error ?? "cannot plan the fetch", permanent: true };
+    if (plan.charId !== null && plan.charId !== (st.loginCharId ?? null)) {
+      this.log(`storage: ${acc.alias}: switching to character ${plan.charId} for ${o.why ?? "a withdraw"}`);
+      sd.pool.setPreferredChar(acc, plan.charId);
+    }
+    // What may be banked to make room: the character's own items, minus what is spoken for.
+    const keep = o.keep ?? new Set<string>();
+    const keepItems = o.keepItems ?? new Set<string>();
+    const named = new Set(need.instanceIds);
+    const bankable = Object.values(sd.tracker.instancesFor(acc.botGuid)).filter((i) => !keep.has(i.instanceId) && !named.has(i.instanceId) && !keepItems.has(i.itemId));
+    this.fetching.add(acc.guid);
+    try {
+      this.log(`storage: ${acc.alias}: fetching ${plan.moves.length} item(s) from storage${plan.charId !== null ? ` on character ${plan.charId}` : ""} for ${o.why ?? "a withdraw"}`);
+      const r = await this.trip(acc, plan.moves, { label: "fetch", bankable });
+      if (r.verdict === "ok") {
+        const failed = r.outcomes.filter((oc) => !oc.ok && !TO_CONTAINER[oc.move.kind]);
+        if (failed.length) return { ok: false, error: `${failed.length} move(s) failed: ${failed.map((f) => `${f.move.name}: ${f.detail}`).join("; ")}` };
+        return { ok: true };
+      }
+      if (r.verdict === "skipped") return { ok: false, error: r.error ?? "the account was not free", busy: true };
+      return { ok: false, error: r.error ?? r.verdict };
+    } finally {
+      this.fetching.delete(acc.guid);
+    }
+  }
+
+  /** One trip: borrow the account, log in, run the moves, record everything, log out. */
+  private async trip(acc: BotAccount, moves: Move[], o: { label: string; bankable?: Instance[] }): Promise<{ verdict: "ok" | "failed" | "skipped"; error: string | null; outcomes: MoveOutcome[] }> {
     const { sd, store, holds } = this.o;
     const st = store.for(acc);
+    const tag = o.label;
     if (acc.assignedRequestId !== null || acc.inUse) {
       st.lastError = "busy with a trade";
-      return "skipped";
+      return { verdict: "skipped", error: st.lastError, outcomes: [] };
     }
-    const moves = refresh ? [] : [...st.moves];
-    const lent = await borrowAccount(acc, { sd, holds, release: this.o.release, activity: (l) => this.setActivity(acc.guid, l && `storage: ${l}`), cancelled: () => this.cancelled, now: this.now });
+    const lent = await borrowAccount(acc, { sd, holds, release: this.o.release, activity: (l) => this.setActivity(acc.guid, l && `${tag}: ${l}`), cancelled: () => this.cancelled, now: this.now });
     if (!lent.ok) {
       st.lastError = lent.why;
-      return "skipped";
+      return { verdict: "skipped", error: lent.why, outcomes: [] };
     }
-    this.setActivity(acc.guid, "storage: logging in");
+    this.setActivity(acc.guid, `${tag}: logging in`);
     let client: GameClient;
     try {
       client = await (sd.deps.bringUp ?? bringUp)(sd.deps, acc, acc.info.server ?? "USSouth3");
     } catch (e) {
       lent.giveBack();
+      this.setActivity(acc.guid, null);
       const verdict = e instanceof BringUpRefused ? e.verdict : "failed";
       st.lastError = `bring-up ${verdict}: ${(e as Error).message}`;
-      this.log(`storage: ${acc.alias}: ${st.lastError}`);
-      return verdict === "failed" ? "failed" : "skipped";
+      this.log(`${tag}: ${acc.alias}: ${st.lastError}`);
+      return { verdict: verdict === "failed" ? "failed" : "skipped", error: st.lastError, outcomes: [] };
     }
     try {
       const tracked = sd.tracker.instancesFor(acc.botGuid);
-      const r = await runStorageTrip(client, { moves, tracked, log: (l) => this.log(`storage: ${acc.alias}: ${l}`), now: this.now, onStep: (label) => this.setActivity(acc.guid, `storage: ${label}`) });
+      const r = await runStorageTrip(client, { moves, tracked, bankable: o.bankable, log: (l) => this.log(`${tag}: ${acc.alias}: ${l}`), now: this.now, onStep: (label) => this.setActivity(acc.guid, `${tag}: ${label}`) });
       if (client.charSeasonal !== null) sd.pool.setSeasonal(acc, client.charSeasonal);
       if (r.chars) {
         st.chars = r.chars;
         st.charsAt = this.now();
       }
-      // What was placed where, as of before this trip: an item taken back out is looked up there.
+      // What was where, as of before this trip: an item taken out keeps the identity it was listed under.
       const before = st.containers;
       if (r.view) {
-        this.applyView(st, r.view);
+        this.applyView(st, r.view, client.charSeasonal);
         st.untracked = r.untracked;
       }
       for (const oc of r.outcomes) {
@@ -612,12 +993,12 @@ export class StorageService {
         if (oc.ok && c && oc.slot !== null) {
           if (TO_CONTAINER[oc.move.kind]) {
             const inst = Object.values(tracked).find((i) => i.instanceId === oc.move.instanceId);
-            if (inst) c.placed[oc.slot] = inst;
+            if (inst) c.instances[oc.slot] = inst;
           } else {
-            const placed = before?.[kind]?.placed[oc.slot];
-            delete c.placed[oc.slot];
-            if (placed) sd.tracker.expectArrival(acc.botGuid, placed);
-            else if (oc.move.itemId) sd.tracker.expectArrival(acc.botGuid, { instanceId: randomUUID().replace(/-/g, ""), itemId: oc.move.itemId, enchantments: [], capturedAt: this.now() / 1000 });
+            const listed = before?.[kind]?.instances[oc.slot];
+            delete c.instances[oc.slot];
+            if (listed) sd.tracker.expectArrival(acc.botGuid, listed);
+            else if (oc.move.itemId) sd.tracker.expectArrival(acc.botGuid, { instanceId: oc.move.instanceId ?? randomUUID().replace(/-/g, ""), itemId: oc.move.itemId, enchantments: [], capturedAt: this.now() / 1000 });
           }
           st.moves = st.moves.filter((m) => m.id !== oc.move.id);
           this.run.moved++;
@@ -629,28 +1010,41 @@ export class StorageService {
       const snap = snapshotInventory(client);
       sd.tracker.updateFromSlots(acc.botGuid, snap.slots, snap.hasBp ? Math.max(16, snap.capacity) : 8);
       if (client.playerData.name) sd.tracker.recordIgn(acc.botGuid, client.playerData.name);
+      // The character list just read may name items the tracker now holds, or no longer does.
+      reconcileCharItems(st, client.charId, this.now());
       st.lastRun = { at: this.now(), ok: r.ok, error: r.error, summary: r.summary };
       st.lastError = r.ok ? null : r.error;
-      this.log(`storage: ${acc.alias}: ${r.summary}`);
-      return r.ok ? "ok" : "failed";
+      this.log(`${tag}: ${acc.alias}: ${r.summary}`);
+      return { verdict: r.ok ? "ok" : "failed", error: r.error, outcomes: r.outcomes };
     } finally {
-      takeDown(sd.deps, acc, "storage trip done");
+      takeDown(sd.deps, acc, `${tag} trip done`);
       lent.giveBack();
+      this.setActivity(acc.guid, null);
       store.requestSave();
     }
   }
-  /** Record a fresh view: object ids and slot lists as the vault gave them; what this node placed stays where the slots still agree. */
-  private applyView(st: AccountStorageState, view: VaultView): void {
-    const next: Containers = { vault: { objectId: view.vault.objectId, slots: [...view.vault.slots], placed: {} }, rack: { objectId: view.potion.objectId, slots: [...view.potion.slots], placed: {} }, gift: { objectId: view.gift.objectId, slots: [...view.gift.slots], placed: {} }, spoils: { objectId: view.spoils.objectId, slots: [...view.spoils.slots], placed: {} } };
+  /**
+   * Record a fresh view: object ids and slot lists as the vault gave them.
+   * Identities carry over where the slot still holds the same type; every
+   * other tradeable item gets one now, so the pool can list it.
+   */
+  private applyView(st: AccountStorageState, view: VaultView, seenBy: boolean | null): void {
+    const next: Containers = { vault: { objectId: view.vault.objectId, slots: [...view.vault.slots], instances: {} }, rack: { objectId: view.potion.objectId, slots: [...view.potion.slots], instances: {} }, gift: { objectId: view.gift.objectId, slots: [...view.gift.slots], instances: {} }, spoils: { objectId: view.spoils.objectId, slots: [...view.spoils.slots], instances: {} } };
+    const now = this.now() / 1000;
     for (const k of CONTAINER_KINDS) {
       const prev = st.containers?.[k];
-      if (!prev) continue;
-      for (const [s, inst] of Object.entries(prev.placed)) {
+      for (const [s, inst] of Object.entries(prev?.instances ?? {})) {
         const slot = Number(s);
-        if (next[k].slots[slot] === toObjType(inst.itemId)) next[k].placed[slot] = inst;
+        if (next[k].slots[slot] === toObjType(inst.itemId)) next[k].instances[slot] = inst;
       }
+      next[k].slots.forEach((type, slot) => {
+        if (next[k].instances[slot] || type <= 0 || !isPoolItem(type)) return;
+        const itemId = toCatalogId(type);
+        if (itemId) next[k].instances[slot] = { instanceId: randomUUID().replace(/-/g, ""), itemId, enchantments: [], capturedAt: now };
+      });
     }
     st.containers = next;
+    st.viewSeasonal = seenBy;
     st.lastVisitAt = this.now();
   }
 }

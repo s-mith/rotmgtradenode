@@ -214,6 +214,21 @@ export interface CharDetail {
   /** 8 with a backpack, 0 without. */
   backpackSlots: number;
   hasBackpack: boolean;
+  /**
+   * Item type per slot as char/list lists them (0-3 equipment, 4-11 the
+   * inventory, then the backpack), -1 empty; [] when the entry had no
+   * Equipment. What a character the fleet is not playing carries.
+   */
+  equipment: number[];
+}
+
+/** An Equipment list: comma-separated item types (a suffix after `#` is ignored), -1 empty. */
+export function parseEquipment(text: string | null): number[] {
+  if (!text || !text.trim()) return [];
+  return text.split(",").map((s) => {
+    const m = /^-?\d+/.exec(s.trim());
+    return m ? Number(m[0]) : -1;
+  });
 }
 export interface CharListDetail {
   nextCharId: number;
@@ -241,6 +256,7 @@ export function parseCharListDetail(xml: string): CharListDetail {
       dead: tag("Dead") === "True",
       backpackSlots,
       hasBackpack: backpackSlots > 0,
+      equipment: parseEquipment(tag("Equipment")),
     });
   }
   return { nextCharId: Number(head[1]), maxNumChars: Number(head[2]), chars };

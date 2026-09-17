@@ -455,9 +455,13 @@ export default function TxForm({
         const tradeCount = Number(data.tradeCount ?? 1);
         const fragNote =
           tradeCount > 1 ? ` (split across ${tradeCount} bots)` : "";
+        // Picks in an account's storage: the fleet logs the account in and
+        // walks it into the Vault first, so the bot takes longer to show up.
+        const fetched = Number(data.fetched ?? 0);
+        const fetchNote = fetched > 0 ? ` ${fetched === trayFilled.length ? "They are" : `${fetched} of them are`} in storage: the bot fetches ${fetched === 1 ? "it" : "them"} first, so allow a few extra minutes.` : "";
         setMsg({
           kind: "ok",
-          text: `${mode === "vault" ? "Vault withdraw" : "Withdraw"} queued: ${trayFilled.length} item${trayFilled.length === 1 ? "" : "s"} → ${ign} on ${server}${fragNote}.`,
+          text: `${mode === "vault" ? "Vault withdraw" : "Withdraw"} queued: ${trayFilled.length} item${trayFilled.length === 1 ? "" : "s"} → ${ign} on ${server}${fragNote}.${fetchNote}`,
         });
         setWithdrawHint({
           groupId: String(data.groupId),

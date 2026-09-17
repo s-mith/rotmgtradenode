@@ -5,7 +5,7 @@ import { VirtuosoGrid } from "react-virtuoso";
 import TxForm from "./TxForm";
 import RecentActivity from "./RecentActivity"
 import { useLiveUpdates } from "@/lib/useLive"
-import { applyPoolWire, emptyPoolState, instancesFromState, type PoolInstance, type PoolState, type PoolWire, type Rarity } from "@/lib/poolWire";
+import { applyPoolWire, emptyPoolState, inPool, instancesFromState, type PoolInstance, type PoolState, type PoolWire, type Rarity } from "@/lib/poolWire";
 import LoginPanel from "./LoginPanel";
 import WishlistPanel from "./WishlistPanel";
 import TradePanel from "./TradePanel";
@@ -365,6 +365,8 @@ type Stack = {
   rep: PoolInstance;
   instances: PoolInstance[];
   botIgns: string[];
+  /** Members in an account's storage (a vault chest, the potion rack, another character): fetched before the trade. */
+  stored: number;
   // True when the stack folds together instances with different enchant sets
   // (the "stack by rarity & type" checkbox). The tooltip then shows the base
   // item instead of one arbitrary member's enchants.
@@ -726,7 +728,9 @@ export default function Vault() {
         rarity: v.rarity,
       }));
     }
-    return instances.filter((i) => i.seasonal === (pool === "seasonal"));
+    // An item in an account's storage may serve both halves (a vault chest
+    // on an account with a character of each side); inPool reads that.
+    return instances.filter((i) => inPool(i, pool === "seasonal"));
   }, [instances, pool, vault, vaultHalf]);
 
   const trayInstances = useMemo(
@@ -800,6 +804,10 @@ export default function Vault() {
       const prevSet = new Set(prev);
       let candidates = stackInstances.filter((i) => !prevSet.has(i.instanceId));
       if (candidates.length === 0) return prev;
+      // A copy on a character trades at once; one in storage costs the
+      // fleet a fetch trip first. Hand out the ready ones before those.
+      const ready = candidates.filter((i) => !i.where);
+      if (ready.length) candidates = ready;
       if (desk === "trades" && prev.length) {
         // One offer trades from one account: prefer a copy on the bot already in the tray.
         const bot = instances.find((i) => i.instanceId === prev[0])?.botGuid;
@@ -929,13 +937,14 @@ export default function Vault() {
       const key = stackByType ? `${inst.itemId}|r:${inst.rarity}` : `${inst.itemId}|${enchKey}`;
       let s = byKey.get(key);
       if (!s) {
-        s = { key, rep: inst, instances: [], botIgns: [], mixed: false };
+        s = { key, rep: inst, instances: [], botIgns: [], stored: 0, mixed: false };
         byKey.set(key, s);
         firstEnch.set(key, enchKey);
       } else if (!s.mixed && firstEnch.get(key) !== enchKey) {
         s.mixed = true;
       }
       s.instances.push(inst);
+      if (inst.where) s.stored++;
       if (inst.botIgn && !s.botIgns.includes(inst.botIgn)) s.botIgns.push(inst.botIgn);
     }
     const list = [...byKey.values()];
@@ -1473,6 +1482,13 @@ function TilePortalTip({
           {stack.botIgns.length > 4 ? ", …" : ""}
         </div>
       )}
+      {stack.stored > 0 && (
+        <div className="pool-tile-tip-bot">
+          {stack.stored === stack.instances.length
+            ? `in storage (${[...new Set(stack.instances.map((i) => i.where).filter(Boolean))].slice(0, 3).join(", ")}) — fetched before the trade, a few minutes more`
+            : `${stack.stored} of ${stack.instances.length} in storage — those take a few minutes more`}
+        </div>
+      )}
     </div>,
     document.body,
   );
@@ -1798,6 +1814,11 @@ const StackTile = memo(function StackTile({
     >
       <ItemSprite name={inst.itemName} />
       {inst.rarity !== "common" && <RarityBadge rarity={inst.rarity} />}
+      {stack.stored > 0 && (
+        <span className="stored-badge" title="in an account's storage: fetched before the trade">
+          {stack.stored === total ? "stored" : `${stack.stored} stored`}
+        </span>
+      )}
       {(total > 1 || selected > 0) && (
         <span className="aggregate-count">
           {selected > 0 ? `${selected}/${total}` : `×${total}`}

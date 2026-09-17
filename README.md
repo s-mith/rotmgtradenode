@@ -28,11 +28,16 @@ This is the successor to the RotMG Communism pool. The design lives in
   gear, and a lowest tier per gear group, with per-item pins on top. A deposit
   offering anything else is held, and offers, hand-overs and declared deposits
   are refused up front. What is already in the pool stays withdrawable.
-- **Storage.** Each account's vault chests, potion rack, Gift Chest and
-  seasonal spoils chest, from the console (Fleet → Storage): put items away,
-  take them out, pull tradeable gifts and spoils onto the character, and pick
-  which character an account logs in with. A run walks the account into the
-  Vault and moves the items.
+- **The whole account is the pool.** Everything tradeable an account holds
+  is on the site and withdrawable: the played character's items, the other
+  characters' items, the vault chests, the potion rack, the Gift Chest and
+  the seasonal spoils chest. A tile in storage says so; pick it and the bot
+  fetches it first (a login as the right character, a walk into the Vault)
+  before meeting you. Vault and rack items serve whichever side the account
+  has a character for, the spoils chest only non-seasonal characters, the
+  Gift Chest the side that read it, another character's items its own side.
+  The console (Fleet → Storage) still lets you move items by hand and pick
+  which character an account logs in with.
 - **Proxies.** Paste your proxy list in the console (Fleet → Proxies). Every
   login goes through one of them, one account per exit IP at a time, and by
   default nothing logs in from your own connection.

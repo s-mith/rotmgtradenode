@@ -14,7 +14,7 @@ import { getDb } from "./db";
 import { pyrelay, type PyrelayPool } from "./devauth";
 import { enchantName } from "./enchants";
 import { projectCatalog } from "./pool";
-import type { WireBot } from "./poolWire";
+import { whereLabel, wirePools, type WireBot, type WireStored } from "./poolWire";
 import { ownedInstanceIds } from "./vault";
 
 /** One bot's wire entry, serialized once; `items`/`enchants` are the ids its slots reference. */
@@ -51,24 +51,34 @@ export interface PoolSnapshot {
 
 // --- pure core ----------------------------------------------------------------
 
-/** Every bot with at least one visible item (not somebody's property, known to the catalog), serialized. */
+/** Every bot with at least one visible item (not somebody's property, known to the catalog), on its character or in its account's storage, serialized. */
 export function buildFragments(pool: PyrelayPool, owned: ReadonlySet<string>): Map<string, BotFragment> {
   const meta = pool.botMeta ?? {};
   const out = new Map<string, BotFragment>();
-  for (const [botGuid, slots] of Object.entries(pool.instances ?? {})) {
+  const stored = pool.stored ?? {};
+  const guids = new Set([...Object.keys(pool.instances ?? {}), ...Object.keys(stored)]);
+  for (const botGuid of guids) {
     const wire: WireBot["slots"] = [];
+    const kept: WireStored[] = [];
     const items = new Set<string>();
     const enchants = new Set<number>();
-    for (const info of Object.values(slots ?? {})) {
+    for (const info of Object.values(pool.instances?.[botGuid] ?? {})) {
       if (!info || owned.has(info.instanceId) || !ITEM_BY_ID.has(info.itemId)) continue;
       const ids = info.enchantments ?? [];
       wire.push([info.instanceId, info.itemId, ids]);
       items.add(info.itemId);
       for (const e of ids) enchants.add(e);
     }
-    if (!wire.length) continue;
+    for (const s of stored[botGuid] ?? []) {
+      if (!s || owned.has(s.instanceId) || !ITEM_BY_ID.has(s.itemId)) continue;
+      const ids = s.enchantments ?? [];
+      kept.push([s.instanceId, s.itemId, ids, whereLabel(s.where), wirePools(s.pools)]);
+      items.add(s.itemId);
+      for (const e of ids) enchants.add(e);
+    }
+    if (!wire.length && !kept.length) continue;
     const m = meta[botGuid];
-    const bot: WireBot = { ign: m?.ign ?? "", server: m?.server ?? "", seasonal: m?.seasonal !== false, slots: wire };
+    const bot: WireBot = { ign: m?.ign ?? "", server: m?.server ?? "", seasonal: m?.seasonal !== false, slots: wire, ...(kept.length ? { stored: kept } : {}) };
     out.set(botGuid, { json: JSON.stringify(bot), items: [...items], enchants: [...enchants] });
   }
   return out;

@@ -109,7 +109,10 @@ export class Fleet {
     this.deps = {
       pool: this.pool, proxies: this.proxies, gate: this.gate, clients: this.clients, log: this.log, bringUp: opts.bringUp,
       capacityFor: (g) => this.tracker.capacityFor(g),
-      onLogin: (acc, client) => this.backpacks.onLogin(acc, client),
+      onLogin: (acc, client) => {
+        this.backpacks.onLogin(acc, client);
+        this.storage.onLogin(acc, client);
+      },
       servers: this.servers,
       requireProxy: () => this.nodeSettings.get().proxies.required,
       itemPolicy: () => this.nodeSettings.get().items,
@@ -140,9 +143,21 @@ export class Fleet {
       auditProxy: auditProxiesFromFile(process.env.BACKPACK_AUDIT_PROXIES_FILE, this.log),
       vaultBots: () => this.dispatcher?.vaultBotGuids() ?? new Set<string>(),
     });
+    // What the accounts keep in storage is part of the served pool: a change there re-serves it like a tracker change.
+    const storageStore = StorageStore.at(this.dataDir);
+    if (opts.onPoolChanged) storageStore.onChange = opts.onPoolChanged;
     this.storage = new StorageService({
-      sd: sweepDeps, store: StorageStore.at(this.dataDir), holds: this.dispatcher?.maintenanceHolds ?? new Set<string>(),
+      sd: sweepDeps, store: storageStore, holds: this.dispatcher?.maintenanceHolds ?? new Set<string>(),
       release: (acc) => this.dispatcher?.releaseForMaintenance(acc) ?? true,
+    });
+    // A withdraw for something in an account's storage: the dispatcher asks
+    // what each account keeps, and orders the fetch trip that brings it out.
+    this.dispatcher?.setStorageDesk({
+      stored: (botGuid) => {
+        const acc = this.pool.byBotGuid(botGuid);
+        return acc ? this.storage.storedFor(acc) : [];
+      },
+      fetch: (acc, need, o) => this.storage.fetch(acc, need, o),
     });
     this.seasonWatch = new SeasonWatch({ store: backpackStore, pool: this.pool, clients: this.clients, log: this.log });
     this.serverUsage = new ServerUsageWatch({ clients: this.clients, api: opts.api ?? null, log: this.log, servers: this.servers });

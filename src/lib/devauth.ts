@@ -127,6 +127,16 @@ async function callPyrelay<T = unknown>(
   return { ok: true, data: body as T };
 }
 
+/** One item in an account's storage, as the relay's `/pool` lists it (src/relay/fleet/storage.ts StoredInstance). */
+export type StoredItem = {
+  instanceId: string;
+  itemId: string;
+  enchantments: number[];
+  capturedAt: number;
+  where: { kind: "vault" | "rack" | "gift" | "spoils"; slot: number } | { kind: "char"; charId: number; slot: number; className: string; level: number };
+  pools: { seasonal: boolean; nonseasonal: boolean };
+};
+
 // Pyrelay's `/pool` payload. Named (rather than inline on the method) so
 // lib/pool.ts can type the projection it runs over this, and lib/liveBus.ts
 // can hold a snapshot of one.
@@ -146,6 +156,15 @@ export type PyrelayPool = {
       }
     >
   >;
+  /**
+   * Per bot, what its account keeps beyond the character's trade slots
+   * (docs/relay/STORAGE.md): vault chests, potion rack, gift and spoils
+   * chests, and the other characters' trade slots. Each says where it is and
+   * which pool halves a character of the account could carry it to. Pool
+   * stock like the rest, only slower: a withdraw naming one has the fleet
+   * fetch it onto a character first. Absent on an older relay.
+   */
+  stored?: Record<string, StoredItem[]>;
   botMeta?: Record<
     string,
     {

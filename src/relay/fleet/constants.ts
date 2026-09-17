@@ -114,3 +114,6 @@ export function parseStandby(): Map<string, Map<boolean | null, number>> {
   }
   return out;
 }
+/** A withdraw for items in an account's storage (docs/relay/STORAGE.md): how long after a failed fetch trip before the next one, and how many trips before the request is given up. */
+export const FETCH_RETRY_S = num("STORAGE_FETCH_RETRY_SECONDS", 60);
+export const FETCH_MAX_ATTEMPTS = num("STORAGE_FETCH_MAX_ATTEMPTS", 3);

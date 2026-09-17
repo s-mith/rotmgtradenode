@@ -2,17 +2,20 @@ import { useCallback, useEffect, useState } from "react";
 import { ItemSprite } from "@/components/ItemSprite";
 // Account storage (docs/relay/STORAGE.md): what each account keeps beyond
 // its character's trade slots — the vault chests, the potion rack, the Gift
-// Chest and the seasonal spoils chest — and the moves the operator queues
-// between them and the character. A run logs the account in, walks it into
-// the Vault, does the moves and reads everything back. Nothing runs by
-// itself. The same tab picks which character an account logs in with.
+// Chest, the seasonal spoils chest and the other characters — and the moves
+// the operator queues between the containers and the character. A run logs
+// the account in, walks it into the Vault, does the moves and reads
+// everything back. Everything tradeable here is in the pool already; a
+// withdraw naming it has the fleet fetch it by itself. The same tab picks
+// which character an account logs in with.
 
 type Move = { id: string; kind: string; itemId: string | null; objectType: number; name: string; instanceId?: string; slot?: number; queuedAt: number; error?: string };
-type CharRow = { id: number; objectType: number; className: string; level: number; seasonal: boolean; dead: boolean; backpackSlots: number; hasBackpack: boolean };
-type Counts = { character: { held: number; capacity: number }; vault: { used: number; slots: number }; rack: { used: number; slots: number }; gift: { items: number; tradeable: number }; spoils: { items: number; tradeable: number } };
-type Summary = { alias: string; guid: string; botGuid: string; ign: string; seasonal: boolean; suspended: boolean; busy: boolean; lastVisitAt: number | null; charsAt: number | null; chars: CharRow[] | null; preferredCharId: number | null; moves: Move[]; lastRun: { at: number; ok: boolean; error: string | null; summary: string } | null; lastError: string | null; counts: Counts };
-type SlotRow = { slot: number; objectType: number; itemId: string | null; name: string; tradeable: boolean; placedInstanceId: string | null };
-type Detail = Summary & { character: { slot: number; instanceId: string; itemId: string; name: string; enchantments: number[]; potion: boolean }[]; untracked: { slot: number; objectType: number; name: string }[]; vault: SlotRow[]; rack: SlotRow[]; gift: SlotRow[]; spoils: SlotRow[] };
+type CharRow = { id: number; objectType: number; className: string; level: number; seasonal: boolean; dead: boolean; backpackSlots: number; hasBackpack: boolean; items: number };
+type Counts = { character: { held: number; capacity: number }; vault: { used: number; slots: number }; rack: { used: number; slots: number }; gift: { items: number; tradeable: number }; spoils: { items: number; tradeable: number }; otherChars: number };
+type Summary = { alias: string; guid: string; botGuid: string; ign: string; seasonal: boolean; suspended: boolean; busy: boolean; lastVisitAt: number | null; charsAt: number | null; chars: CharRow[] | null; preferredCharId: number | null; loginCharId: number | null; moves: Move[]; lastRun: { at: number; ok: boolean; error: string | null; summary: string } | null; lastError: string | null; counts: Counts };
+type SlotRow = { slot: number; objectType: number; itemId: string | null; name: string; tradeable: boolean; instanceId: string | null };
+type CharItemRow = { slot: number; instanceId: string; itemId: string; name: string };
+type Detail = Summary & { character: { slot: number; instanceId: string; itemId: string; name: string; enchantments: number[]; potion: boolean }[]; untracked: { slot: number; objectType: number; name: string }[]; vault: SlotRow[]; rack: SlotRow[]; gift: SlotRow[]; spoils: SlotRow[]; charItems: Record<string, CharItemRow[]> };
 type Run = { running: boolean; startedAt: number | null; finishedAt: number | null; total: number; done: number; ok: number; failed: number; skipped: number; current: string[]; stoppedReason: string | null; lastErrors: { alias: string; error: string }[]; moved: number };
 
 const POLL_MS = 4000;
@@ -102,7 +105,7 @@ export default function StorageTab({ password }: { password: string }) {
           return (
             <li key={r.slot} className={can ? "" : "muted"}>
               <span className="storage-item"><ItemSprite name={r.name} size={18} /> {r.name}</span>
-              <span className="muted"> · slot {r.slot}{r.placedInstanceId ? " · put here by this node" : ""}{!can ? (r.itemId === null ? " · not an item the node trades" : " · not tradeable") : ""}</span>
+              <span className="muted"> · slot {r.slot}{!can ? (r.itemId === null ? " · not an item the node trades" : " · not tradeable") : r.instanceId ? " · in the pool" : ""}</span>
               {can && <button className="nav-link" disabled={busy || queued} onClick={() => queue(d.botGuid, { kind, slot: r.slot })}>{queued ? "queued" : takeLabel}</button>}
             </li>
           );
@@ -140,7 +143,7 @@ export default function StorageTab({ password }: { password: string }) {
               <strong>{a.alias}</strong>
               {a.ign && a.ign !== a.alias && <span className="muted">· {a.ign}</span>}
               <span className="muted">· {a.seasonal ? "seasonal" : "non-seasonal"}{a.suspended ? " · suspended" : a.busy ? " · busy" : ""}</span>
-              <span className="muted">· character {c.character.held}/{c.character.capacity} · vault {c.vault.used}/{c.vault.slots} · rack {c.rack.used}/{c.rack.slots} · gift {c.gift.tradeable} tradeable of {c.gift.items} · spoils {c.spoils.tradeable} of {c.spoils.items}</span>
+              <span className="muted">· character {c.character.held}/{c.character.capacity} · vault {c.vault.used}/{c.vault.slots} · rack {c.rack.used}/{c.rack.slots} · gift {c.gift.tradeable} tradeable of {c.gift.items} · spoils {c.spoils.tradeable} of {c.spoils.items}{c.otherChars ? ` · other characters ${c.otherChars}` : ""}</span>
               {a.moves.length > 0 && <span className="tab-badge">{a.moves.length} queued</span>}
               <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
                 <button className="nav-link" disabled={busy || run?.running || a.suspended} onClick={() => void post({ action: "refresh", guids: [a.botGuid] })}>refresh</button>
@@ -177,7 +180,7 @@ export default function StorageTab({ password }: { password: string }) {
                         return (
                           <li key={ch.id}>
                             <span>{ch.className} level {ch.level} · #{ch.id}</span>
-                            <span className="muted"> · {ch.seasonal ? "seasonal" : "non-seasonal"} · {ch.backpackSlots ? `${8 + ch.backpackSlots} trade slots` : "8 trade slots, no backpack"}{ch.dead ? " · dead" : ""}</span>
+                            <span className="muted"> · {ch.seasonal ? "seasonal" : "non-seasonal"} · {ch.backpackSlots ? `${8 + ch.backpackSlots} trade slots` : "8 trade slots, no backpack"}{ch.dead ? " · dead" : ""}{d.loginCharId === ch.id ? " · the one the tracker describes" : ch.items ? ` · ${ch.items} tradeable item(s), in the pool` : ""}</span>
                             {chosen ? <span className="tab-badge">logs in with this one</span> : <button className="nav-link" disabled={busy || ch.dead} onClick={() => void setChar(d.guid, ch.id)}>use this character</button>}
                           </li>
                         );
@@ -223,6 +226,27 @@ export default function StorageTab({ password }: { password: string }) {
                         );
                       })}
                     </ul>
+                  </div>
+                )}
+                {Object.keys(d.charItems).length > 0 && (
+                  <div>
+                    <b>On other characters</b> <span className="muted">{d.counts.otherChars} tradeable item(s); in the pool, fetched by a login as that character</span>
+                    {Object.entries(d.charItems).map(([id, items]) => {
+                      const ch = d.chars?.find((c) => String(c.id) === id);
+                      return (
+                        <div key={id} style={{ marginTop: 4 }}>
+                          <span className="muted">{ch ? `${ch.className} level ${ch.level} · #${ch.id}` : `character #${id}`}</span>
+                          <ul className="storage-list">
+                            {items.map((it) => (
+                              <li key={it.instanceId}>
+                                <span className="storage-item"><ItemSprite name={it.name} size={18} /> {it.name}</span>
+                                <span className="muted"> · slot {it.slot}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 <div><b>Vault chests</b> <span className="muted">{d.counts.vault.used}/{d.counts.vault.slots} slots</span>{rows(d.vault, "unbank", d, "take out")}</div>

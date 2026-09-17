@@ -24,8 +24,8 @@ describe("parseCharListDetail", () => {
     expect(d.nextCharId).toBe(2);
     expect(d.maxNumChars).toBe(1);
     expect(d.chars).toEqual([
-      { id: 1, objectType: 782, level: 7, seasonal: false, dead: false, backpackSlots: 8, hasBackpack: true },
-      { id: 3, objectType: 804, level: 1, seasonal: true, dead: true, backpackSlots: 0, hasBackpack: false },
+      { id: 1, objectType: 782, level: 7, seasonal: false, dead: false, backpackSlots: 8, hasBackpack: true, equipment: [2711, 2606, 2652, -1, -1, -1, -1, -1, -1, -1, -1, -1] },
+      { id: 3, objectType: 804, level: 1, seasonal: true, dead: true, backpackSlots: 0, hasBackpack: false, equipment: [] },
     ]);
   });
   it("rejects a body that is not a char list", () => {

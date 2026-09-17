@@ -10,7 +10,7 @@ import { CATALOG, ITEM_BY_ID } from "./catalog";
 import { acceptsItem, currentItemPolicy } from "./itemPolicy";
 import { enchantName } from "./enchants";
 import type { PyrelayPool } from "./devauth";
-import { rarityFor, type Rarity } from "./poolWire";
+import { rarityFor, whereLabel, type Rarity } from "./poolWire";
 
 export type PoolInstance = {
   instanceId: string;
@@ -23,6 +23,10 @@ export type PoolInstance = {
   // Which pool holds this item: seasonal bots can only trade seasonal
   // players, so the UI splits the view into tabs on this flag.
   seasonal: boolean;
+  /** An item in the account's storage: the halves a character of the account can carry it to (see lib/poolWire.ts). */
+  pools?: { seasonal: boolean; nonseasonal: boolean };
+  /** Where a stored item is, in words; absent for an item on the character. */
+  where?: string;
   enchantments: { id: number; name: string | null }[];
   rarity: Rarity;
 };
@@ -76,6 +80,32 @@ export function projectInstances(data: PyrelayPool, owned: Set<string> = new Set
         seasonal: botMeta.seasonal !== false,
         enchantments,
         rarity,
+      });
+    }
+  }
+  // What the accounts keep in storage is stock too, tagged with where it is
+  // and which halves can draw on it (the fleet fetches it before the trade).
+  for (const [botGuid, list] of Object.entries(data.stored ?? {})) {
+    const botMeta = meta[botGuid] ?? { ign: "", server: "", online: false };
+    for (const s of list) {
+      if (owned.has(s.instanceId)) continue;
+      const item = ITEM_BY_ID.get(s.itemId);
+      if (!item) continue;
+      const enchantments = (s.enchantments ?? []).map((id) => ({ id, name: enchantName(id) }));
+      const pools = s.pools;
+      instances.push({
+        instanceId: s.instanceId,
+        itemId: s.itemId,
+        itemName: item.name,
+        sprite: null,
+        botGuid,
+        botIgn: botMeta.ign ?? "",
+        server: "",
+        seasonal: pools.seasonal && !pools.nonseasonal ? true : !pools.seasonal && pools.nonseasonal ? false : botMeta.seasonal !== false,
+        pools: { seasonal: pools.seasonal, nonseasonal: pools.nonseasonal },
+        where: whereLabel(s.where),
+        enchantments,
+        rarity: rarityFor(enchantments.length),
       });
     }
   }

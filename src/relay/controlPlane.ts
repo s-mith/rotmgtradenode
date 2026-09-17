@@ -7,6 +7,7 @@ import { CATALOG } from "../lib/catalog";
 import { timingSafeEqual } from "node:crypto";
 import { createHash } from "node:crypto";
 import type { Fleet } from "./fleet/fleet";
+import type { StoredInstance } from "./fleet/storage";
 
 const CODE_RE = /^[A-Za-z0-9]{4,32}$/;
 const IGN_RE = /^[A-Za-z]{1,32}$/;
@@ -29,6 +30,14 @@ export type PoolPayload = {
   bots: Record<string, Readonly<Record<string, number>>>;
   capacities: Record<string, number>;
   instances: Record<string, Readonly<Record<string, { instanceId: string; itemId: string; enchantments: number[]; capturedAt: number }>>>;
+  /**
+   * Per bot, what its account keeps beyond the character's trade slots
+   * (docs/relay/STORAGE.md): the vault chests, the potion rack, the gift and
+   * spoils chests, and the other characters' trade slots. Each item says
+   * where it is and which pool halves a character of the account could
+   * carry it to; a withdraw naming one has the fleet fetch it first.
+   */
+  stored: Record<string, StoredInstance[]>;
   botMeta: Record<string, { ign: string; server: string; online: boolean; seasonal: boolean }>;
 };
 
@@ -43,7 +52,7 @@ const payloadMemo = new WeakMap<Fleet, { key: string; payload: PoolPayload }>();
 function poolPayloadKey(fleet: Fleet): string {
   const live: string[] = [];
   for (const acc of fleet.pool.all()) if (acc.online) live.push(acc.botGuid, acc.client!.server);
-  return `${fleet.tracker.revision()}|${fleet.pool.revision}|${live.join(",")}`;
+  return `${fleet.tracker.revision()}|${fleet.pool.revision}|${fleet.storage.revision()}|${live.join(",")}`;
 }
 
 /**
@@ -67,8 +76,13 @@ export function poolPayload(fleet: Fleet): PoolPayload {
   const instances: PoolPayload["instances"] = {};
   for (const [g, slots] of fleet.tracker.instancesView()) if (!suspended.has(g)) instances[g] = slots as unknown as PoolPayload["instances"][string];
   const igns = fleet.tracker.ignsView();
+  const stored: PoolPayload["stored"] = {};
   const botMeta: PoolPayload["botMeta"] = {};
   for (const acc of fleet.pool.all()) {
+    if (!acc.suspended) {
+      const s = fleet.storage.storedFor(acc);
+      if (s.length) stored[acc.botGuid] = s;
+    }
     // Suspended accounts stay listed (the operator's views name them) but
     // are marked, so the site's room maths and vault-bot picks skip them.
     botMeta[acc.botGuid] = { ign: igns.get(acc.botGuid) ?? "", server: acc.online ? acc.client!.server : "", online: acc.online, seasonal: acc.seasonalOrDefault, ...(acc.suspended ? { suspended: true } : {}) };
@@ -84,7 +98,7 @@ export function poolPayload(fleet: Fleet): PoolPayload {
         nonseasonal: { largestFree: largest.nonseasonal, canMake: liveChore && fleet.backpacks.canMakeBackpackBot(false) },
       }
     : undefined;
-  const payload: PoolPayload = { ok: true, bots, capacities, instances, botMeta, ...(room ? { room } : {}) };
+  const payload: PoolPayload = { ok: true, bots, capacities, instances, stored, botMeta, ...(room ? { room } : {}) };
   payloadMemo.set(fleet, { key, payload });
   return payload;
 }

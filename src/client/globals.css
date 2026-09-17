@@ -2563,3 +2563,20 @@ ul.tx-feed li:last-child {
   .raid-card { grid-template-columns: 48px minmax(0, 1fr); }
   .raid-actions { grid-column: 1 / -1; }
 }
+
+/* An item in an account's storage (a vault chest, the potion rack, another
+   character): the fleet fetches it before the trade, so the tile says so. */
+.pool-tile .stored-badge {
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: rgba(70, 110, 170, 0.85);
+  padding: 0 4px;
+  border-radius: 3px;
+  pointer-events: none;
+  line-height: 1.4;
+}

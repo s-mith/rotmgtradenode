@@ -23,6 +23,19 @@ export function rarityFor(enchantCount: number): Rarity {
 
 /** One occupied slot: instance id, catalog item id, enchant ids. */
 export type WireSlot = [instanceId: string, itemId: string, enchantIds: number[]];
+/**
+ * Which pool halves an item can be handed out in: "s" seasonal, "n"
+ * non-seasonal, "b" both (a vault item on an account with a character of
+ * each side).
+ */
+export type WirePools = "s" | "n" | "b";
+/**
+ * One item in the account's storage (a vault chest, the potion rack, the
+ * gift or spoils chest, or another character's trade slots): the slot triple
+ * plus where it is, in words, and the halves it serves. Pool stock like the
+ * rest, only slower: the fleet fetches it onto a character before the trade.
+ */
+export type WireStored = [instanceId: string, itemId: string, enchantIds: number[], where: string, pools: WirePools];
 
 export interface WireBot {
   ign: string;
@@ -30,6 +43,29 @@ export interface WireBot {
   server: string;
   seasonal: boolean;
   slots: WireSlot[];
+  /** What the account keeps beyond the character's trade slots; absent when nothing. */
+  stored?: WireStored[];
+}
+
+export interface PoolSides {
+  seasonal: boolean;
+  nonseasonal: boolean;
+}
+export function sidesOf(p: WirePools): PoolSides {
+  return { seasonal: p !== "n", nonseasonal: p !== "s" };
+}
+export function wirePools(p: PoolSides): WirePools {
+  return p.seasonal && p.nonseasonal ? "b" : p.seasonal ? "s" : "n";
+}
+/** How the grid names a stored item's place. */
+export function whereLabel(w: { kind: "vault" | "rack" | "gift" | "spoils"; slot: number } | { kind: "char"; charId: number; slot: number; className: string; level: number }): string {
+  switch (w.kind) {
+    case "vault": return "vault chest";
+    case "rack": return "potion rack";
+    case "gift": return "gift chest";
+    case "spoils": return "spoils chest";
+    case "char": return `${w.className} (lvl ${w.level})`;
+  }
 }
 
 export interface WireCatalogEntry {
@@ -84,8 +120,21 @@ export interface PoolInstance {
   // Which pool holds the item: seasonal bots only trade seasonal players, so
   // the whole page views one pool at a time.
   seasonal: boolean;
+  /**
+   * Set on an item in the account's storage: the halves a character of the
+   * account can carry it to (an item on the played character serves the
+   * bot's own half, `seasonal`). Read it through `inPool`.
+   */
+  pools?: PoolSides;
+  /** Where a stored item is, in words ("vault chest", "Wizard (lvl 20)"); absent for an item on the character, ready to trade. */
+  where?: string;
   enchantments: { id: number; name: string | null }[];
   rarity: Rarity;
+}
+
+/** Whether the item can be handed out in the seasonal (`true`) or non-seasonal half. */
+export function inPool(i: Pick<PoolInstance, "seasonal" | "pools">, seasonal: boolean): boolean {
+  return i.pools ? (seasonal ? i.pools.seasonal : i.pools.nonseasonal) : i.seasonal === seasonal;
 }
 
 /** The browser's copy of the pool: the last applied revision and what it described. */
@@ -160,6 +209,25 @@ export function instancesFromState(state: PoolState): PoolInstance[] {
         botIgn: bot.ign,
         server: bot.server,
         seasonal: bot.seasonal,
+        enchantments,
+        rarity: rarityFor(enchantments.length),
+      });
+    }
+    for (const [instanceId, itemId, enchantIds, where, pools] of bot.stored ?? []) {
+      const enchantments = enchantIds.map((id) => ({ id, name: state.enchants.get(id) ?? null }));
+      const sides = sidesOf(pools);
+      out.push({
+        instanceId,
+        itemId,
+        itemName: state.items.get(itemId) ?? itemId,
+        sprite: null,
+        botGuid,
+        botIgn: bot.ign,
+        // A stored item is not on any server until fetched: a wildcard for the tray's server check.
+        server: "",
+        seasonal: sides.seasonal && !sides.nonseasonal ? true : !sides.seasonal && sides.nonseasonal ? false : bot.seasonal,
+        pools: sides,
+        where,
         enchantments,
         rarity: rarityFor(enchantments.length),
       });

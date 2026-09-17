@@ -18,7 +18,7 @@ vi.mock("../devauth", async (orig) => ({
 
 const { openDatabase } = await import("../db");
 const { projectInstances } = await import("../pool");
-const { applyPoolWire, emptyPoolState, instancesFromState } = await import("../poolWire");
+const { applyPoolWire, emptyPoolState, inPool, instancesFromState } = await import("../poolWire");
 const { computeSnapshot, markPoolDirty, poolDelta, refreshPoolSnapshot, resetPoolSnapshot } = await import("../poolSnapshot");
 const { GET } = await import("../../server/api/pool/route");
 const { userForIgn } = await import("../users");
@@ -200,5 +200,43 @@ describe("GET /api/pool", () => {
     const after = parse<Extract<PoolWire, { full: false }>>(await (await get(`/api/pool?since=${before.rev}`)).text());
     expect(after.bots["bot-A"]!.slots.map((s) => s[0])).toEqual(["inst-2"]);
     expect((await refreshPoolSnapshot())!.rev).toBe(after.rev);
+  });
+});
+
+describe("stored items on the wire", () => {
+  const stored = (id: string, itemId: string, where: NonNullable<PyrelayPool["stored"]>[string][number]["where"], pools: { seasonal: boolean; nonseasonal: boolean }, enchantments: number[] = []) => ({ instanceId: id, itemId, enchantments, capturedAt: T0, where, pools });
+  it("lists what the accounts keep in storage beside the characters' items, with where it is and which halves can draw on it", () => {
+    const pool = fleet({ "bot-A": { "4": slot("inst-1") } });
+    pool.stored = {
+      "bot-A": [stored("st-1", "acsl", { kind: "vault", slot: 0 }, { seasonal: true, nonseasonal: true }, [283]), stored("st-2", "ubatk", { kind: "spoils", slot: 2 }, { seasonal: false, nonseasonal: true })],
+      // An account with nothing on its character still lists its storage.
+      "bot-B": [stored("st-3", "ubatk", { kind: "char", charId: 7, slot: 5, className: "Wizard", level: 20 }, { seasonal: false, nonseasonal: true })],
+    };
+    const snap = computeSnapshot(null, pool, NONE, "[]");
+    const full = parse<Extract<PoolWire, { full: true }>>(snap.fullJson);
+    expect(full.bots["bot-A"].stored).toEqual([["st-1", "acsl", [283], "vault chest", "b"], ["st-2", "ubatk", [], "spoils chest", "n"]]);
+    expect(full.bots["bot-B"]).toMatchObject({ slots: [], stored: [["st-3", "ubatk", [], "Wizard (lvl 20)", "n"]] });
+    const grid = decode(full);
+    expect(grid).toEqual(projectInstances(pool));
+    const st1 = grid.find((i) => i.instanceId === "st-1")!;
+    expect(st1).toMatchObject({ where: "vault chest", pools: { seasonal: true, nonseasonal: true }, server: "", botIgn: "BotA", rarity: "uncommon" });
+    expect(inPool(st1, true)).toBe(true);
+    expect(inPool(st1, false)).toBe(true);
+    const st3 = grid.find((i) => i.instanceId === "st-3")!;
+    expect(st3).toMatchObject({ where: "Wizard (lvl 20)", seasonal: false });
+    expect(inPool(st3, true)).toBe(false);
+    // An item on the character keeps the bot's half.
+    expect(inPool(grid.find((i) => i.instanceId === "inst-1")!, true)).toBe(true);
+  });
+  it("re-serves the pool when only the storage changed, and hides a stored item somebody owns", () => {
+    const pool = fleet({ "bot-A": { "4": slot("inst-1") } });
+    const s1 = computeSnapshot(null, pool, NONE, "[]");
+    const moved: PyrelayPool = { ...pool, stored: { "bot-A": [stored("st-1", "acsl", { kind: "rack", slot: 1 }, { seasonal: true, nonseasonal: false })] } };
+    const s2 = computeSnapshot(s1, moved, NONE, "[]");
+    expect(s2.rev).not.toBe(s1.rev);
+    const d = parse<Extract<PoolWire, { full: false }>>(poolDelta(s2, s1.rev)!);
+    expect(d.bots["bot-A"]!.stored).toEqual([["st-1", "acsl", [], "potion rack", "s"]]);
+    const s3 = computeSnapshot(s2, moved, new Set(["st-1"]), "[]");
+    expect(parse<Extract<PoolWire, { full: true }>>(s3.fullJson).bots["bot-A"].stored).toBeUndefined();
   });
 });

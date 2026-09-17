@@ -23,6 +23,7 @@ import type { Assignment as SiteAssignment, FleetVault, ItemQty, PendingDeposit,
 import { bucketCounts, bucketOf, collectionTargets, electRoles, fragmentation, planMoves, splitStats, type Demand, type Fragmentation, type Inventories, type Move, type MoveKind } from "./potionConsolidation";
 import * as C from "./constants";
 import { swapAssignment, swapResult } from "./swapJobs";
+import type { FetchNeed, FetchOptions, FetchResult, StoredInstance } from "./storage";
 
 // --- routing types ----------------------------------------------------------
 
@@ -35,6 +36,25 @@ interface RoutedWithdraw {
   targetBotGuid: string | null;
   /** Picked physical items: only that bot, with those instances, will do. */
   perInstance: boolean;
+  /**
+   * No bot carries it, but this account has what is missing in its storage
+   * (a container, or another character): a fetch trip brings it onto the
+   * character first (docs/relay/STORAGE.md), then the bot is a candidate.
+   */
+  fetchFrom: { botGuid: string; need: FetchNeed } | null;
+}
+/** The storage service as the dispatcher sees it (fleet.ts wires it). */
+export interface StorageDesk {
+  /** What the account behind `botGuid` holds beyond its character's trade slots. */
+  stored: (botGuid: string) => StoredInstance[];
+  fetch: (acc: BotAccount, need: FetchNeed, o: FetchOptions) => Promise<FetchResult>;
+}
+interface FetchOrder {
+  /** Trips made for this request (transient refusals — the bot was busy — do not count). */
+  attempts: number;
+  nextAt: number;
+  inflight: boolean;
+  gaveUp: boolean;
 }
 interface RoutedDeposit {
   requestId: number;
@@ -243,6 +263,13 @@ export class Dispatcher {
   private bigDepositSince = new Map<number, number>();
   setBackpackOrders(fn: (seasonal: boolean) => void): void {
     this.orderBackpackBot = fn;
+  }
+  /** The storage service: what each account keeps beyond its trade slots, and the trips that fetch it for a withdraw. */
+  private storageDesk: StorageDesk | null = null;
+  /** One entry per pending withdraw waiting on a fetch. */
+  private readonly fetchOrders = new Map<number, FetchOrder>();
+  setStorageDesk(desk: StorageDesk): void {
+    this.storageDesk = desk;
   }
   private lastSupervise = 0;
   private tickCount = 0;
@@ -1103,6 +1130,7 @@ export class Dispatcher {
     this.lastWantedAt = Date.now();
     this.nudgeClaims(wantedServers);
     this.orderBackpackBotsFor(routing);
+    this.orderFetchesFor(routing, resp.withdraws ?? []);
 
     if (resp.withdraws?.length || resp.deposits?.length) {
       const digest = [...routing].flatMap(([sv, r]) => r.withdraws.map((w) => `${sv}:wd${w.requestId}(cand=[${w.candidateBots.map((g) => g.slice(0, 8)).join(",")}])`)).join(" ") || "(no withdraws)";
@@ -1287,22 +1315,39 @@ export class Dispatcher {
     const poolOf = new Map(this.accounts().map((a) => [a.botGuid, seasonalOf(a)]));
     const routing: Routing = new Map();
     const covers = (inv: Record<string, number> | undefined, items: ItemQty[]) => items.every((it) => (inv?.[it.itemId] ?? 0) >= it.qty);
+    // What an account keeps beyond its character's trade slots, reachable for a pool half (a suspended account's is not).
+    const storedOf = (g: string, want: boolean): StoredInstance[] => (suspended.has(g) ? [] : (this.storageDesk?.stored(g) ?? [])).filter((s) => s.pools[want ? "seasonal" : "nonseasonal"]);
     for (const w of withdraws) {
       const want = w.seasonal ?? true;
       const inPool = (g: string) => poolOf.get(g) === want;
       let candidates: string[] = [];
+      let fetchFrom: RoutedWithdraw["fetchFrom"] = null;
       if (w.instanceIds?.length) {
-        if (w.targetBotGuid && inPool(w.targetBotGuid)) {
-          const held = (w.vaultUserId != null ? instancesByBotAll : instancesByBot).get(w.targetBotGuid) ?? new Set();
-          if (w.instanceIds.every((id) => held.has(id))) candidates = [w.targetBotGuid];
+        if (w.targetBotGuid) {
+          // What the character holds only counts while it is of the wanted side; the rest may be in storage.
+          const held = inPool(w.targetBotGuid) ? (w.vaultUserId != null ? instancesByBotAll : instancesByBot).get(w.targetBotGuid) ?? new Set<string>() : new Set<string>();
+          const missing = w.instanceIds.filter((id) => !held.has(id));
+          if (!missing.length) candidates = [w.targetBotGuid];
+          else if (w.vaultUserId == null) {
+            const stored = new Set(storedOf(w.targetBotGuid, want).map((s) => s.instanceId));
+            if (missing.every((id) => stored.has(id))) fetchFrom = { botGuid: w.targetBotGuid, need: { instanceIds: missing, items: [] } };
+          }
         }
       } else if (w.targetBotGuid) {
-        if (inPool(w.targetBotGuid) && covers(tracker[w.targetBotGuid], w.items)) candidates = [w.targetBotGuid];
+        const inv = inPool(w.targetBotGuid) ? tracker[w.targetBotGuid] : undefined;
+        if (inPool(w.targetBotGuid) && covers(inv, w.items)) candidates = [w.targetBotGuid];
+        else {
+          // A count of a type is filled from the account's containers (never another character).
+          const stock: Record<string, number> = {};
+          for (const s of storedOf(w.targetBotGuid, want)) if (s.where.kind !== "char") stock[s.itemId] = (stock[s.itemId] ?? 0) + 1;
+          const short = w.items.map((it) => ({ itemId: it.itemId, qty: Math.max(0, it.qty - (inv?.[it.itemId] ?? 0)) })).filter((it) => it.qty > 0);
+          if (short.length && short.every((it) => (stock[it.itemId] ?? 0) >= it.qty)) fetchFrom = { botGuid: w.targetBotGuid, need: { instanceIds: [], items: short } };
+        }
       } else {
         for (const [g, inv] of Object.entries(tracker)) if (inPool(g) && covers(inv, w.items)) candidates.push(g);
       }
       const r = routing.get(w.server) ?? { count: 0, withdraws: [], deposits: [] };
-      r.withdraws.push({ requestId: w.id, items: w.items, candidateBots: candidates, seasonal: want, targetBotGuid: w.targetBotGuid ?? null, perInstance: !!w.instanceIds?.length });
+      r.withdraws.push({ requestId: w.id, items: w.items, candidateBots: candidates, seasonal: want, targetBotGuid: w.targetBotGuid ?? null, perInstance: !!w.instanceIds?.length, fetchFrom });
       r.count++;
       routing.set(w.server, r);
     }
@@ -1414,6 +1459,85 @@ export class Dispatcher {
    * even that short means whatever the room count sees can't actually come.
    * A fitting bot already being woken for the half is given its login first.
    */
+  /**
+   * A withdraw whose items sit in an account's storage gets a fetch trip
+   * ordered (docs/relay/STORAGE.md): the storage service logs the account in
+   * as the character that can reach them, moves them onto it, and the next
+   * routing pass finds the bot a candidate. One order per request; a failed
+   * trip is retried after FETCH_RETRY_S, and after FETCH_MAX_ATTEMPTS trips
+   * the request is given up so the player is told rather than left waiting.
+   * A bot that is busy (a trade, a login, a chore) is simply tried next pass.
+   */
+  private orderFetchesFor(routing: Routing, pending: PendingWithdraw[]): void {
+    const desk = this.storageDesk;
+    if (!desk) return;
+    const now = Date.now();
+    const seen = new Set<number>();
+    // What other open withdraws count on per bot: a fetch never banks it away to make room.
+    const keepIds = new Map<string, Set<string>>();
+    const keepItems = new Map<string, Set<string>>();
+    for (const w of pending) {
+      if (!w.targetBotGuid) continue;
+      if (w.instanceIds?.length) {
+        const s = keepIds.get(w.targetBotGuid) ?? new Set<string>();
+        for (const id of w.instanceIds) s.add(id);
+        keepIds.set(w.targetBotGuid, s);
+      } else {
+        const s = keepItems.get(w.targetBotGuid) ?? new Set<string>();
+        for (const it of w.items) s.add(it.itemId);
+        keepItems.set(w.targetBotGuid, s);
+      }
+    }
+    for (const r of routing.values()) {
+      for (const w of r.withdraws) {
+        if (!w.fetchFrom) continue;
+        seen.add(w.requestId);
+        let o = this.fetchOrders.get(w.requestId);
+        if (!o) this.fetchOrders.set(w.requestId, (o = { attempts: 0, nextAt: 0, inflight: false, gaveUp: false }));
+        if (o.inflight || o.gaveUp || o.nextAt > now) continue;
+        const acc = this.pool.byBotGuid(w.fetchFrom.botGuid);
+        if (!acc || acc.suspended) continue;
+        if (o.attempts >= C.FETCH_MAX_ATTEMPTS) {
+          o.gaveUp = true;
+          this.log(`withdraw #${w.requestId}: giving up after ${o.attempts} fetch trip(s) on ${acc.alias} — the items stay in storage`);
+          void this.api.giveUp(acc.botGuid, w.requestId, "withdraw").catch((e) => this.log(`give-up of withdraw #${w.requestId} raised: ${String(e)}`));
+          continue;
+        }
+        if (acc.assignedRequestId !== null || acc.inUse || this.isHeld(acc.guid) || this.wakes.waking().has(acc.guid)) continue;
+        const need = w.fetchFrom.need;
+        const named = new Set(need.instanceIds);
+        const keep = new Set<string>([...(keepIds.get(acc.botGuid) ?? []), ...this.ownedInstances].filter((id) => !named.has(id)));
+        o.inflight = true;
+        const order = o;
+        const what = need.instanceIds.length ? `${need.instanceIds.length} picked item(s)` : need.items.map((it) => `${it.qty}x${it.itemId}`).join(",");
+        this.log(`withdraw #${w.requestId}: ordering a fetch of ${what} from ${acc.alias}'s storage (trip ${order.attempts + 1}/${C.FETCH_MAX_ATTEMPTS})`);
+        void desk.fetch(acc, need, { seasonal: w.seasonal, keep, keepItems: keepItems.get(acc.botGuid), why: `withdraw #${w.requestId}` }).then((res) => {
+          order.inflight = false;
+          if (res.ok) {
+            this.log(`withdraw #${w.requestId}: fetch from ${acc.alias}'s storage done — routing it next pass`);
+            this.poke();
+            return;
+          }
+          if (res.busy) {
+            // Not a trip: the account was not free. Try again soon.
+            order.nextAt = Date.now() + C.SUPERVISE_INTERVAL_S * 1000;
+            return;
+          }
+          order.attempts++;
+          if (res.permanent) order.attempts = C.FETCH_MAX_ATTEMPTS;
+          order.nextAt = Date.now() + C.FETCH_RETRY_S * 1000;
+          this.log(`withdraw #${w.requestId}: fetch from ${acc.alias}'s storage failed (${res.error})${order.attempts >= C.FETCH_MAX_ATTEMPTS ? " — no more trips" : ` — retrying in ${C.FETCH_RETRY_S}s`}`);
+        }).catch((e) => {
+          order.inflight = false;
+          order.attempts++;
+          order.nextAt = Date.now() + C.FETCH_RETRY_S * 1000;
+          this.log(`withdraw #${w.requestId}: fetch raised: ${String(e)}`);
+        });
+      }
+    }
+    for (const id of [...this.fetchOrders.keys()]) if (!seen.has(id) && !this.fetchOrders.get(id)!.inflight) this.fetchOrders.delete(id);
+  }
+
   private orderBackpackBotsFor(routing: Routing): void {
     if (!this.orderBackpackBot) return;
     const now = Date.now();
@@ -1522,6 +1646,11 @@ export class Dispatcher {
           const cooling = w.candidateBots.filter((g) => !online.has(g)).map((g) => this.pool.byBotGuid(g)).filter((a): a is BotAccount => !!a && this.loginBlockedMs(a) > 0);
           if (cooling.length) this.log(`[diag] ${server}: withdraw #${w.requestId}'s offline candidate(s) ${cooling.map((a) => a.alias).join(",")} are on a login cooldown — waiting it out`);
         }
+        continue;
+      }
+      if (w.fetchFrom) {
+        const o = this.fetchOrders.get(w.requestId);
+        this.log(`[diag] ${server}: withdraw #${w.requestId} needs items from ${this.pool.byBotGuid(w.fetchFrom.botGuid)?.alias ?? w.fetchFrom.botGuid}'s storage — ${o?.inflight ? "a fetch is on its way" : o?.gaveUp ? "given up after repeated fetch failures" : `fetch ordered (${o?.attempts ?? 0} attempt(s) so far)`}`);
         continue;
       }
       if (w.perInstance) {

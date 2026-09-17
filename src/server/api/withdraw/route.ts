@@ -15,13 +15,29 @@ import {
   STAT_LABELS,
   type PotionWithdrawPlan,
 } from "@/lib/potionPlan";
-import { pyrelay } from "@/lib/devauth";
+import { pyrelay, type PyrelayPool } from "@/lib/devauth";
+import { whereLabel } from "@/lib/poolWire";
 import { MAX_OPEN_WITHDRAWS, openRequestsFor } from "@/lib/cancelCode";
 import { sessionFromRequest } from "@/lib/session";
 import { blockMessage, withdrawBlock } from "@/lib/serverControls";
 import { ownedInstanceIds, releaseVaultBotIfEmpty, reservedInstanceIds } from "@/lib/vault";
 import { sessionUser } from "@/lib/users";
 
+
+/**
+ * What an account keeps in storage, as stock for one pool half: the items a
+ * character of that side could carry out (docs/relay/STORAGE.md). The fleet
+ * fetches them onto the character before the trade, so they count like the
+ * character's own — within the character's slots, which `capacityOf` bounds.
+ */
+function storedFor(pool: PyrelayPool, botGuid: string, seasonal: boolean) {
+  return (pool.stored?.[botGuid] ?? []).filter((s) => (seasonal ? s.pools.seasonal : s.pools.nonseasonal));
+}
+/** Trade slots on the bot's character: what one trade, fetched items included, can hold. */
+function capacityOf(pool: PyrelayPool, botGuid: string): number {
+  const c = pool.capacities?.[botGuid];
+  return Number.isInteger(c) && c! > 0 ? c! : 8;
+}
 
 export async function POST(req: Request) {
   const ip = clientIp(req);
@@ -118,10 +134,13 @@ export async function POST(req: Request) {
   // stock the fragmenter may hand out.
   const owned = ownedInstanceIds(db);
   const inventoryFromPyrelay = new Map<string, Map<string, number>>();
+  const onCharacter = new Map<string, number>();
   for (const [botGuid, slots] of Object.entries(poolResp.data.instances ?? {})) {
     if (!isPoolBot(meta[botGuid], parsed.seasonal)) continue;
     for (const info of Object.values(slots)) {
-      if (!relevantIds.has(info.itemId) || owned.has(info.instanceId)) continue;
+      if (owned.has(info.instanceId)) continue;
+      onCharacter.set(botGuid, (onCharacter.get(botGuid) ?? 0) + 1);
+      if (!relevantIds.has(info.itemId)) continue;
       let m = inventoryFromPyrelay.get(botGuid);
       if (!m) {
         m = new Map();
@@ -129,6 +148,28 @@ export async function POST(req: Request) {
       }
       m.set(info.itemId, (m.get(info.itemId) ?? 0) + 1);
     }
+  }
+  // The accounts' containers (vault chests, potion rack, gift and spoils
+  // chests) are stock too: the fleet fetches what a request needs onto the
+  // character first. Another character's items are not counted here — a
+  // count of a type is filled from the containers only; those are picked
+  // item by item. Per bot no more than the character's slots can hold in
+  // one trade, what it already carries included.
+  for (const [botGuid, list] of Object.entries(poolResp.data.stored ?? {})) {
+    if (meta[botGuid]?.suspended) continue;
+    let room = capacityOf(poolResp.data, botGuid) - (onCharacter.get(botGuid) ?? 0);
+    for (const s of storedFor(poolResp.data, botGuid, parsed.seasonal)) {
+      if (room <= 0) break;
+      if (s.where.kind === "char" || !relevantIds.has(s.itemId) || owned.has(s.instanceId)) continue;
+      let m = inventoryFromPyrelay.get(botGuid);
+      if (!m) {
+        m = new Map();
+        inventoryFromPyrelay.set(botGuid, m);
+      }
+      m.set(s.itemId, (m.get(s.itemId) ?? 0) + 1);
+      room--;
+    }
+    void list;
   }
 
   // Single transaction: per-IGN cap, total stock check, fragmentation across
@@ -399,10 +440,13 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
     // the tracker by fulfill time, and the ledger's enchant-multiplier
     // scoring needs it recorded on the transaction row.
     enchants: number;
+    /** In the account's storage rather than on the character: the fleet fetches it first. A character's id when on another character. */
+    stored: { kind: string; charId: number | null; label: string } | null;
   };
   const instRows: InstRow[] = [];
   const meta = poolResp.data.botMeta ?? {};
   const owned = ownedInstanceIds(db);
+  const onCharacter = new Map<string, number>();
   for (const [botGuid, slots] of Object.entries(poolResp.data.instances ?? {})) {
     // Hard gate, not just display: an instanceId on a bot of the other pool
     // is held by a character this player can't trade. Skipping it here makes
@@ -413,14 +457,32 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
     for (const info of Object.values(slots)) {
       // Personal property is not pool stock, whichever bot holds it.
       if (owned.has(info.instanceId)) continue;
+      onCharacter.set(botGuid, (onCharacter.get(botGuid) ?? 0) + 1);
       if (instanceIds.includes(info.instanceId)) {
         instRows.push({
           instance_id: info.instanceId,
           bot_guid: botGuid,
           item_id: info.itemId,
           enchants: (info.enchantments ?? []).length,
+          stored: null,
         });
       }
+    }
+  }
+  // Items in an account's storage: the same gate, per item (a vault item
+  // serves whichever side the account has a character for, the spoils
+  // chest only the non-seasonal side, another character its own side).
+  for (const [botGuid] of Object.entries(poolResp.data.stored ?? {})) {
+    if (meta[botGuid]?.suspended) continue;
+    for (const s of storedFor(poolResp.data, botGuid, parsed.seasonal)) {
+      if (owned.has(s.instanceId) || !instanceIds.includes(s.instanceId)) continue;
+      instRows.push({
+        instance_id: s.instanceId,
+        bot_guid: botGuid,
+        item_id: s.itemId,
+        enchants: (s.enchantments ?? []).length,
+        stored: { kind: s.where.kind, charId: s.where.kind === "char" ? s.where.charId : null, label: whereLabel(s.where) },
+      });
     }
   }
 
@@ -433,13 +495,35 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
     );
   }
 
+  // One trade is one character: what a bot hands over must all be reachable
+  // by the character it will play. Items on two characters of one account,
+  // or on another character plus the played one, cannot go together; and a
+  // fetch has only the character's slots to land in.
+  {
+    const perBot = new Map<string, InstRow[]>();
+    for (const r of instRows) perBot.set(r.bot_guid, [...(perBot.get(r.bot_guid) ?? []), r]);
+    for (const [botGuid, rows] of perBot) {
+      const chars = new Set(rows.filter((r) => r.stored?.charId != null).map((r) => r.stored!.charId));
+      const played = rows.some((r) => r.stored === null);
+      if (chars.size > 1 || (chars.size === 1 && played)) {
+        const name = ITEM_BY_ID.get(rows[0].item_id)?.name ?? rows[0].item_id;
+        return json({ error: `${name} and another pick are on different characters of the same account — one trade carries one character's items. Withdraw them separately.` }, { status: 409 });
+      }
+      const cap = capacityOf(poolResp.data, botGuid);
+      if (rows.length > cap) {
+        return json({ error: `${meta[botGuid]?.ign || "That account"} can hand over at most ${cap} items in one trade (its character's slots). Pick fewer from it.` }, { status: 409 });
+      }
+    }
+  }
+
   // For ONLINE bots holding selected items, all must be on the server the
   // user picked. Offline bots (botMeta.online === false or missing) get
   // a pass — the dispatcher will wake them onto the requested server when
   // it sees the pending row.
   const wrongServer = instRows.find((r) => {
     const m = meta[r.bot_guid];
-    if (!m || !m.online) return false;
+    // A stored item is fetched by a fresh login: the bot's current server does not bind it.
+    if (!m || !m.online || r.stored) return false;
     return (m.server ?? "") !== parsed.server;
   });
   if (wrongServer) {
@@ -567,11 +651,14 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
   if (tx.kind === "err") {
     return json({ error: tx.error }, { status: tx.status });
   }
+  const fetched = instRows.filter((r) => r.stored).length;
   return json({
     ok: true,
     groupId: tx.groupId,
     tradeCount: tx.tradeCount,
     requestId: tx.childIds[0],
+    // How many picks the fleet fetches from storage first (a login and a walk into the Vault before the bot can meet the player).
+    fetched,
   });
 }
 

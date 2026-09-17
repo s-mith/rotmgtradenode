@@ -121,6 +121,8 @@ export class GameClient extends EventEmitter<GameClientEvents> {
   mapName = "";
   /** null until the char list has been read, or when the account has no character. */
   charSeasonal: boolean | null = null;
+  /** The char list read at the last authenticate/refresh: every character, with what it carries. */
+  lastCharList: CharList | null = null;
   /**
    * The fleet knows this character wears a backpack (char/list BackpackSlots,
    * a confirmed equip, or the tracker's 16). Stat 79 does not reach most
@@ -241,6 +243,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     const chars = await getCharList(this.accessToken, this.proxy);
     if (!chars.ok) return false;
     const c = chars.value;
+    this.lastCharList = c;
     this.readCharFacts(c);
     if (c.charIds.length > 0) {
       this.currentCharId = pickCharId(this.preferredCharId, c.charIds);
@@ -265,6 +268,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     const chars = await getCharList(this.accessToken, this.proxy);
     if (!chars.ok) return chars;
     const c = chars.value;
+    this.lastCharList = c;
     this.readCharFacts(c);
     if (c.charIds.length > 0) {
       this.currentCharId = pickCharId(this.preferredCharId, c.charIds);
