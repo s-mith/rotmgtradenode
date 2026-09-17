@@ -1,7 +1,7 @@
-rotmgtrade design doc
+rotmgtradenode design doc
 =====================
 
-Two pieces: the NODE (rotmgtrade, a self-hosted personal vault each player
+Two pieces: the NODE (rotmgtradenode, a self-hosted personal vault each player
 runs on their own computer) and the HUB (rotmgtradehub, a website that lets
 nodes find each other, swap items, and share a commons). The hub runs no
 bots, never logs into the game, holds no items, no credentials and no money,
@@ -79,7 +79,7 @@ Any future feature that breaks one of these needs its own risk write-up first.
 4. Components
 -------------
 
-4.1 Node (rotmgtrade)
+4.1 Node (rotmgtradenode)
   - open source. Fork of rotmgcommunism `rewrite`, trimmed to: vault,
     deposit/withdraw, /tell owner login, inventory tracker, trade machine,
     backpack claim chore, tutorial walker (for hand-made and delivered accounts)
@@ -315,7 +315,7 @@ Protocol-break safety
     current-build endpoint, the him.is protocol feed, and as a last resort
     the build id reported by Realm's own app-init/version endpoint
   - mismatch = the node refuses to log in, tells the owner "Realm updated,
-    waiting for a rotmgtrade update", and keeps checking for the auto-update.
+    waiting for a rotmgtradenode update", and keeps checking for the auto-update.
     Local mode does the same using the feed directly
   - the hub flips its current build as soon as the operator confirms the new
     protocol, and the node release that carries it goes out through

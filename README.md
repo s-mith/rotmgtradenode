@@ -1,4 +1,4 @@
-# rotmgtrade
+# rotmgtradenode
 
 A self-hosted vault for Realm of the Mad God. Your own alt accounts hold your
 items, on your own computer, through your own proxies. Nothing central to
@@ -107,7 +107,8 @@ npm run typecheck
 puts the Node build back afterwards, because the packaged app runs the server
 under Electron's Node. Works on Windows, macOS and Linux; Windows has been
 checked by reading, not by running, so the first Windows run is worth
-watching (`%APPDATA%\\rotmgtrade\\node.log`).
+watching (`%APPDATA%\\rotmgtradenode\\node.log`). A data folder left by the app's
+old name, `rotmgtrade`, is moved over the first time the renamed app starts.
 
 Layout: `src/relay` is the game side (protocol, client, trade machine, fleet),
 `src/server` + `src/client` the site, `src/accountgen` the tutorial walker and

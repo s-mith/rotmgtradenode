@@ -14,6 +14,25 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
 const serverMain = path.join(appRoot, "dist", "server", "main.js");
 const clientDir = path.join(appRoot, "dist", "client");
+// The app was called "rotmgtrade" until 2026-09-17. Its data folder moves
+// over once: whole when this one does not exist yet, otherwise piece by
+// piece for whatever is still missing here.
+const legacyUserData = path.join(app.getPath("appData"), "rotmgtrade");
+if (fs.existsSync(legacyUserData) && legacyUserData !== app.getPath("userData")) {
+  try {
+    const target = app.getPath("userData");
+    if (!fs.existsSync(target)) fs.renameSync(legacyUserData, target);
+    else {
+      for (const name of ["data", "secret_key.enc", "node.log"]) {
+        const from = path.join(legacyUserData, name);
+        const to = path.join(target, name);
+        if (fs.existsSync(from) && !fs.existsSync(to)) fs.renameSync(from, to);
+      }
+    }
+  } catch (e) {
+    console.error("could not move the old rotmgtrade data folder:", e);
+  }
+}
 const dataDir = path.join(app.getPath("userData"), "data");
 const logFile = path.join(app.getPath("userData"), "node.log");
 
@@ -82,7 +101,7 @@ async function startServer() {
   child.on("exit", (code) => {
     child = null;
     if (quitting) return;
-    dialog.showErrorBox("rotmgtrade stopped", `The node process exited (code ${code}). See ${logFile}.`);
+    dialog.showErrorBox("rotmgtradenode stopped", `The node process exited (code ${code}). See ${logFile}.`);
     app.quit();
   });
   // Wait for /api/healthz before showing anything.
@@ -106,7 +125,7 @@ function showWindow() {
     return;
   }
   win = new BrowserWindow({
-    width: 1280, height: 860, title: "rotmgtrade", autoHideMenuBar: true,
+    width: 1280, height: 860, title: "rotmgtradenode", autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.loadURL(`http://127.0.0.1:${port}/`);
@@ -127,9 +146,9 @@ function showWindow() {
 function makeTray() {
   const icon = nativeImage.createFromPath(path.join(appRoot, "public", "logo.png"));
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon.resize({ width: 16, height: 16 }));
-  tray.setToolTip("rotmgtrade");
+  tray.setToolTip("rotmgtradenode");
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: "Open rotmgtrade", click: showWindow },
+    { label: "Open rotmgtradenode", click: showWindow },
     { label: "Control panel", click: () => { showWindow(); win?.loadURL(`http://127.0.0.1:${port}/control`); } },
     { label: "Open data folder", click: () => shell.openPath(app.getPath("userData")) },
     { label: "Open log", click: () => shell.openPath(logFile) },
@@ -145,7 +164,7 @@ async function checkForUpdates() {
     const { autoUpdater } = await import("electron-updater");
     autoUpdater.logger = null;
     autoUpdater.on("update-downloaded", (info) => {
-      dialog.showMessageBox({ type: "info", message: `rotmgtrade ${info.version} is ready.`, detail: "It installs the next time you quit. Realm updates arrive this way too (design doc §8).", buttons: ["OK"] });
+      dialog.showMessageBox({ type: "info", message: `rotmgtradenode ${info.version} is ready.`, detail: "It installs the next time you quit. Realm updates arrive this way too (design doc §8).", buttons: ["OK"] });
     });
     await autoUpdater.checkForUpdatesAndNotify();
     setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 3600 * 1000).unref();
@@ -158,7 +177,7 @@ app.whenReady().then(async () => {
   try {
     await startServer();
   } catch (e) {
-    dialog.showErrorBox("rotmgtrade could not start", `${e}\n\nLog: ${logFile}`);
+    dialog.showErrorBox("rotmgtradenode could not start", `${e}\n\nLog: ${logFile}`);
     app.quit();
     return;
   }

@@ -5,7 +5,7 @@
 // in, the ones it learned on this machine, and the ones the owner trusts.
 //
 // On an unknown build the login gate is held. Two ways out:
-//   - a rotmgtrade update whose compiled-in list names the build;
+//   - a rotmgtradenode update whose compiled-in list names the build;
 //   - a canary: ONE account logs in, must reach the world and hold it for
 //     CANARY_HOLD_MS without a FAILURE, and the build is then recorded as
 //     known. The canary is the owner's call (a button), never automatic.
@@ -71,7 +71,7 @@ export class BuildGate {
       if (this.o.deps.gate.holdReason?.startsWith("Realm build")) this.o.deps.gate.release();
       return;
     }
-    this.o.deps.gate.hold(`Realm build ${build} is new to this node; waiting for a rotmgtrade update, or run a canary login from the console`);
+    this.o.deps.gate.hold(`Realm build ${build} is new to this node; waiting for a rotmgtradenode update, or run a canary login from the console`);
     // Bots already in world stay: the kick, if any, comes from the server.
   }
 

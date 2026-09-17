@@ -8,7 +8,7 @@ export default defineConfig({
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } },
   build: { outDir: "dist/client", emptyOutDir: true },
   // Tests never touch the repo's data dir (the sealing key lives there).
-  test: { env: { DATA_DIR: path.join(os.tmpdir(), "rotmgtrade-vitest-data") } },
+  test: { env: { DATA_DIR: path.join(os.tmpdir(), "rotmgtradenode-vitest-data") } },
   server: {
     port: 5173,
     // Dev: Vite serves the client, the API runs on its own port.

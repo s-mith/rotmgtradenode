@@ -7,7 +7,7 @@ import { checkDevPassword } from "@/lib/devauth";
 export async function POST(req: Request) {
   const auth = checkDevPassword(req);
   if (!auth.ok) return json({ error: auth.error }, { status: auth.status });
-  const stop = globalThis.__rotmgtrade_shutdown__;
+  const stop = globalThis.__rotmgtradenode_shutdown__;
   if (!stop) return json({ error: "no shutdown hook installed" }, { status: 503 });
   setTimeout(() => stop("shutdown request"), 50);
   return json({ ok: true });

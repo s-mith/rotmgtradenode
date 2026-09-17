@@ -1,5 +1,5 @@
 {
-  "name": "rotmgtrade",
+  "name": "rotmgtradenode",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -59,8 +59,8 @@
   "license": "MIT",
   "main": "electron/main.mjs",
   "build": {
-    "appId": "is.him.rotmgtrade",
-    "productName": "rotmgtrade",
+    "appId": "is.him.rotmgtradenode",
+    "productName": "rotmgtradenode",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release"

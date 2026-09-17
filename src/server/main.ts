@@ -144,6 +144,6 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 // SIGTERM for a child process.
 declare global {
   // eslint-disable-next-line no-var
-  var __rotmgtrade_shutdown__: ((why: string) => void) | undefined;
+  var __rotmgtradenode_shutdown__: ((why: string) => void) | undefined;
 }
-globalThis.__rotmgtrade_shutdown__ = shutdown;
+globalThis.__rotmgtradenode_shutdown__ = shutdown;
