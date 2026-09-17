@@ -249,6 +249,35 @@ export class BotPool {
     console.log(`BotPool: ${acc.alias} logs in with ${charId === null ? "its first character" : `character ${charId}`} from now on`);
   }
 
+  /**
+   * A new email for an account the owner mistyped. The email IS the identity
+   * (botGuid derives from it), so the record is replaced by an equivalent one
+   * under the new address, keeping the alias, pool, server and character
+   * choice. Everything the fleet filed under the old bot guid (tracked items,
+   * backpack and storage state) belongs to the old identity and is left
+   * behind, so the caller must refuse this for an account that holds items.
+   */
+  setEmail(acc: BotAccount, email: string): BotAccount | { error: string } {
+    const next = email.trim().toLowerCase();
+    if (!next || next === acc.guid) return acc;
+    if (this.accounts.some((a) => a.guid === next)) return { error: "another account on the roster already uses that email" };
+    const i = this.accounts.indexOf(acc);
+    if (i < 0) return { error: "that account is not on the roster" };
+    const info: AccountInfo = { ...acc.info, guid: next };
+    const replacement = new BotAccount(info);
+    this.accounts[i] = replacement;
+    this.byBot.delete(acc.botGuid);
+    this.byBot.set(replacement.botGuid, replacement);
+    this.touched();
+    this.patchFile((entries) => {
+      const j = entries.findIndex((e) => e.guid === acc.guid);
+      if (j >= 0) entries[j] = info;
+      else entries.push(info);
+    });
+    console.log(`BotPool: ${acc.alias} is now ${next}`);
+    return replacement;
+  }
+
   /** A new password for an account (the owner corrected it). Persists; the gate is the caller's to unlock. */
   setPassword(acc: BotAccount, password: string): void {
     acc.info.password = password;

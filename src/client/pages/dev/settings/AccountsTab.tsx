@@ -91,7 +91,7 @@ export default function AccountsTab({ password }: { password: string }) {
   const [addPassword, setAddPassword] = useState("");
   const [addSeasonal, setAddSeasonal] = useState(true);
   const [sweepBusy, setSweepBusy] = useState<string | null>(null);
-  const [fixing, setFixing] = useState<{ guid: string; password: string; busy: boolean } | null>(null);
+  const [fixing, setFixing] = useState<{ guid: string; email: string; password: string; busy: boolean } | null>(null);
   const [addBusy, setAddBusy] = useState(false);
   const [addMsg, setAddMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [retryBusy, setRetryBusy] = useState(false);
@@ -213,15 +213,21 @@ export default function AccountsTab({ password }: { password: string }) {
     }
   }, [addEmail, addPassword, addSeasonal, password, search]);
 
-  const savePassword = useCallback(async () => {
-    if (!fixing || !fixing.password) return;
+  const saveCredentials = useCallback(async () => {
+    if (!fixing) return;
     setFixing({ ...fixing, busy: true });
     try {
-      const res = await fetch("/api/dev/accounts", { method: "POST", headers: { "Content-Type": "application/json", "x-dev-password": password }, body: JSON.stringify({ action: "set-password", guid: fixing.guid, password: fixing.password }) });
+      const res = await fetch("/api/dev/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-dev-password": password },
+        body: JSON.stringify({ action: "set-credentials", guid: fixing.guid, email: fixing.email.trim(), ...(fixing.password ? { password: fixing.password } : {}) }),
+      });
       const body = await res.json();
       if (!res.ok) setAddMsg({ ok: false, text: body.error || `HTTP ${res.status}` });
       else {
-        setAddMsg({ ok: true, text: body.note ? `Password saved. ${body.note}.` : "Password saved; Realm accepts it. The account is being read now." });
+        const d = body.detected as { tutorialDone: boolean; chars: number; loaded: { id: number; seasonal: boolean } | null } | null;
+        const facts = d ? ` Realm says: ${d.chars} character${d.chars === 1 ? "" : "s"}, tutorial ${d.tutorialDone ? "done" : "not done"}${d.loaded ? `, logs in as #${d.loaded.id} (${d.loaded.seasonal ? "seasonal" : "non-seasonal"})` : ""}.` : "";
+        setAddMsg({ ok: true, text: body.note ? `Saved. ${body.note}.` : `Saved; Realm accepts them. The account is being read now.${facts}` });
         setFixing(null);
       }
     } finally {
@@ -371,16 +377,17 @@ export default function AccountsTab({ password }: { password: string }) {
               <div style={{ color: "var(--bad)", fontSize: 12, marginTop: 4, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <span>last login failed {relTime(a.lastLoginError.at)}: {a.lastLoginError.message}</span>
                 {a.lastLoginError.kind === "bad-credentials" && fixing?.guid !== a.guid && (
-                  <button className="nav-link" type="button" onClick={() => setFixing({ guid: a.guid, password: "", busy: false })}>try another password</button>
+                  <button className="nav-link" type="button" onClick={() => setFixing({ guid: a.guid, email: a.guid, password: "", busy: false })}>fix credentials</button>
                 )}
               </div>
             )}
             {fixing?.guid === a.guid && (
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
-                <input type="password" autoComplete="new-password" placeholder="new password" value={fixing.password} onChange={(e) => setFixing({ ...fixing, password: e.target.value })} style={{ width: 180 }} />
-                <button className="nav-link" type="button" disabled={fixing.busy || !fixing.password} onClick={() => void savePassword()}>{fixing.busy ? "checking with Realm…" : "save"}</button>
+                <input type="email" autoComplete="off" placeholder="email" value={fixing.email} onChange={(e) => setFixing({ ...fixing, email: e.target.value })} style={{ width: 240 }} />
+                <input type="password" autoComplete="new-password" placeholder="password (blank keeps the stored one)" value={fixing.password} onChange={(e) => setFixing({ ...fixing, password: e.target.value })} style={{ width: 240 }} />
+                <button className="nav-link" type="button" disabled={fixing.busy || !fixing.email.trim()} onClick={() => void saveCredentials()}>{fixing.busy ? "checking with Realm…" : "save"}</button>
                 <button className="nav-link" type="button" disabled={fixing.busy} onClick={() => setFixing(null)}>cancel</button>
-                <span className="hint">checked with Realm before it is saved</span>
+                <span className="hint">the pair is tried against Realm and only saved if it works</span>
               </div>
             )}
             <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>

@@ -27,8 +27,8 @@ export async function POST(req: Request) {
     if (!r.ok) return json({ error: r.error }, { status: r.status });
     return json(r.data);
   }
-  if (body.action === "set-password") {
-    const r = await pyrelay.setAccountPassword(String(body.guid ?? ""), String(body.password ?? ""));
+  if (body.action === "set-credentials") {
+    const r = await pyrelay.setAccountCredentials(String(body.guid ?? ""), { email: body.email === undefined ? undefined : String(body.email), password: body.password === undefined ? undefined : String(body.password) });
     if (!r.ok) return json({ error: r.error }, { status: r.status });
     return json(r.data);
   }

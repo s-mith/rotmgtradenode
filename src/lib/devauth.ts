@@ -399,7 +399,8 @@ export const pyrelay = {
         }[];
       }[];
     }>(`/account?q=${encodeURIComponent(q)}&limit=${limit}`),
-  setAccountPassword: (guid: string, password: string) => callPyrelay<{ ok: true; saved: true; note?: string }>("/accounts/password", { method: "POST", body: JSON.stringify({ guid, password }) }),
+  setAccountCredentials: (guid: string, creds: { email?: string; password?: string }) =>
+    callPyrelay<{ ok: true; saved: true; botGuid: string; note?: string; detected?: { tutorialDone: boolean; chars: number; loaded: { id: number; seasonal: boolean } | null } }>("/accounts/credentials", { method: "POST", body: JSON.stringify({ guid, ...creds }) }),
 };
 
 // --- accountgen -------------------------------------------------------------

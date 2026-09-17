@@ -317,24 +317,41 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     fleet.log(`roster: added ${acc.alias} (${acc.seasonalOrDefault ? "seasonal" : "non-seasonal"}${detected ? `, ${detected.chars} character(s), tutorial done` : ""}); sweeping it now`);
     return c.json({ ok: true, where: "roster", account: { alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, seasonal: acc.seasonal }, detected });
   });
-  // A corrected password: Realm is asked with it first, then it is saved, the lockout dropped and the account read.
-  app.post("/accounts/password", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as { guid?: string; password?: string } | null;
-    if (!body || typeof body !== "object" || !body.guid || !body.password) return c.json({ error: "guid and password required" }, 400);
+  // Corrected credentials: Realm is asked with the pair first, and only an
+  // accepted pair is saved. The email is the account's identity, so changing
+  // it replaces the record and is refused while the old one holds items.
+  app.post("/accounts/credentials", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { guid?: string; email?: string; password?: string } | null;
+    if (!body || typeof body !== "object" || !body.guid) return c.json({ error: "guid required" }, 400);
     const acc = fleet.pool.every().find((a) => a.guid === body.guid || a.botGuid === body.guid);
     if (!acc) return c.json({ error: "no such account" }, 404);
     if ((acc.client && acc.client.active) || acc.assignedRequestId !== null || acc.inUse) return c.json({ error: "the account is online; try when it is idle" }, 409);
     if (fleet.nodeSettings.get().proxies.required && !fleet.proxies.configured) return c.json({ error: "no proxies listed and logins are set to go through a proxy only" }, 409);
+    const email = String(body.email ?? "").trim().toLowerCase() || acc.guid;
+    const password = String(body.password ?? "") || acc.info.password || "";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: "that email does not look right" }, 400);
+    if (!password) return c.json({ error: "this account has no password stored; give one" }, 400);
+    const held = fleet.tracker.heldCount(acc.botGuid);
+    if (email !== acc.guid && held > 0) return c.json({ error: `that account holds ${held} item(s) under its current email; take them off it before changing the address` }, 409);
     const { probeAccount } = await import("./fleet/accountProbe");
-    const r = await probeAccount({ guid: acc.guid, password: String(body.password) }, fleet.proxies.configured ? fleet.proxies.probeFor(acc.guid) : null, acc.info.charId ?? null);
-    if (r.verdict === "bad-credentials") return c.json({ error: "Realm does not accept that password with this email either" }, 400);
+    const r = await probeAccount({ guid: email, password }, fleet.proxies.configured ? fleet.proxies.probeFor(email) : null, acc.info.charId ?? null);
+    if (r.verdict === "bad-credentials") return c.json({ error: "Realm does not accept that email and password together" }, 400);
     if (r.verdict === "attempt-limit") return c.json({ error: `Realm's login attempt limit: ${r.detail}` }, 429);
-    if (r.verdict === "error") return c.json({ error: `could not reach Realm to check it (${r.detail})` }, 502);
-    fleet.pool.setPassword(acc, String(body.password));
-    fleet.gate.unlock(acc.guid);
-    if (r.verdict === "suspended") return c.json({ ok: true, saved: true, note: "the password works, but Realm says the account is suspended" });
-    void fleet.readAccount(acc, "password corrected").catch((e) => fleet.log(`read after password change failed: ${String(e)}`));
-    return c.json({ ok: true, saved: true, detected: { tutorialDone: r.tutorialDone, chars: r.chars.length, loaded: r.loaded ? { id: r.loaded.id, seasonal: r.loaded.seasonal } : null } });
+    if (r.verdict === "error") return c.json({ error: `could not reach Realm to check them (${r.detail})` }, 502);
+    let target = acc;
+    if (email !== acc.guid) {
+      const moved = fleet.pool.setEmail(acc, email);
+      if ("error" in moved) return c.json({ error: moved.error }, 409);
+      fleet.tracker.removeBot(acc.botGuid);
+      target = moved;
+    }
+    if (password !== target.info.password) fleet.pool.setPassword(target, password);
+    fleet.gate.unlock(target.guid);
+    const changed = [email !== acc.guid ? "email" : null, password !== acc.info.password ? "password" : null].filter(Boolean).join(" and ") || "nothing";
+    fleet.log(`roster: ${target.alias} ${changed} corrected; Realm accepts the pair`);
+    if (r.verdict === "suspended") return c.json({ ok: true, saved: true, botGuid: target.botGuid, note: "the credentials work, but Realm says the account is suspended" });
+    void fleet.readAccount(target, "credentials corrected").catch((e) => fleet.log(`read after a credentials change failed: ${String(e)}`));
+    return c.json({ ok: true, saved: true, botGuid: target.botGuid, detected: { tutorialDone: r.tutorialDone, chars: r.chars.length, loaded: r.loaded ? { id: r.loaded.id, seasonal: r.loaded.seasonal } : null } });
   });
   // Log an account in, read its inventory, log it out: the first look at a new account, or a fresh one on demand.
   app.post("/accounts/sweep", async (c) => {
