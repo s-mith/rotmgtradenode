@@ -136,6 +136,15 @@ export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted
     }
   }
 
+  async function abort(r: Rendezvous) {
+    if (!confirm(`Give up meeting #${r.id}?\n\nThe hub drops it; ${r.kind === "commons" ? "the item is listed again" : "the offer goes back to open"} and your bot's job is cancelled.`)) return;
+    const b = await post({ action: "abort", rendezvousId: r.id });
+    if (b) {
+      setNotice(`Meeting #${r.id} aborted.`);
+      await load();
+    }
+  }
+
   const stateLabel = (r: Rendezvous) => {
     if (r.state === "done") return { text: "done", cls: "ok" };
     if (r.state === "meet") return r.localState === "receipt-pending" ? { text: "traded, sending receipt", cls: "warn" } : r.reported.mine ? { text: "traded, waiting for the other side's receipt", cls: "warn" } : { text: `meeting on ${r.server} · ${left(r.deadlineAt)}`, cls: "" };
@@ -249,6 +258,12 @@ export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted
                   left={r.me.gives.map((g) => <Slot key={g.ref} name={g.name ?? nameOf.get(g.itemId) ?? g.itemId} count={g.count} />)}
                   right={r.me.gets.map((g, i) => <Slot key={i} name={nameOf.get(g.itemId) ?? g.itemId} qty={g.qty} />)}
                 />
+                {r.state === "meet" && !r.reported.mine && (
+                  <footer className="trade-card-foot">
+                    <button className="nav-link" disabled={busy} onClick={() => void abort(r)}>give up this meeting</button>
+                    <span className="hint">for a full server or a bot that will not log in; otherwise it ends by itself at the deadline</span>
+                  </footer>
+                )}
               </article>
             );
           })}

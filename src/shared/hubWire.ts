@@ -140,7 +140,8 @@ export interface WantLineWire {
   enchants: unknown[];
 }
 
-export type OfferStatusWire = "open" | "accepted" | "cancelled" | "expired" | "void";
+/** `done`: its meeting completed and both receipts matched. `void`: the meeting was disputed. */
+export type OfferStatusWire = "open" | "accepted" | "done" | "cancelled" | "expired" | "void";
 
 export interface OfferWire {
   id: number;

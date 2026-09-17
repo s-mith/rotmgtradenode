@@ -106,6 +106,23 @@ export default function CommonsPanel({ tray, onRemove, onClear, seasonal, onChan
     }
   }
 
+  async function abort(w: Withdraw) {
+    if (!confirm(`Give up hand-over #${w.rendezvousId}?\n\nThe item goes back on the board and your bot's job is cancelled.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch("/api/dev/offers", { method: "POST", headers: HEADERS, body: JSON.stringify({ action: "abort", rendezvousId: w.rendezvousId }) });
+      const b = await r.json();
+      if (!r.ok) setError(b.error || `HTTP ${r.status}`);
+      else setNotice(`Hand-over #${w.rendezvousId} aborted.`);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+      await load();
+    }
+  }
+
   const stateLabel = (w: Withdraw) => {
     if (w.state === "done") return { text: "received", cls: "ok" };
     if (w.state === "meet") return { text: `meeting on ${w.server}`, cls: "" };
@@ -198,6 +215,7 @@ export default function CommonsPanel({ tray, onRemove, onClear, seasonal, onChan
                   <span className={"trade-state " + st.cls}>{st.text}</span>
                 </header>
                 <span className="trade-slots inline"><Slot name={w.name} title={w.name} /></span> {w.name}
+                {w.state === "meet" && <footer className="trade-card-foot"><button className="nav-link" disabled={busy} onClick={() => void abort(w)}>give up this hand-over</button></footer>}
               </article>
             );
           })}

@@ -10,6 +10,7 @@ import type { OfferWire } from "@/shared/hubWire";
 //                       { action: "preview", offer }      what I'd give for it
 //                       { action: "accept", offer }
 //                       { action: "cancel", offerId }
+//                       { action: "abort", rendezvousId }   give a meeting up before its deadline
 //                       { action: "poll" }
 const names = (o: OfferWire) => ({
   ...o,
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
   if (!auth.ok) return json({ error: auth.error }, { status: auth.status });
   const s = swaps();
   if (!s) return json({ error: "swaps are not running (the fleet is off)" }, { status: 503 });
-  const body = (await req.json().catch(() => null)) as { action?: string; instanceIds?: unknown; want?: unknown; server?: unknown; offer?: OfferWire; offerId?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { action?: string; instanceIds?: unknown; want?: unknown; server?: unknown; offer?: OfferWire; offerId?: unknown; rendezvousId?: unknown } | null;
   if (!body) return json({ error: "Bad JSON" }, { status: 400 });
   switch (body.action) {
     case "create": {
@@ -65,6 +66,13 @@ export async function POST(req: Request) {
       const r = await s.cancelOffer(Number(body.offerId));
       if (!r.ok) return json({ error: r.error }, { status: r.status });
       return json({ ok: true });
+    }
+    case "abort": {
+      const id = Number(body.rendezvousId);
+      if (!Number.isInteger(id)) return json({ error: "rendezvousId required" }, { status: 400 });
+      const r = await s.abortRendezvous(id);
+      if (!r.ok) return json({ error: r.error }, { status: r.status });
+      return json({ ok: true, state: r.state, ...s.status() });
     }
     case "poll":
       await s.poll();

@@ -118,6 +118,21 @@ describe("SwapCoordinator", () => {
     expect(db.prepare("SELECT state FROM swap_rendezvous WHERE rendezvous_id = 4").get()).toEqual({ state: "aborted" });
   });
 
+  it("an operator abort tells the hub, and the poll after it cancels the local row and reopens the offer", async () => {
+    let state: RendezvousWire["state"] = "meet";
+    const rv = (): RendezvousWire => ({ id: 12, kind: "swap", offerId: 8, server: "USEast", seasonal: true, state, createdAt: 1, deadlineAt: Date.now() + 3_600_000, me: { role: "give", botIgn: "MyBot", gives: [{ ref: "r1", itemId: "patk", enchants: [], count: 0 }], gets: [{ itemId: "pdef", qty: 1 }] }, partner: { botIgn: "TheirBot", poster: "Them" }, reported: { mine: false, partner: false } });
+    const { hub, calls } = fakeHub({ onCall: (m, p) => (m === "GET" && p === "/api/v1/rendezvous/mine" ? { rendezvous: [rv()] } : m === "POST" && p === "/api/v1/offers" ? { offer: { id: 8, status: "open" } } : m === "POST" && p === "/api/v1/rendezvous/12/abort" ? ((state = "aborted"), { ok: true, state: "aborted" }) : undefined) });
+    const c = new SwapCoordinator({ db: () => db, hub, pool, log: () => {} });
+    await c.createOffer({ instanceIds: ["i-patk"], want: [{ itemId: "pdef", qty: 1, slotsMin: 0, slotsExact: null, enchants: [] }], server: "USEast" });
+    await c.poll();
+    expect(q.listPending(db).withdraws).toHaveLength(1);
+    expect(await c.abortRendezvous(12, "server full")).toEqual({ ok: true, aborted: true, state: "aborted" });
+    expect(calls.find((x) => x.path === "/api/v1/rendezvous/12/abort")?.body).toEqual({ reason: "server full" });
+    expect(q.listPending(db).withdraws).toHaveLength(0);
+    expect(db.prepare("SELECT state FROM swap_rendezvous WHERE rendezvous_id = 12").get()).toEqual({ state: "aborted" });
+    expect(c.status().localOffers[0].status).toBe("open");
+  });
+
   it("a rendezvous the hub aborted cancels the local row", async () => {
     let state: RendezvousWire["state"] = "meet";
     const rv = (): RendezvousWire => ({ id: 3, kind: "swap", offerId: 8, server: "USEast", seasonal: true, state, createdAt: 1, deadlineAt: Date.now() + 3_600_000, me: { role: "give", botIgn: "MyBot", gives: [{ ref: "r1", itemId: "patk", enchants: [], count: 0 }], gets: [{ itemId: "pdef", qty: 1 }] }, partner: { botIgn: "TheirBot", poster: "Them" }, reported: { mine: false, partner: false } });

@@ -330,6 +330,21 @@ export class SwapCoordinator {
     this.o.log(`swaps: ${rv.kind === "commons" ? "hand-over" : "rendezvous"} #${rv.id} queued as swap #${requestId}: ${rv.me.role} with ${rv.partner.botIgn} on ${rv.server}`);
   }
 
+  /**
+   * Give a meeting up from this side, before the deadline: a full server,
+   * a bot that will not log in. The hub marks it aborted (an offer reopens,
+   * a commons item is listed again) and the poll that follows cancels the
+   * local row and puts the offer back the way the hub says.
+   */
+  async abortRendezvous(rendezvousId: number, reason = "aborted by the operator"): Promise<SwapsResult<{ aborted: true; state: string }>> {
+    if (!this.o.hub.linked) return { ok: false, status: 503, error: "Link this node to the hub first (Fleet → Node)." };
+    const r = await this.o.hub.signed<{ ok: true; state: string }>("POST", `/api/v1/rendezvous/${rendezvousId}/abort`, { reason });
+    if (!r.ok) return { ok: false, status: r.status || 502, error: r.error };
+    this.o.log(`swaps: rendezvous #${rendezvousId} aborted from this node: ${reason}`);
+    await this.poll();
+    return { ok: true, aborted: true, state: r.data.state };
+  }
+
   /** The fleet finished (or failed) a swap row: send the receipt. */
   private async onResult(requestId: number, swap: queue.SwapSpec, result: queue.SwapResult): Promise<void> {
     const db = this.o.db();
