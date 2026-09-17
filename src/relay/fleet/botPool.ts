@@ -8,9 +8,22 @@ import type { GameClient } from "../client/gameClient";
 import { open as unseal, seal } from "../../node/secrets";
 
 /** Stable server-side id for an account: sha256(email), base64url, 32 chars. */
+/**
+ * A bot's id, hashed from the address exactly as written — the derivation
+ * pyrelay used, so state files carried over from it still line up (see the
+ * fixtures). Correcting an address's capitalisation therefore gives the
+ * account a new id, which is why that is refused while it holds items.
+ */
 export function deriveBotGuid(email: string): string {
   return createHash("sha256").update(email, "utf8").digest("base64url").slice(0, 32);
 }
+/**
+ * Whether two login addresses name the same account. Realm compares the
+ * address as registered (an account made as `Name@host` is refused
+ * `name@host`), so the node stores it as typed; but one mailbox is one
+ * account here, whatever the spelling, so the roster never holds both.
+ */
+export const sameAccount = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /**
  * Accounts that served the sister site (rotmgcapitalism, now retired) hold its
@@ -179,7 +192,7 @@ export class BotPool {
     return [...this.accounts];
   }
   byGuid(guid: string): BotAccount | undefined {
-    return this.accounts.find((a) => a.guid === guid);
+    return this.accounts.find((a) => sameAccount(a.guid, guid));
   }
   /** Indexed: the dispatcher asks this per pass for thousands of accounts. */
   byBotGuid(botGuid: string): BotAccount | undefined {
@@ -258,9 +271,9 @@ export class BotPool {
    * behind, so the caller must refuse this for an account that holds items.
    */
   setEmail(acc: BotAccount, email: string): BotAccount | { error: string } {
-    const next = email.trim().toLowerCase();
+    const next = email.trim();
     if (!next || next === acc.guid) return acc;
-    if (this.accounts.some((a) => a.guid === next)) return { error: "another account on the roster already uses that email" };
+    if (this.accounts.some((a) => a !== acc && sameAccount(a.guid, next))) return { error: "another account on the roster already uses that email" };
     const i = this.accounts.indexOf(acc);
     if (i < 0) return { error: "that account is not on the roster" };
     const info: AccountInfo = { ...acc.info, guid: next };
@@ -270,11 +283,11 @@ export class BotPool {
     this.byBot.set(replacement.botGuid, replacement);
     this.touched();
     this.patchFile((entries) => {
-      const j = entries.findIndex((e) => e.guid === acc.guid);
+      const j = entries.findIndex((e) => sameAccount(e.guid, acc.guid));
       if (j >= 0) entries[j] = info;
       else entries.push(info);
     });
-    console.log(`BotPool: ${acc.alias} is now ${next}`);
+    console.log(`BotPool: ${acc.alias} is now ${next}${replacement.botGuid === acc.botGuid ? " (same account, corrected spelling)" : ""}`);
     return replacement;
   }
 
@@ -337,7 +350,7 @@ export class BotPool {
 
   /** Add an account dispensed by accountgen or the owner; persists before returning. */
   addPulled(entry: AccountInfo): BotAccount | null {
-    if (this.accounts.some((a) => a.guid === entry.guid)) return null;
+    if (this.accounts.some((a) => sameAccount(a.guid, entry.guid))) return null;
     this.patchFile((entries) => entries.push(entry));
     const acc = new BotAccount(entry);
     this.push(acc);

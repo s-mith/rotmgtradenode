@@ -37,7 +37,8 @@ export async function POST(req: Request) {
     if (!r.ok) return json({ error: r.error }, { status: r.status });
     return json(r.data);
   }
-  const email = String(body.email ?? "").trim().toLowerCase();
+  // As typed: Realm's login address is case-sensitive.
+  const email = String(body.email ?? "").trim();
   const password = String(body.password ?? "");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "That email does not look right" }, { status: 400 });
   if (!password) return json({ error: "Password is required" }, { status: 400 });

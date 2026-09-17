@@ -272,7 +272,8 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
   app.post("/accounts/probe", async (c) => {
     const body = (await c.req.json().catch(() => null)) as { email?: string; password?: string } | null;
     if (!body || typeof body !== "object") return c.json({ error: "bad json" }, 400);
-    const email = String(body.email ?? "").trim().toLowerCase();
+    // Kept as typed: Realm compares the address exactly as it was registered.
+    const email = String(body.email ?? "").trim();
     const password = String(body.password ?? "");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: "email looks wrong" }, 400);
     if (!password) return c.json({ error: "password is required" }, 400);
@@ -289,11 +290,11 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
   app.post("/accounts", async (c) => {
     const body = (await c.req.json().catch(() => null)) as { email?: string; password?: string; seasonal?: boolean; alias?: string; server?: string; probe?: boolean } | null;
     if (!body || typeof body !== "object") return c.json({ error: "bad json" }, 400);
-    const email = String(body.email ?? "").trim().toLowerCase();
+    const email = String(body.email ?? "").trim();
     const password = String(body.password ?? "");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: "email looks wrong" }, 400);
     if (!password) return c.json({ error: "password is required" }, 400);
-    if (fleet.pool.every().some((a) => a.guid === email)) return c.json({ error: "that account is already on the roster" }, 409);
+    if (fleet.pool.byGuid(email)) return c.json({ error: "that account is already on the roster" }, 409);
     let seasonal = body.seasonal !== false;
     let detected: { tutorialDone: boolean; chars: number; loaded: { id: number; seasonal: boolean; backpackSlots: number } | null } | null = null;
     if (body.probe !== false) {
@@ -327,12 +328,16 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     if (!acc) return c.json({ error: "no such account" }, 404);
     if ((acc.client && acc.client.active) || acc.assignedRequestId !== null || acc.inUse) return c.json({ error: "the account is online; try when it is idle" }, 409);
     if (fleet.nodeSettings.get().proxies.required && !fleet.proxies.configured) return c.json({ error: "no proxies listed and logins are set to go through a proxy only" }, 409);
-    const email = String(body.email ?? "").trim().toLowerCase() || acc.guid;
+    const email = String(body.email ?? "").trim() || acc.guid;
     const password = String(body.password ?? "") || acc.info.password || "";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: "that email does not look right" }, 400);
     if (!password) return c.json({ error: "this account has no password stored; give one" }, 400);
+    // A different mailbox is a different account here; a corrected spelling of
+    // the same one keeps its bot id, and with it everything filed under it.
+    const { deriveBotGuid } = await import("./fleet/botPool");
+    const movesIdentity = deriveBotGuid(email) !== acc.botGuid;
     const held = fleet.tracker.heldCount(acc.botGuid);
-    if (email !== acc.guid && held > 0) return c.json({ error: `that account holds ${held} item(s) under its current email; take them off it before changing the address` }, 409);
+    if (movesIdentity && held > 0) return c.json({ error: `that account holds ${held} item(s) under its current email; take them off it before pointing it at a different mailbox` }, 409);
     const { probeAccount } = await import("./fleet/accountProbe");
     const r = await probeAccount({ guid: email, password }, fleet.proxies.configured ? fleet.proxies.probeFor(email) : null, acc.info.charId ?? null);
     if (r.verdict === "bad-credentials") return c.json({ error: "Realm does not accept that email and password together" }, 400);
@@ -342,7 +347,7 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     if (email !== acc.guid) {
       const moved = fleet.pool.setEmail(acc, email);
       if ("error" in moved) return c.json({ error: moved.error }, 409);
-      fleet.tracker.removeBot(acc.botGuid);
+      if (movesIdentity) fleet.tracker.removeBot(acc.botGuid);
       target = moved;
     }
     if (password !== target.info.password) fleet.pool.setPassword(target, password);
