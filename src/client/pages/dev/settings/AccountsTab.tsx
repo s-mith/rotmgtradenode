@@ -371,7 +371,7 @@ export default function AccountsTab({ password }: { password: string }) {
               <div style={{ color: "var(--bad)", fontSize: 12, marginTop: 4, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <span>last login failed {relTime(a.lastLoginError.at)}: {a.lastLoginError.message}</span>
                 {a.lastLoginError.kind === "bad-credentials" && fixing?.guid !== a.guid && (
-                  <button className="nav-link" type="button" onClick={() => setFixing({ guid: a.guid, password: "", busy: false })}>fix password</button>
+                  <button className="nav-link" type="button" onClick={() => setFixing({ guid: a.guid, password: "", busy: false })}>try another password</button>
                 )}
               </div>
             )}

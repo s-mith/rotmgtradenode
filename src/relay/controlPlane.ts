@@ -301,7 +301,7 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
       const { probeAccount } = await import("./fleet/accountProbe");
       const proxy = fleet.proxies.configured ? fleet.proxies.probeFor(email) : null;
       const r = await probeAccount({ guid: email, password }, proxy);
-      if (r.verdict === "bad-credentials") return c.json({ error: "Realm rejects those credentials" }, 400);
+      if (r.verdict === "bad-credentials") return c.json({ error: "Realm does not accept that email and password. Accounts that sign in through Steam, Google or Kongregate have no password for the game's API." }, 400);
       if (r.verdict === "suspended") return c.json({ error: "Realm says that account is suspended" }, 409);
       if (r.verdict === "attempt-limit") return c.json({ error: `Realm's login attempt limit: ${r.detail}` }, 429);
       if (r.verdict === "error") return c.json({ error: `could not reach Realm to check the account (${r.detail})` }, 502);
@@ -327,7 +327,7 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     if (fleet.nodeSettings.get().proxies.required && !fleet.proxies.configured) return c.json({ error: "no proxies listed and logins are set to go through a proxy only" }, 409);
     const { probeAccount } = await import("./fleet/accountProbe");
     const r = await probeAccount({ guid: acc.guid, password: String(body.password) }, fleet.proxies.configured ? fleet.proxies.probeFor(acc.guid) : null, acc.info.charId ?? null);
-    if (r.verdict === "bad-credentials") return c.json({ error: "Realm rejects that password too" }, 400);
+    if (r.verdict === "bad-credentials") return c.json({ error: "Realm does not accept that password with this email either" }, 400);
     if (r.verdict === "attempt-limit") return c.json({ error: `Realm's login attempt limit: ${r.detail}` }, 429);
     if (r.verdict === "error") return c.json({ error: `could not reach Realm to check it (${r.detail})` }, 502);
     fleet.pool.setPassword(acc, String(body.password));

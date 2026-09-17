@@ -94,7 +94,8 @@ describe("parseServers", () => {
 describe("isBadCredentials", () => {
   it("knows both of Realm's wrong-password answers", () => {
     expect(isBadCredentials("<Error>Account credentials not valid</Error>")).toBe(true);
-    // account/verify answered this live on 2026-09-17 for an account added with a mistyped password.
+    // Build 7's generic refusal: live on 2026-09-17 this same string came back for a
+    // wrong password, a right one and an account that does not exist.
     expect(isBadCredentials("<Error>WebChangePasswordDialog.passwordError</Error>")).toBe(true);
     expect(isBadCredentials("<Error>Account in use (5 seconds until timeout)</Error>")).toBe(false);
     expect(isBadCredentials(CHAR_LIST)).toBe(false);

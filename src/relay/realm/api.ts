@@ -108,9 +108,12 @@ function lockoutFrom(text: string): number {
 }
 
 /**
- * Realm's ways of saying the password is wrong: the old message, and the
- * client's own localization key that account/verify answers with for some
- * accounts (seen live 2026-09-17 on an account added with a mistyped password).
+ * Realm's ways of refusing a login. `WebChangePasswordDialog.passwordError`
+ * is build 7's generic refusal, not a password-specific one: probing live on
+ * 2026-09-17 gave that same string for a wrong password, a right password and
+ * an account that does not exist. It means "these credentials were not
+ * accepted" and nothing finer, so the message shown to the operator must not
+ * blame the password alone.
  */
 export function isBadCredentials(text: string): boolean {
   return text.includes("Account credentials not valid") || text.includes("WebChangePasswordDialog.passwordError");
