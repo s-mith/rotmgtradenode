@@ -236,8 +236,8 @@ export function needsLoginToday(st: AccountBackpackState, nowMs: number): boolea
 }
 
 /** Fold a char/list body into the state. The single character (MaxNumChars is 1 on these accounts) is the bot's. */
-export function applyCharList(st: AccountBackpackState, cl: CharListDetail, now: number): void {
-  const c = cl.chars[0] ?? null;
+export function applyCharList(st: AccountBackpackState, cl: CharListDetail, now: number, preferredCharId: number | null = null): void {
+  const c = (preferredCharId !== null && cl.chars.find((x) => x.id === preferredCharId)) || cl.chars[0] || null;
   st.charId = c?.id ?? null;
   st.seasonal = c ? c.seasonal : null;
   st.dead = c ? c.dead : null;
@@ -969,7 +969,7 @@ export class BackpackService {
         return "skipped";
       }
       if (!cl.ok) throw new Error(`char/list ${cl.error.kind}${"body" in cl.error ? ` :: ${String(cl.error.body).slice(0, 160).replace(/\s+/g, " ")}` : "detail" in cl.error ? ` :: ${cl.error.detail}` : ""} via ${t.proxy?.host ?? "direct"}`);
-      applyCharList(st, cl.value, now);
+      applyCharList(st, cl.value, now, acc.info.charId ?? null);
       // char/list's BackpackSlots is the one capacity source that needs no game login.
       if (st.hasBackpack !== null) this.o.sd.tracker.noteCapacity(acc.botGuid, capacityOf(st));
       const cal = await fetchCalendar(t.token, t.proxy);

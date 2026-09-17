@@ -267,19 +267,65 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     }
   });
   app.post("/backpacks/chore/cancel", (c) => c.json({ ok: true, stopping: fleet.backpacks.cancelChore() }));
-  // Roster intake: an account that has already done its tutorial goes
-  // straight in; the onboarding service handles the rest (src/accountgen).
-  app.post("/accounts", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as { email?: string; password?: string; seasonal?: boolean; alias?: string; server?: string } | null;
+  // What Realm says about an account the owner is about to add: credentials,
+  // suspension, characters, tutorial state, the loaded character's season.
+  app.post("/accounts/probe", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { email?: string; password?: string } | null;
     if (!body || typeof body !== "object") return c.json({ error: "bad json" }, 400);
     const email = String(body.email ?? "").trim().toLowerCase();
     const password = String(body.password ?? "");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: "email looks wrong" }, 400);
     if (!password) return c.json({ error: "password is required" }, 400);
-    const acc = fleet.pool.addPulled({ guid: email, password, alias: (body.alias ?? "").trim() || email.split("@")[0], seasonal: body.seasonal !== false, ...(body.server ? { server: String(body.server) } : {}) });
+    if (fleet.nodeSettings.get().proxies.required && !fleet.proxies.configured) return c.json({ error: "no proxies listed and logins are set to go through a proxy only — paste some in the Proxies tab first" }, 409);
+    const { probeAccount } = await import("./fleet/accountProbe");
+    const proxy = fleet.proxies.configured ? fleet.proxies.probeFor(email) : null;
+    const r = await probeAccount({ guid: email, password }, proxy);
+    return c.json({ ok: true, probe: { verdict: r.verdict, detail: r.detail, tutorialDone: r.tutorialDone, chars: r.chars, loaded: r.loaded } });
+  });
+  // Roster intake. Realm is asked first: bad credentials and suspended
+  // accounts are refused, the tutorial state and the loaded character's
+  // season come from char/list, and an account with no character yet, or
+  // its tutorial not done, is handed to the onboarding service by the site.
+  app.post("/accounts", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { email?: string; password?: string; seasonal?: boolean; alias?: string; server?: string; probe?: boolean } | null;
+    if (!body || typeof body !== "object") return c.json({ error: "bad json" }, 400);
+    const email = String(body.email ?? "").trim().toLowerCase();
+    const password = String(body.password ?? "");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: "email looks wrong" }, 400);
+    if (!password) return c.json({ error: "password is required" }, 400);
+    if (fleet.pool.every().some((a) => a.guid === email)) return c.json({ error: "that account is already on the roster" }, 409);
+    let seasonal = body.seasonal !== false;
+    let detected: { tutorialDone: boolean; chars: number; loaded: { id: number; seasonal: boolean; backpackSlots: number } | null } | null = null;
+    if (body.probe !== false) {
+      if (fleet.nodeSettings.get().proxies.required && !fleet.proxies.configured) return c.json({ error: "no proxies listed and logins are set to go through a proxy only — paste some in the Proxies tab first" }, 409);
+      const { probeAccount } = await import("./fleet/accountProbe");
+      const proxy = fleet.proxies.configured ? fleet.proxies.probeFor(email) : null;
+      const r = await probeAccount({ guid: email, password }, proxy);
+      if (r.verdict === "bad-credentials") return c.json({ error: "Realm rejects those credentials" }, 400);
+      if (r.verdict === "suspended") return c.json({ error: "Realm says that account is suspended" }, 409);
+      if (r.verdict === "attempt-limit") return c.json({ error: `Realm's login attempt limit: ${r.detail}` }, 429);
+      if (r.verdict === "error") return c.json({ error: `could not reach Realm to check the account (${r.detail})` }, 502);
+      detected = { tutorialDone: r.tutorialDone, chars: r.chars.length, loaded: r.loaded ? { id: r.loaded.id, seasonal: r.loaded.seasonal, backpackSlots: r.loaded.backpackSlots } : null };
+      if (r.loaded) seasonal = r.loaded.seasonal;
+      if (!r.loaded || !r.tutorialDone) {
+        // Not ready for the roster: the site queues it for its tutorial (on the chosen pool when it has no character yet).
+        return c.json({ ok: true, where: "onboarding", seasonal, detected });
+      }
+    }
+    const acc = fleet.pool.addPulled({ guid: email, password, alias: (body.alias ?? "").trim() || email.split("@")[0], seasonal, ...(body.server ? { server: String(body.server) } : {}) });
     if (!acc) return c.json({ error: "that account is already on the roster" }, 409);
-    fleet.log(`roster: added ${acc.alias} (${acc.seasonalOrDefault ? "seasonal" : "non-seasonal"})`);
-    return c.json({ ok: true, account: { alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, seasonal: acc.seasonal } });
+    fleet.log(`roster: added ${acc.alias} (${acc.seasonalOrDefault ? "seasonal" : "non-seasonal"}${detected ? `, ${detected.chars} character(s), tutorial done` : ""}); sweeping it now`);
+    return c.json({ ok: true, where: "roster", account: { alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, seasonal: acc.seasonal }, detected });
+  });
+  // Log an account in, read its inventory, log it out: the first look at a new account, or a fresh one on demand.
+  app.post("/accounts/sweep", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { guids?: unknown };
+    const guids = Array.isArray(body.guids) ? body.guids.map(String) : [];
+    const targets = fleet.pool.every().filter((a) => !a.suspended && (guids.includes(a.guid) || guids.includes(a.botGuid)));
+    if (!targets.length) return c.json({ error: "no such account" }, 404);
+    const results = [];
+    for (const acc of targets) results.push({ alias: acc.alias, botGuid: acc.botGuid, verdict: await fleet.readAccount(acc, "read requested") });
+    return c.json({ ok: true, results });
   });
 
   // Account storage (docs/relay/STORAGE.md): what each account's vault holds, the moves queued for it, the runs.

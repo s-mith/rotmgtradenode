@@ -11,9 +11,11 @@ This is the successor to the RotMG Communism pool. The design lives in
 
 - **Vault.** Log in to the site by pasting one `/tell` in game, then deposit
   and withdraw with your own bots: they meet you in the Nexus and trade.
-- **Your accounts, walked for you.** Add an account you made on Realm's site;
-  if it has never played, the node walks its tutorial and then puts it on the
-  roster.
+- **Your accounts, walked for you.** Add an account you made on Realm's site.
+  The node asks Realm what it is: bad credentials and suspended accounts are
+  refused, a finished account goes on the roster with its character's season
+  and is read right away, and one that has never played is walked through the
+  tutorial first. "Read now" on the Accounts tab re-reads any account.
 - **Backpacks.** Claim and equip 16-slot backpacks on the accounts that need
   them (8 + 16 = 24 slots per trade).
 - **Every tradeable item.** The catalog is every item the game lets players

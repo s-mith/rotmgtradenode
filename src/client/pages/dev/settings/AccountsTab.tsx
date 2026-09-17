@@ -88,7 +88,7 @@ export default function AccountsTab({ password }: { password: string }) {
   const [addEmail, setAddEmail] = useState("");
   const [addPassword, setAddPassword] = useState("");
   const [addSeasonal, setAddSeasonal] = useState(true);
-  const [addWalked, setAddWalked] = useState(false);
+  const [sweepBusy, setSweepBusy] = useState<string | null>(null);
   const [addBusy, setAddBusy] = useState(false);
   const [addMsg, setAddMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [retryBusy, setRetryBusy] = useState(false);
@@ -193,11 +193,13 @@ export default function AccountsTab({ password }: { password: string }) {
       const res = await fetch("/api/dev/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-dev-password": password },
-        body: JSON.stringify({ email: addEmail.trim(), password: addPassword, seasonal: addSeasonal, tutorialDone: addWalked }),
+        body: JSON.stringify({ email: addEmail.trim(), password: addPassword, seasonal: addSeasonal }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      setAddMsg({ ok: true, text: body.where === "roster" ? `${addEmail.trim()} is on the roster; the fleet may log it in now.` : `${addEmail.trim()} queued for its tutorial walk — watch the Tutorials tab; it joins the roster when done.` });
+      const d = body.detected as { tutorialDone: boolean; chars: number; loaded: { id: number; seasonal: boolean; backpackSlots: number } | null } | null;
+      const facts = d ? ` Realm says: ${d.chars} character${d.chars === 1 ? "" : "s"}, tutorial ${d.tutorialDone ? "done" : "not done"}${d.loaded ? `, logs in as #${d.loaded.id} (${d.loaded.seasonal ? "seasonal" : "non-seasonal"}, ${8 + d.loaded.backpackSlots} trade slots)` : ""}.` : "";
+      setAddMsg({ ok: true, text: body.where === "roster" ? `${addEmail.trim()} is on the roster and being read now.${facts}` : `${addEmail.trim()} queued for its tutorial walk — watch the Tutorials tab; it joins the roster when done.${facts}` });
       setAddEmail("");
       setAddPassword("");
       void search(lastQuery.current);
@@ -206,7 +208,23 @@ export default function AccountsTab({ password }: { password: string }) {
     } finally {
       setAddBusy(false);
     }
-  }, [addEmail, addPassword, addSeasonal, addWalked, password, search]);
+  }, [addEmail, addPassword, addSeasonal, password, search]);
+
+  const sweepNow = useCallback(async (guid: string) => {
+    setSweepBusy(guid);
+    try {
+      const res = await fetch("/api/dev/accounts", { method: "POST", headers: { "Content-Type": "application/json", "x-dev-password": password }, body: JSON.stringify({ action: "sweep", guids: [guid] }) });
+      const body = await res.json();
+      if (!res.ok) setAddMsg({ ok: false, text: body.error || `HTTP ${res.status}` });
+      else {
+        const r = (body.results as { alias: string; verdict: string }[])[0];
+        setAddMsg({ ok: r?.verdict === "ok", text: r ? `${r.alias}: ${r.verdict === "ok" ? "read" : r.verdict === "online" ? "already online; its inventory is live" : `sweep ${r.verdict}`}` : "no result" });
+      }
+    } finally {
+      setSweepBusy(null);
+      void search(lastQuery.current);
+    }
+  }, [password, search]);
 
   const retrySuspended = useCallback(async (guids?: string[]) => {
     setRetryBusy(true);
@@ -238,17 +256,15 @@ export default function AccountsTab({ password }: { password: string }) {
       <form onSubmit={(e) => void addAccount(e)} style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 12, marginBottom: 16 }}>
         <h2 style={{ fontSize: 14, margin: "0 0 8px" }}>Add one of your accounts</h2>
         <p style={{ color: "var(--muted)", fontSize: 12, margin: "0 0 10px", maxWidth: 640 }}>
-          Your own alt, made on Realm&apos;s site. If it has never played, leave &ldquo;tutorial done&rdquo; off and the node walks the
-          tutorial for it. Credentials stay in this node&apos;s data folder and go nowhere else.
+          Your own alt, made on Realm&apos;s site. The node asks Realm what it is: a finished account goes on the roster and is read
+          right away; one that has never played is walked through the tutorial first. The season box only matters for an account
+          with no character yet. Credentials stay in this node&apos;s data folder and go nowhere else.
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <input value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="email" autoComplete="off" style={{ width: 220 }} />
           <input value={addPassword} onChange={(e) => setAddPassword(e.target.value)} placeholder="password" type="password" autoComplete="new-password" style={{ width: 180 }} />
-          <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13 }}>
-            <input type="checkbox" checked={addSeasonal} onChange={(e) => setAddSeasonal(e.target.checked)} /> seasonal
-          </label>
-          <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13 }}>
-            <input type="checkbox" checked={addWalked} onChange={(e) => setAddWalked(e.target.checked)} /> tutorial done
+          <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13 }} title="Only for an account with no character yet: which pool its first character is made on">
+            <input type="checkbox" checked={addSeasonal} onChange={(e) => setAddSeasonal(e.target.checked)} /> seasonal if new
           </label>
           <button className="nav-link" type="submit" disabled={addBusy || !addEmail.trim() || !addPassword}>
             {addBusy ? "…" : "add"}
@@ -319,6 +335,7 @@ export default function AccountsTab({ password }: { password: string }) {
               )}
               <span style={{ color: st.color, fontWeight: 600 }}>{st.text}</span>
               {a.suspended && <button className="nav-link" type="button" disabled={retryBusy} onClick={() => void retrySuspended([a.guid])}>retry</button>}
+              {!a.suspended && !a.online && <button className="nav-link" type="button" disabled={sweepBusy !== null} onClick={() => void sweepNow(a.guid)} title="Log in, read the inventory, log out">{sweepBusy === a.guid ? "reading…" : "read now"}</button>}
               {a.server && <span style={{ color: "var(--muted)" }}>· {a.server}</span>}
               <span style={{ color: "var(--muted)" }}>
                 ·{" "}

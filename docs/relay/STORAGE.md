@@ -40,14 +40,16 @@ backpack chore), `src/client/pages/dev/settings/StorageTab.tsx`.
   still has that character, else the first listed, as the game does. A change
   takes effect at the account's next login.
 
-## Borrowing the desk bot
+## Borrowing the desk bot (`borrow.ts`)
 
 A one-account node keeps its bot online at the login desk. The service
 holds the guid (`maintenanceHolds`, which the desk now respects), asks the
 dispatcher to let go (`releaseForMaintenance`: an idle bot is disconnected,
 one in a trade is refused), waits out the gate's 20 s post-session cooldown
 (up to 90 s; a real lockout is not waited for), then logs in for the trip.
-The desk takes the bot back once the trip ends.
+The desk takes the bot back once the trip ends. The same borrowing serves
+`Fleet.readAccount` (a new account's first look, and "read now" on the
+Accounts tab).
 
 ## The trip (`runStorageTrip`)
 

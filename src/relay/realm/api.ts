@@ -33,6 +33,8 @@ export interface CharList {
   hasBackpack: boolean | null;
   /** BackpackSlots as char/list gives it for that character: 0, 8 or 16; null without a character. */
   backpackSlots: number | null;
+  /** Every character, so a caller that loads one other than the first reads that one's season and backpack. */
+  chars: CharDetail[];
 }
 
 /** Deterministic client token, same derivation pyrelay used. */
@@ -162,9 +164,11 @@ export async function getCharList(accessToken: string, proxy: Proxy | null): Pro
   const charIds = [...text.matchAll(/<Char id="(\d+)">/g)].map((x) => Number(x[1]));
   let hasBackpack: boolean | null = null;
   let backpackSlots: number | null = null;
+  let chars: CharDetail[] = [];
   if (charIds.length) {
     try {
-      const first = parseCharListDetail(text).chars.find((c) => c.id === charIds[0]);
+      chars = parseCharListDetail(text).chars;
+      const first = chars.find((c) => c.id === charIds[0]);
       hasBackpack = first ? first.hasBackpack : null;
       backpackSlots = first ? first.backpackSlots : null;
     } catch {
@@ -181,6 +185,7 @@ export async function getCharList(accessToken: string, proxy: Proxy | null): Pro
       tutorialDone: text.includes("TDone"),
       hasBackpack,
       backpackSlots,
+      chars,
     },
   };
 }

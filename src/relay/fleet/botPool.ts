@@ -286,12 +286,16 @@ export class BotPool {
     acc.assignedVaultUser = null;
   }
 
-  /** Add an account dispensed by accountgen; persists before returning. */
+  /** Called with every account that joins the roster while the process runs (the fleet sweeps it). */
+  onAdded: ((acc: BotAccount) => void) | null = null;
+
+  /** Add an account dispensed by accountgen or the owner; persists before returning. */
   addPulled(entry: AccountInfo): BotAccount | null {
     if (this.accounts.some((a) => a.guid === entry.guid)) return null;
     this.patchFile((entries) => entries.push(entry));
     const acc = new BotAccount(entry);
     this.push(acc);
+    this.onAdded?.(acc);
     return acc;
   }
 }

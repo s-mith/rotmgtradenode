@@ -16,6 +16,7 @@ import { realmItemNameByType } from "../../lib/sprites";
 import { isPoolItem, toCatalogId, toObjType } from "../trade/itemMap";
 import type { BotAccount } from "./botPool";
 import { bringUp, BringUpRefused, takeDown } from "./bringUp";
+import { borrowAccount } from "./borrow";
 import type { Instance } from "./inventoryTracker";
 import { snapshotInventory, type SweepDeps } from "./sweeps";
 import { dist, enterVault, inWorld, NEXUS_MAP, nextPacket, sleep, waitFor, walkTo, type VaultView } from "./vaultTrip";
@@ -352,9 +353,7 @@ export interface StorageServiceOptions {
   release?: (acc: BotAccount) => boolean;
   now?: () => number;
 }
-/** How long a trip waits for a lent bot to go offline, and for its login cooldown to pass. */
-const RELEASE_WAIT_MS = 15_000;
-const LOCKOUT_WAIT_MS = 90_000;
+
 
 export interface CharRow extends CharDetail {
   className: string;
@@ -577,46 +576,17 @@ export class StorageService {
       return "skipped";
     }
     const moves = refresh ? [] : [...st.moves];
-    holds.add(acc.guid);
-    const giveBack = (why: string): "skipped" => {
-      holds.delete(acc.guid);
-      this.setActivity(acc.guid, null);
-      st.lastError = why;
+    const lent = await borrowAccount(acc, { sd, holds, release: this.o.release, activity: (l) => this.setActivity(acc.guid, l && `storage: ${l}`), cancelled: () => this.cancelled, now: this.now });
+    if (!lent.ok) {
+      st.lastError = lent.why;
       return "skipped";
-    };
-    // A bot idling at the login desk is borrowed: the dispatcher lets go of
-    // it and it logs back in for the trip, once the gate's cooldown after the
-    // closed session (or a short rate limit) has passed. A real lockout is
-    // not waited out. The hold keeps the desk from waking it back meanwhile.
-    for (let attempt = 1; ; attempt++) {
-      // A login in progress (the fleet's client map holds the guid before the client is active) is left to finish first.
-      if (!(acc.client && acc.client.active) && sd.deps.clients.has(acc.guid)) {
-        this.setActivity(acc.guid, "storage: waiting for a login in progress");
-        const settle = this.now() + RELEASE_WAIT_MS * 2;
-        while (!(acc.client && acc.client.active) && sd.deps.clients.has(acc.guid) && this.now() < settle) await sleep(250);
-        if (!(acc.client && acc.client.active) && sd.deps.clients.has(acc.guid)) return giveBack("a login is in progress");
-      }
-      if (acc.client && acc.client.active) {
-        this.setActivity(acc.guid, "storage: waiting for the desk to let go");
-        if (!(this.o.release?.(acc) ?? false)) return giveBack("online and busy");
-        const until = this.now() + RELEASE_WAIT_MS;
-        while (acc.client && acc.client.active && this.now() < until) await sleep(250);
-        if (acc.client && acc.client.active) return giveBack("the desk did not let go");
-      }
-      this.setActivity(acc.guid, "storage: waiting for the login cooldown");
-      const lockUntil = this.now() + LOCKOUT_WAIT_MS;
-      while ((sd.deps.gate.lockoutRemainingMs(acc.guid) > 0 || sd.deps.gate.pausedRemainingMs() > 0) && this.now() < lockUntil && !this.cancelled) await sleep(500);
-      if (sd.deps.gate.lockoutRemainingMs(acc.guid) > 0 || sd.deps.gate.pausedRemainingMs() > 0) return giveBack("login-locked");
-      if (!(acc.client && acc.client.active)) break;
-      if (attempt >= 2) return giveBack("the desk kept taking the account back");
     }
     this.setActivity(acc.guid, "storage: logging in");
     let client: GameClient;
     try {
       client = await (sd.deps.bringUp ?? bringUp)(sd.deps, acc, acc.info.server ?? "USSouth3");
     } catch (e) {
-      holds.delete(acc.guid);
-      this.setActivity(acc.guid, null);
+      lent.giveBack();
       const verdict = e instanceof BringUpRefused ? e.verdict : "failed";
       st.lastError = `bring-up ${verdict}: ${(e as Error).message}`;
       this.log(`storage: ${acc.alias}: ${st.lastError}`);
@@ -665,8 +635,7 @@ export class StorageService {
       return r.ok ? "ok" : "failed";
     } finally {
       takeDown(sd.deps, acc, "storage trip done");
-      holds.delete(acc.guid);
-      this.setActivity(acc.guid, null);
+      lent.giveBack();
       store.requestSave();
     }
   }

@@ -16,6 +16,10 @@ import { LoginCodes, PoolSettings, TradeHold, WhisperQueue } from "./stores";
 import { startupSweep } from "./sweeps";
 import { auditProxiesFromFile, BackpackService, BackpackStore } from "./backpacks";
 import { StorageService, StorageStore } from "./storage";
+import { sweepAccount, type SweepDeps } from "./sweeps";
+import { borrowAccount } from "./borrow";
+import type { BotAccount } from "./botPool";
+import type { BringUpVerdict } from "./bringUp";
 import { SeasonWatch } from "./seasonWatch";
 import { ServerUsageWatch } from "./serverUsageWatch";
 import { WakeScheduler } from "./wakes";
@@ -82,6 +86,8 @@ export class Fleet {
   readonly nodeSettings: NodeSettingsStore;
   /** Connected mode: linked hub, heartbeats, version feed (design doc §4.3). */
   readonly hub: HubClient;
+  /** What the sweeps and the maintenance services need (backpacks, storage, a new account's first look). */
+  readonly sweepDeps: SweepDeps;
   private started = false;
   private proxyRefresh: ReturnType<typeof setInterval> | null = null;
 
@@ -113,6 +119,14 @@ export class Fleet {
     };
     this.wakes = new WakeScheduler(this.deps);
     const sweepDeps = { deps: this.deps, pool: this.pool, tracker: this.tracker, settings: this.settings };
+    this.sweepDeps = sweepDeps;
+    // An account that joins the roster while the node runs is looked at right
+    // away, so its items show up without waiting for a restart or a job.
+    this.pool.onAdded = (acc) => {
+      setTimeout(() => {
+        void this.readAccount(acc, "new on the roster").catch((e) => this.log(`read of new account ${acc.alias} failed: ${String(e)}`));
+      }, 1_500).unref?.();
+    };
     this.dispatcher = opts.api
       ? new Dispatcher({
           api: opts.api, pool: this.pool, deps: this.deps, tracker: this.tracker, settings: this.settings, hold: this.hold,
@@ -209,6 +223,25 @@ export class Fleet {
     else this.log("Fleet: no site configured (COMMUNISM_URL/COMMUNISM_SECRET unset) — no dispatcher started");
     this.telemetry.start();
     this.hub.start();
+  }
+
+  /**
+   * Log an account in, read its inventory, log it out: a new account's first
+   * look, or a fresh one from the console. Borrowed from the dispatcher
+   * (borrow.ts) so a bot idling at the login desk can be read too.
+   */
+  async readAccount(acc: BotAccount, why: string): Promise<BringUpVerdict | "busy" | "login-locked"> {
+    const holds = this.dispatcher?.maintenanceHolds ?? new Set<string>();
+    const lent = await borrowAccount(acc, { sd: this.sweepDeps, holds, release: (a) => this.dispatcher?.releaseForMaintenance(a) ?? true });
+    if (!lent.ok) {
+      this.log(`read: ${acc.alias} not read — ${lent.why}`);
+      return lent.why === "login-locked" ? "login-locked" : "busy";
+    }
+    try {
+      return await sweepAccount(this.sweepDeps, acc, `${acc.alias} (${why})`);
+    } finally {
+      lent.giveBack();
+    }
   }
 
   stop(): void {

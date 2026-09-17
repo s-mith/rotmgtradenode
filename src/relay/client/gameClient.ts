@@ -8,7 +8,7 @@
 import { EventEmitter } from "node:events";
 import type { Proxy } from "../net/proxy";
 import { GameSocket, type CloseReason } from "../net/gameSocket";
-import { getAccessToken, getCharList, clientTokenFor, type AuthFailure } from "../realm/api";
+import { getAccessToken, getCharList, clientTokenFor, type AuthFailure, type CharList } from "../realm/api";
 import { ClassId, Condition, DEFAULT_SERVER, GameId, SERVER_IPS, hasCondition, isServerName } from "../realm/constants";
 import { HELLO_TOKEN, type AnyPacket, type PacketName, type Packets, type Packet } from "../protocol/packets";
 import type { MoveRecord, WorldPos } from "../protocol/data";
@@ -213,6 +213,19 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     this.emit("log", `${this.alias}: ${line}`);
   }
 
+  /**
+   * Season and backpack of the character that will load: the preferred one
+   * when the account still has it, else the first listed. char/list's
+   * account-wide flags describe the first character only.
+   */
+  private readCharFacts(c: CharList): void {
+    const loaded = c.charIds.length ? c.chars.find((ch) => ch.id === pickCharId(this.preferredCharId, c.charIds)) : undefined;
+    this.charSeasonal = loaded ? loaded.seasonal : c.seasonal;
+    this.charHasBackpack = loaded ? loaded.hasBackpack : c.hasBackpack;
+    if (this.charHasBackpack !== null) this.knownBackpack = this.charHasBackpack;
+    this.playerData.knownBackpackSlots = loaded ? loaded.backpackSlots : c.backpackSlots;
+  }
+
   /** A CREATE is pending for the next Nexus MAPINFO (no character exists). */
   get needsCreate(): boolean {
     return this.needsNewChar;
@@ -228,10 +241,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     const chars = await getCharList(this.accessToken, this.proxy);
     if (!chars.ok) return false;
     const c = chars.value;
-    this.charSeasonal = c.seasonal;
-    this.charHasBackpack = c.hasBackpack;
-    if (c.hasBackpack !== null) this.knownBackpack = c.hasBackpack;
-    this.playerData.knownBackpackSlots = c.backpackSlots;
+    this.readCharFacts(c);
     if (c.charIds.length > 0) {
       this.currentCharId = pickCharId(this.preferredCharId, c.charIds);
       this.needsNewChar = false;
@@ -255,8 +265,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     const chars = await getCharList(this.accessToken, this.proxy);
     if (!chars.ok) return chars;
     const c = chars.value;
-    this.charSeasonal = c.seasonal;
-    this.playerData.knownBackpackSlots = c.backpackSlots;
+    this.readCharFacts(c);
     if (c.charIds.length > 0) {
       this.currentCharId = pickCharId(this.preferredCharId, c.charIds);
     } else {

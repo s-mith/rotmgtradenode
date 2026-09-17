@@ -305,8 +305,10 @@ export const pyrelay = {
   backpacksPost: <T = unknown>(path: string, body: unknown = {}) =>
     callPyrelay<T>(`/backpacks${path}`, { method: "POST", body: JSON.stringify(body) }),
   // Roster intake and node status (design doc §8), see src/relay/controlPlane.ts.
+  /** Log accounts in and read their inventories now (docs: a new account's first look, or a fresh one). */
+  sweepAccounts: (guids: string[]) => callPyrelay<{ ok: true; results: { alias: string; botGuid: string; verdict: string }[] }>("/accounts/sweep", { method: "POST", body: JSON.stringify({ guids }) }),
   addRosterAccount: (acc: { email: string; password: string; seasonal: boolean; alias?: string }) =>
-    callPyrelay<{ ok: true; account: { alias: string; guid: string; botGuid: string; seasonal: boolean | null } }>("/accounts", { method: "POST", body: JSON.stringify(acc) }),
+    callPyrelay<{ ok: true; where: "roster" | "onboarding"; seasonal: boolean; account?: { alias: string; guid: string; botGuid: string; seasonal: boolean | null }; detected: { tutorialDone: boolean; chars: number; loaded: { id: number; seasonal: boolean; backpackSlots: number } | null } | null }>("/accounts", { method: "POST", body: JSON.stringify(acc) }),
   // Account storage (docs/relay/STORAGE.md): the fleet's /storage routes. `path` is relative to /storage.
   storageGet: <T = unknown>(path: string) => callPyrelay<T>(`/storage${path}`),
   storagePost: <T = unknown>(path: string, body: unknown = {}) => callPyrelay<T>(`/storage${path}`, { method: "POST", body: JSON.stringify(body) }),
