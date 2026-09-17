@@ -20,6 +20,8 @@ export function baseUrl(argv = process.argv.slice(2)) {
   const i = argv.indexOf("--base");
   return (i >= 0 ? argv[i + 1] : process.env.EQUIP_BASE_URL ?? DEFAULT_BASE).replace(/\/$/, "");
 }
+/** A base that is a directory on disk (an extracted client, e.g. ~/Projects/rotmgclient/7.0.0.2.0) rather than a mirror URL. */
+export const isLocalBase = (base) => !/^https?:\/\//i.test(base);
 
 export async function fetchBytes(url) {
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -36,7 +38,7 @@ export async function fetchBytes(url) {
 
 export async function buildIdentity(base) {
   try {
-    const j = JSON.parse((await fetchBytes(`${base}/build_identity.json`)).toString("utf8"));
+    const j = JSON.parse((isLocalBase(base) ? fs.readFileSync(path.join(base, "build_identity.json")) : await fetchBytes(`${base}/build_identity.json`)).toString("utf8"));
     return { version: j.version ?? "?", hash: j.build_hash ?? "?" };
   } catch {
     return { version: "?", hash: "latest" };
@@ -46,6 +48,15 @@ export async function buildIdentity(base) {
 /** Returns get(name) that serves `${base}/${name}` from a per-build cache. */
 export async function openBuild(base, log = () => {}) {
   const ident = await buildIdentity(base);
+  if (isLocalBase(base)) {
+    // Served straight from the extract; nothing to cache.
+    const get = async (name) => {
+      const file = path.join(base, name);
+      if (!fs.existsSync(file)) throw new Error(`${file}: not in the local build`);
+      return fs.readFileSync(file);
+    };
+    return { ident, get };
+  }
   const dir = path.join(CACHE_ROOT, ident.hash);
   fs.mkdirSync(dir, { recursive: true });
   const get = async (name) => {
@@ -110,6 +121,59 @@ export function classSlots(playersXml) {
 export function classesFor(slotType, classes) {
   const able = classes.filter((c) => c.slots.has(slotType)).map((c) => c.name);
   return able.length === classes.length ? ["ALL"] : able;
+}
+
+/** The tier: the Tier attribute, else a T<n> label (the void weapons carry only the label). */
+export function tierOf(o) {
+  if (o.Tier !== undefined) return Number(o.Tier);
+  const t = labelsOf(o).find((l) => /^T\d+$/.test(l));
+  return t ? Number(t.slice(1)) : null;
+}
+
+/**
+ * Every item a player can trade, as the game files say it: an Item with a
+ * slot and a bag type that is not Soulbound. The game's own TRADEABLE
+ * label is not the criterion (2026-09-17: 206 soulbound items carry it and
+ * 241 tradeable ones lack it). Internal objects are left out: effects,
+ * testers, and numbered ids without a display name ("Potion of Health1").
+ */
+export function tradeableItem(o, why) {
+  const labels = labelsOf(o);
+  const slot = Number(o.SlotType);
+  const fail = (r) => { if (why) why(r); return false; };
+  if (!("Item" in o)) return fail("not an item");
+  if ("Soulbound" in o) return fail("soulbound");
+  if (!Number.isFinite(slot) || slot <= 0) return fail(`slot ${o.SlotType}`);
+  if (o.BagType === undefined) return fail("no BagType (pseudo-item)");
+  if (labels.includes("EFFECT")) return fail("EFFECT pseudo-item");
+  const name = itemName(o);
+  if (/\btest(er)?\b/i.test(name)) return fail("test item");
+  if (!o.DisplayId && /[A-Za-z]\d+$/.test(String(o["@_id"]))) return fail("internal item (numbered id, no display name)");
+  return true;
+}
+
+const GROUP_NAMES = { weapon: "Weapon", armor: "Armor", ring: "Ring", ability: "Ability" };
+/**
+ * Where a tradeable item goes in the catalog: consumables split into potions
+ * (the stat potions), eggs and the rest; tiered equipment is "T<n> <Group>";
+ * untiered equipment is "UT/ST". The subtype is the slot name for tiered
+ * weapons, armor and abilities (as the curated entries have it), and Ring or
+ * Armor for untiered pieces (as the earlier syncs wrote them).
+ */
+export function classify(o) {
+  const slot = Number(o.SlotType);
+  const group = slotGroup(slot);
+  const labels = labelsOf(o);
+  const name = itemName(o);
+  if (group === "consumable") {
+    const category = labels.includes("STATPOTION") || /^(Greater )?Potion of /.test(name) ? "Potion" : /\bEgg$/i.test(name) ? "Egg" : "Consumable";
+    return { kind: "consumable", group, tier: null, category, subtype: null };
+  }
+  const tier = tierOf(o);
+  if (tier !== null && !labels.includes("UT") && !labels.includes("ST")) {
+    return { kind: "tiered", group, tier, category: `T${tier} ${GROUP_NAMES[group]}`, subtype: group === "ring" ? null : slotName(o) };
+  }
+  return { kind: "untiered", group, tier: null, category: "UT/ST", subtype: group === "ring" ? "Ring" : group === "armor" ? "Armor" : null };
 }
 
 /** Tradeable equipment as the site defines it (see sync-equip.mjs). */

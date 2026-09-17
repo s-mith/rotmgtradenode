@@ -26632,5 +26632,1517 @@
     ],
     "slot": "ability",
     "feedPower": 350
+  },
+  {
+    "id": "minor_health_potion",
+    "realmId": "2736",
+    "name": "Minor Health Potion",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABiklEQVR4nO2ZsY3DMAxFv+AURuDSTVykuBk8wi2Rys1N4QmuyQjuUmiqrHAj5GBABiwiCilKVg4HE/iVDPiBJj4pGsgbJqC3hnE6MHoLrFkBVACagCoCWhSuchA1gDagmoCa0nAtgCOALqCje6YY5ALYrOBOAPqATgRyc8Ale/UK7hPAAGAkGtzZAlmvslgke53L0gzyCGhwz3QlshgCHGeY29eHJwc4n+2A1PdyZDDrZw75XqcAzO6LnO/1C6A9nz09Aczui0boe6MAkPNFk9prOd97vACU+GJUJrmae+p7AUDOF6NrUl1z0zR52qom1TU3xQGqe7W65iY5oLpXR/VaqwNM6tUvey194c/31RMNei6oyR3Qiz2DYGrwfrl4ohmj58Vr8L4D/qMMDhKjtoxyXarUrc7KAJOvpephwcoBk4YF9bhl4wCTrgCqgRUyJQ+sFDJm1TEyyjbyryFjl0U9o2yXJu26rWO0yTouZmHZMtpsoSld+TaMNl0JS5fmh7+wVA/9duAkjl9mgE1u+HK21wAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "minor_magic_potion",
+    "realmId": "2781",
+    "name": "Minor Magic Potion",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABiklEQVR4nO2ZMWrEMBBFv/AWZnFpAusyZ/ARUugWbrbJFXwHH8FdipS5T7pcZINBBmtY7YxGsjYED/xKBj/Gw5/RGMgbJqCnhnE6MXoKrNkAVACagCoCWhSuchA1gDagmoCa0nAtgDOALqCze6YY5ArYbOAuAPqALgRyd8A1e/UG7g3AAGAkGtzZCllvslgke53L0gJyC2hwz3QlshgCHBeYj+urJwe4nB2A1PdyZDDrZw75XqcAzO6LnO/1K6B9+fJ0BzC7Lxqh740CQM4XTWqv5Xzv9gBQ4otRmeRq7q7vBQA5X4yuSXXNzfPsaa+aVNfcHAeo7tXqmpvlgOpeHdVrrQ4wqVc/7LX0hZ/Tjyca9FxQkwegF0cGwdTg9P7tiWaMnhevwekA/EcZHCRGbRnlulSpW52VASZfS9XDgpUDJg0L6nHLxgEmXQFUAytkSh5YKWTMqmNklG3k30LGLot6RtkuTdp1W8dol3VczMKyZbTbQlO68m0Y7boSli7NT39hqR767cBJHL8w3nNe72kEvAAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "health_potion",
+    "realmId": "2594",
+    "name": "Health Potion",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABZ0lEQVR4nO2ZwW3DMAxFv5AchKDHXuIpcsgIPXSCHnrxDj16gK6QRbqA5vEQKgxIgK3AEkkxTgxIwD8ZIJ5pmp+mAd4xSlI9MehRWUYDdg52APCmpEMCWgUXwSyAdyXZBNTUwk1BTwA6JZ1CTDFkBJzDnQFclXROINmAMXt2BvcBoAcwVKoPsSKknWVRlL0u3PUU2CupDzE7SRbXAKe79+7ymZX//Vlo/PpeKABOsRqgbxnUeElcoSYf+ZJQ2ownAlLbjOF679aAxxzkmvdu8YhtyfZK3rvaB1FoypmMXjneTPHeHOCwohIg2ZvFNQc5INmbq9oKZI+Y1XZY3pt6q0+89+4k1wk12QCXp2Xwkq/BMa3Jv9tSz87g2ACx3wz2kuHAPWg+VBuvnO74VT8sODkga1gQj1uuDpC1ChENrND5cCcvk7gj/6C8+iB/lzxreWRKcLtZv738AnMXK+BdLNGRnM1/Q/wDL1q4UWiaXi4AAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "magic_potion",
+    "realmId": "2595",
+    "name": "Magic Potion",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABYUlEQVR4nO2ZsWrEMAyGf3M3mKPjLZfnuKlzwXvnQLY+RKZ7gi59uj6NS8CGRJBYknW5Bmz4p4D4oij6FQWQHWck05ODno3lLGDnYCcAb0Y6EdAquAzmAVyN5Amoq4Wbgl4AdEa6pJhqyAw4h7sBuBvpRiDFgDl7fgb3AWAAMFZqSLEypJ9lUZW9Lt31FDgaaUgxO00W1wCnu4/h/WdTj6+4UP/5u1ACnGI1wNgyaPGShEJNPvMl4bSZyATkthkn9d69Ac9bkGveu8cj9iXbK3nvah9EoSlvZPQu8WaO924BjisqAbK9WV1z0AOyvbmqrUD3iEVtR+S91FsfxHvpodcZNdkAF6dlMBRqsKc1+R2XenUN9g0Qx83goBkOwpPmQ7PxKtiOX/XDQtADioYF9bgV6gBFqxDVwAqbD3f2Mkk68o/Gqw/2d8mrlkeuBHeY9du/X2AeYgV8iCU6yNn9N8QfjwSKoTbrK+UAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "fire_water",
+    "realmId": "2868",
+    "name": "Fire Water",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABC0lEQVR4nO2ZwQ2DMAxFX1UOCHHsBeZghM5B9mAZJqmYqudUSKFCtE0CcdpDbcm3JDx92fmRgbg4AQVwBmrgAlRAG5mV21O7Mwp3plgsgGu4Bugis9lAigMu6pUruCtggCGQxq1dIMuVilnUa50q84dtZBq3p82h4ifAWR07TTdvOsB5rQLWquDB0BqUUC9XFxcpV83W3kpBwDLV9kLe+wTsx7s33wCKeHOM9x4BFPPmWO+1OwDFvHmX9/ZxgKLe7L33QkD9/ppUQKsKptTgFLiof16DkwK+hiqI1uCoTeIN9WL0sTDqc8sb2iT8a5OYHQNLm3ugmTLyHb4xEk4dmne5h+qpvx3Efks8AG4Eq4j+9VM7AAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "cream_spirit",
+    "realmId": "2869",
+    "name": "Cream Spirit",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABIklEQVR4nO2ZMQ6CQBBFn5GCEDpt5Bx0tlaewI7CW3gBL2DlFYy9jeEGXglDshhAxcWdNURmkt/tLi8/m/lkFuxqAgTAFIiBORABiaUisyc2ZwTmTLGqAOtwCyC11KIFKQ5YuRfW4FZABuw+KDNrK8iw5qIX9xLjSvnhwlKZ2ZP4cPEdYOlOcTk1ddg3ZQDLtQoYq4M+7mCeXzvF2AEn5iBfgIELZDveQkHA0DX2PmXvA3C7nHXqBaBINttk7zeAYtlsm71FD0CxbO6VvVs7QNFs7mwrroVA21FARu3g7bLp1Pm4bkgBUQfxewdpNeHB3UEU8N8dvGkffC51kFH/LLgWCjhgB7MeA8vC90DTZeS7+8VI2HVonvoeqrs+O4g9S9wBuDvRqCoiqmkAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "chardonnay",
+    "realmId": "2870",
+    "name": "Chardonnay",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABNklEQVR4nO2ZvWrDMBSFv1APJngMlPg58giBjB3yAKZPYUhfo0OHkufo0KV7t8wZ473QXcEgF183P3IkhRBfwdkk+eNwpWOuwG2MgAR4ADJgAoyB3FFjuyazeyR2z2CjAWzDTYGZo6YdyOCAjXtpC24OFMDqjAo7t4FMWy5GcS+3rtQfNo4q7Jo8hovHAGt3zMe71OuLlAWs5ypgpg7GqMHtZin0/fUkxNABR3ajWICJD2Q33tKAgKlv7J3L3j/AcvF4UgcAg2SzS/ZeAhgsm12z1/QADJbNvbK3dAMMms0nrxXz8yy07RySa1w7CsigHfxdS+3epD5LKQVEHSRuDVZVJXRzNVgp4L07uNN78P9QBxn0z4JRwDt2sOjRsDSxG5o+Ld/VNVrCvk3zWeymuu+zQ7BniT1NLxvYBzlpjwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "melon_liqueur",
+    "realmId": "2871",
+    "name": "Melon Liqueur",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABMElEQVR4nO2ZMY7CMBBFH9oUEZuSBm/BrkCigS4NPecgN9iCClFuvWfgPDkFVwmK5EhxELGDbYowI/0qtvP05fhHY3CrCZAAH0AGzIApoBw11XMyvUai1wxWDWAbbg7kjpp3IIMDNu6lLbg9UABniwo9toFMWy5GcU9pV+oXV44q9BwVw8VHgLU71Wm37JUGrMcKYCYOxtiD5fWvV7w74EQvFAsw8YHsxlsaEDD1jT1b9voAqhDZ7JK9zwAGy2bX7K0GAAbL5kHZW7oBBs1mr2OlfMGxI4C8tYO2Yvtp6O65AFoKcZD+Pfh1mBla/38b2lxWhn7zhaHoe1AAR+/gz1EZWncArV+5AB7FwZH/LJQCOGIHiwENyyp2Q9On5Xt+RUvYt2mex26q+147BLuWuAGAGVHIxRygYAAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "cabernet",
+    "realmId": "2872",
+    "name": "Cabernet",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABEklEQVR4nO2ZQQqDMBBFX6kLEZdF0IWbXsFFD9B7eI3iibylRUhApZpEMrbYGfgrozw+mXwdYV9dgAS4AjlwAzKgWlFm1uTmnsQ8Q6wsYD6BK4FmReUCUhzQupdO4J5AC3QLteaahUwnLh7iXmVcGkGGFbVmTXWEi2uA3QjzetxnMoDjNQW0pQ6KOliQzvRze7D4MqCFiwWYxIRcxtt44O4FTGPHnit7GwvY1/VMHwBFstknezsPQLFs9s3eYQNQLJuDsrf/DCiazUHHSuGQxLGjgKiD6B7cLG0StEnQJjlxk/SLlwOXFBB18N+apFDAEzvYbgwsXYo+0AwZ+XYOiYyEQ4fmjUPRP9xDfzu45D36eAN7pi5zBZiZigAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "vintage_port",
+    "realmId": "2873",
+    "name": "Vintage Port",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABLklEQVR4nO2ZsWrDMBRFT6gHkZpOJRAvJQS8hE710jUU+gEdO/gDAplDft7BIIMlqCVXTxmc9+Bukny4SLrmCeJqBRTAE1ACr8AaqCK1tnNKu0Zh1xSrAXAMtwWaSG09SHHAwT0zgvsCWuAaUGvHDpBm5GIW9yrrSv/hLlKtnVPlcPEvwN6d7vK5n5QF7McqYKkO5tiDNS+T4tEBV3ahXIBFCqQfb0YQ0KTGXih7UwAriWyOyd7/AIplc2z2djMAxbJ5VvbWcYCi2Tx5rWwwjuoAoD9e4tpRQB7awVCdmzdHfilgqM7qIPP24JEPRwd2jnh/dnXvQ3JUwKU5eOLH0S/fjnxgvxTwpA4u/Wdho4ALdrCd0bDscjc0U1q+13u0hFOb5k3upnrqs4PYs8QNJUPBql6WBboAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "sauvignon_blanc",
+    "realmId": "2874",
+    "name": "Sauvignon Blanc",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABGklEQVR4nO2ZQQqDMBBFf6kLEZfd6LZXcNN975FrlCx7khwnp+glcgBLIAErjUkkY4vOwF8lkccnzNcRWFcnABWAM4AWwAVAA6APqHF7Wnemcs8gKw/YTuA6AENA3QySHNC7V0/g7gAEADmTcGsesp64uIl7vXPJgowBCben38LFEKC0MI/b9UMO0K4xoC92kNRB/Xp+6O/uoP4xoIcrBViVhJzHm224awHr0rEXy94hA5Akm1OyVyYAkmVzavaOC4Bk2ZyVvfo7IGk2Z7UVHRFF22FAHNpBY0yWGBDsYOE7qJTK0uZ3UDHg3h003AfjxQ7i0C8LmgF37KBYGFjGVHygmTPylRGRjIRzh+ZDRMU/3HN/O8SUPPp4AzOsXKENODGsAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "muscat",
+    "realmId": "2875",
+    "name": "Muscat",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFElEQVR4nO2ZMQrCMBSGP7FDkY4uLW5ewcEDeI9ewVE6eqzOHXKGDoIniRRSKIo1NS8V7Hvwb8nrx0/IX17Ar1ZAAqyBDNgCG6Dw1MbtyVyPxPUUqx5wCJcDB0/lT5DigL176QDuBJRA9UGlW9tDpgMXo7hXOFe6D1tPlW5PEcPFd4CdO/Zy3I/KAXZrFTBTB2OcQXO7joqlA65co1iASQjkc7ylgoBpaOx9yt4QwEIim32y9xtAsWz2zV47AVAsmydlr/EDFM3moGvFzHDtKCCLdrBudkFCARt1UPYMtvfzqH5+BlsF/HcHa70HX0sdZNE/C0YB/9jBcsLA0sYeaIaMfKs5RsKhQ/ND7KF66LOD2LPEAzojW8gV/SOCAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "rice_wine",
+    "realmId": "2876",
+    "name": "Rice Wine",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFUlEQVR4nO2ZQQqDMBBFX6kLEZeloNtewUUP0CO49xrFA+caFiGCpk1iJCNdzMBfReXxnfngCMfqAhTAFaiBG1ABrUeVvaa29xT2GWK1ANYruAboPGocSHHAxb1yBfcCBmB0NNizBbJcuXiKe611aQaZPBrsNe0ZLvoAxxnm/XxsZAHnMwVcu5fLwSLna3ajZW72o4Bl7siJ5V63ANLft/oGFMnFPbk37gAUy8W9uTcFAMVyMS33+p+AorkYzD1coJgEclEBUQd77cFg6ZAgOSTGmI3cUPacn5eDRgHjpQ6iPWh0ioOlQ4IOifnjIUG/SeKlDiLUg6GFZUzZF5opK98xIpGVcOrSvIso+/Io9bdDTLvXbx/+r0ICnk2gvAAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "shiraz",
+    "realmId": "2877",
+    "name": "Shiraz",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABH0lEQVR4nO2ZMQqDMBSGv1KHII4loGvHrg49QAdv4TWKQ/depHPv0cP0CBYhgg1UY5MIre/BvyXx4+eZX57gVhsgAbZABuyAFCgclZo9mTkjMWcGqx5wCJcDpaNyCzI4YO+eGsCdgBpoJlSbtT2kGrgYxb3CuNI9uHVUbfYUMVz8BNi5056P+1EZwG6tAGbiYIwe1KhRsXbAjTkoFmDiA2nHmwoIqHxjbyp7fQCLENnskr3fAAbLZtfsbWcABsvmWdmr3QCDZrPXtaIXuHYEkFU7WOn7qC6Hx5vsEsBKHPTsQbtu1+eo7J6M3oMCuDoH7bLfcrsEcKoqcZAf/1jQAvjHDtYzBpZt7IGmz8i3WWIk7Ds0L2MP1X1/OwT7LfEC9ewiidpDdT4AAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "snake_oil",
+    "realmId": "2623",
+    "name": "Snake Oil",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABUklEQVR4nO2ZQYrDMAxFv2kXJsxyNs05coS5Q/Eq98hseqZuZuO7ZQjY4DEklmQlbQYL/qogXlRbX1EAXhglqUZMelWW0YBNwS4APpR0yUCr4CKYBfCpJJuBmlq4JWkHoFdSF3KKISNgCncDMCjplkGyAWP1bAL3BWAEMFVqDLkipE2qKKpeH556STwraQw5e0kV1wCXp5/9z3NTeeS/B8AlVwOcWwU1LokvnMk9LwmlzcxEQGqbMVzvPRrwugW55r1H/MW2ZHsl713tg+5+3xShD5K8meK9ewAOVG8WnzknByR7c1VbcTJAVtthee/je/ojX/BiDW9ugGm0CjrmpXD8vlh3Bhsg/lEFR8lw4HeaD9XGK687ftUPC14OyBoWxOOWrwNkrUJEAyt0XtzJyyTuyD8prz7I7yWvWh6ZEtxp1m9vv8A8xQr4FEt0ZHH4Z4hfQBy0DEPoBC4AAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 35
+  },
+  {
+    "id": "healing_ichor",
+    "realmId": "1799",
+    "name": "Healing Ichor",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABQklEQVR4nO2ZsQ7CIBCGf1IH0ji6tLu7g5urg2/BexgfwdUH4snONIEESVoKHG1VSP6pyeXjetzRv0DcEkxiXTbojlmCA9YFawDsmdR4oFlwFkwCODBJeqAiF24I2gLomdSamMmQFtCF6wCcmdR5kNGANnvSgbsCUADumVImloWUThaTstebXQ+BiUnKxOxTsjgGOOye9Ok2KXo9P+Q/N4BDrApINYMch+RxvEyqxCGJaTM0E5C1zcxt1LGArI06NOpSAXvuURcE1IG+WBow+Ip1HODis5giANeZxXoe4HqzmLzZ66/VZzFVwL/L4Gtj90GqgD+UQbWVRr35UfcVlwWx9evWlHmU8iGvvJrLNo/G7LcUK0RN1FwWnAuZayZ1IzXH5rbm2nEtR82VNDRlabhcS7jhrLlSprpYAm4Mtthvhzdd8oXuuoNT2QAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 20
+  },
+  {
+    "id": "tincture_of_fear",
+    "realmId": "1915",
+    "name": "Tincture of Fear",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABQUlEQVR4nO2ZsQqDMBiET+oQxNGljt27denepQ/QWQJdO7r4PH3PFCEpMVT9Y/Kn0CZwmyEfx59DTyBsFUQlXebQ0lNJYG2wHYCaqJ0DygpnwASAhijhgBbccOOhFYCWqErvYYM0gDbcHsCJqL0DGR3QuCcsuAuADsCwok4/ayCF5SKLe612ZTxYEdXpPS2Hi3OAozvqeT8sSgMOfwtYWPnFAViGQM7lXgxAERo5a7n3BpRSTtT3/UQfAKPkIiX3tgBGy0Vq7ikPwGi56JV7kgYYNRcXY8UFuJ0fE7mLMJMZUGUHfWbQvRTHw3Uidybd59lnMAMSVnYQeQZlvsXxLolceVn4eg7KDPhDDnYeH+qK+0M+pOoYUlQhoWXRibtMCq3b2hR1XEhh2aQqNLdWvnXKSnhraV5+o1Sn/naI9lviBYydZG4JkEDiAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "tincture_of_courage",
+    "realmId": "1916",
+    "name": "Tincture of Courage",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABQ0lEQVR4nO2ZMQqDMBiFn+gQpKNLHXuGLt17Dwl06+zieXqcXqHn6JgiJCWGqn9M/hTaBN5myMfjz0OfQNgqiEq6zKGVp5LA2mAlgB1RpQPKCmfABICGKOGAFtxw46E1gJaoWu9hgzSANtwewJGovQMZHdC4Jyy4M4AOwLCiTj9rIIXlIot7rXZlPFgR1ek9LYeLc4CjO+p2OSxKAw5/C1hY+cUBWIVAzuVeDEARGjlrufcGlFJO1Pf9RB8Ao+QiJfe2AEbLRWruKQ/AaLnolXuSBhg1FxdjxQV4Pq4TuYswkxlQZQd9ZtC9FPfbaSJ3Jt3n2WcwAxJWdhB5BmW+xfEuiVx5Wfh6DsoM+EMOdh4f6or7Qz6k6hhSVCGhZdGRu0wKrdvaFHVcSGHZpCo0t1a+u5SV8NbSvPpGqU797RDtt8QLs6XDTq9hH58AAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "tincture_of_dexterity",
+    "realmId": "2828",
+    "name": "Tincture of Dexterity",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABRklEQVR4nO2ZQQrCMBREp7SLUFx2Y5feQPAI3qMEvICLbnoD7+EJvJZHcBEpJJIGa3+a/AiawOwa8hh+hnYKhK2CqKTLHFp5KgmsDVYC2BBVOqCscAZMAGiIEg5owQ03HloDaImq9R42SANow20BHIjaOpDRAY17woI7AugADAvq9LMGUlgusrjXalfGgxVRnd7Tcrg4Bzi6o66n3UdpwOFvAQsrvzgAqxDIudyLAShCI2cp916AUsqJ+r6f6A1glFyk5N4awGi5SM095QEYLRe9ck/SAKPm4sdYcQEet/NE7iLMZAZU2UGfGXQvxf2yn8idSfd59hnMgISVHUSeQZlvcbxLIhdeFr6egzID/pCDnceHuuL+kA+pOoYUVUhoWXTgLpNC67Y2RR0XUlg2qQrNtZXvJmUlvLY0r75RqlN/O0T7LfEEqYi8nl9WXnsAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "tincture_of_life",
+    "realmId": "2829",
+    "name": "Tincture of Life",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABRUlEQVR4nO2ZQQqDMBRER+oiFJdu6rJn6BF6CVcS6BXceIJueoueq1foEVKEpMRQ9cfkp9AmMDtDHsPPoCMQtgqiki5zaOmpJLA22A5ARdTOAWWFM2ACQE2UcEALbrjx0D2Ahqi93sMGaQBtuAOAE1EHBzI6oHFPWHBnAB2AYUWdftZACstFFvca7cp4sCKq03saDhfnAEd31P1yXJQGHP4WsLDyiwOwDIGcy70YgCI0ctZy7w0opZyo7/uJPgBGyUVK7m0BjJaL1NxTHoDRctEr9yQNMGouLsaKC/C83iZyF2EmM6DKDvrMoHspHm07kTuT7vPsM5gBCSs7iDyDMt/ieJdErrwsfD0HZQb8IQc7jw91xf0hH1J1DCmqkNCy6MRdJoXWbU2KOi6ksKxTFZpbK98qZSW8tTQvv1GqU387RPst8QLxGrUeAYgLtgAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "tincture_of_mana",
+    "realmId": "2830",
+    "name": "Tincture of Mana",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABRElEQVR4nO2ZQQqDMBRER+oiiEs3ddkz9Ai9hwS66QHceIfeooveqbteJEVISgxVf0x+Cm0CszPkMfwMOgJhqyAq6TKHlp5KAmuD7QDURO0cUFY4AyYANEQJB7TghhsPrQC0RFV6DxukAbTh9gCORO0dyOiAxj1hwZ0AdACGFXX6WQMpLBdZ3Gu1K+PBiqhO72k5XJwDHN1Rt/NhURpw+FvAwsovDsAyBHIu92IAitDIWcu9N6CUcqK+7yf6ABglFym5twUwWi5Sc095AEbLRa/ckzTAqLm4GCsuwP36nMhdhJnMgCo76DOD7qW4Xh4TuTPpPs8+gxmQsLKDyDMo8y2Od0nkysvC13NQZsAfcrDz+FBX3B/yIVXHkKIKCS2LjtxlUmjd1qao40IKyyZVobm18q1TVsJbS/PyG6U69bdDtN8SLxQnwM5ggw72AAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "tincture_of_defense",
+    "realmId": "2831",
+    "name": "Tincture of Defense",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABP0lEQVR4nO2ZQQqDMBRER+oilG7autFlz9ALCL2HBHoFN56n90wRkhJD1R+TH6FNYHaGPIafQUcgbBVEJV3m0NJTSWBtsAOAE1EHB5QVzoAJABVRwgEtuOHGQ48AGqKOeg8bpAG04WoAd6JqBzI6oHFPWHAPAB2AYUWdftZACstFFvca7cp4sCKq03saDhfnAEd31Ot5W5QGHP4WsLDyiwOwDIGcy70YgCI0ctZy7wMopZyo7/uJvgBGyUVK7m0BjJaL1NxTHoDRctEr9yQNMGouLsaKC9C27UTuIsxkBlTZQZ8ZdC/F9XKeyJ1J93n2GcyAhJUdRJ5BmW9xvEsiV14Wds9BmQF/yMHO40NdcX/Ih1QdQ4oqJLQsunOXSaF1W5OijgspLKtUhebWyveUshLeWpqXe5Tq1N8O0X5LvAEUT02uIA4iJgAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 15
+  },
+  {
+    "id": "tincture_of_attack",
+    "realmId": "3432",
+    "name": "Tincture of Attack",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABRUlEQVR4nO2ZQQrCMBREp7SLUFx2Y5eewSN4Cjcl4BW66TE8g9dy7Va8QKSQSBqs/WnyI2gCs2vIY/gZ2ikQtgqiki5zaOWpJLA2WAlgQ1TpgLLCGTABoCFKOKAFN9x4aA2gJarWe9ggDaANtwWwJ2rrQEYHNO4JC+4AoAMwLKjTzxpIYbnI4l6rXRkPVkR1ek/L4eIc4OiOupx2H6UBh78FLKz84gCsQiDnci8GoAiNnKXcewFKKSfq+36iN4BRcpGSe2sAo+UiNfeUB2C0XPTKPUkDjJqLH2PFBbidHxO5izCTGVBlB31m0L0U1+N9Incm3efZZzADElZ2EHkGZb7F8S6JXHhZ+HoOygz4Qw52Hh/qivtDPqTqGFJUIaFl0Z67TAqt29oUdVxIYdmkKjTXVr6blJXw2tK8+kapTv3tEO23xBPl2dtOqasIKgAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 15
+  },
+  {
+    "id": "tincture_of_speed",
+    "realmId": "3433",
+    "name": "Tincture of Speed",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABRUlEQVR4nO2ZMQrCMBiFX2mHUBy72NEzeAHBe5SAgxfo0smjOHg0Jy8RKSSSBmv/NPkjaAJva8jH48+jfQXCVkFU0mUOrTyVBNYGKwFsiCodUFY4AyYANEQJB7TghhsPrQG0RNV6DxukAbThtgD2RG0dyOiAxj1hwR0BdACGBXX6WQMpLBdZ3Gu1K+PBiqhO72k5XJwDHN1Rt9PuozTg8LeAhZVfHIBVCORc7sUAFKGRs5R7L0Ap5UR930/0BjBKLlJybw1gtFyk5p7yAIyWi165J2mAUXPxY6y4AOfHdSJ3EWYyA6rsoM8MupficL9M5M6k+zz7DGZAwsoOIs+gzLc43iWRCy8LX89BmQF/yMHO40NdcX/Ih1QdQ4oqJLQs2nOXSaF1W5uijgspLJtUhebayneTshJeW5pX3yjVqb8dov2WeAIN9bRedSooFwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 15
+  },
+  {
+    "id": "tincture_of_vitality",
+    "realmId": "3434",
+    "name": "Tincture of Vitality",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABQElEQVR4nO2ZQQrCMBREp1gwSJdu2o3g2qVH8B4h4BW66Xk8j1eKFBJJg7U/TX4KmsDsGvIYfoZ2CsStiqisyx5aByoLrAu2A9AQtfNAWeEsmABwJEp4oBU33HjoAUBH1MHsYYO0gC5cC+BKVOtBJge07gkH7gZAAhgWJM2zFlI4LrK41xlXxoM1UdLs6ThcnAMc3dGP+/mrDODwt4CVk18cgHUM5FzupQAUsZGzlHtvQKXURH3fT/QBMEkuUnJvDWCyXKTmng4ATJaLQbmnaIBJc/FrrPgAen+ZyluEmSyAujgYMoP+pXjiNJE/k/7z7DNYAAmrOIgyg6rc4nSXRC28LGyeg6oA/pCDMuBDXXN/yMdUHUOOKiS2LLpyl0mxdVuXo46LKSyPuQrNtZVvk7MSXlua11uU6tTfDsl+S7wAysV5Xr1+EiEAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 15
+  },
+  {
+    "id": "tincture_of_wisdom",
+    "realmId": "3435",
+    "name": "Tincture of Wisdom",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABQklEQVR4nO2ZMQqDMBiFn+gQxNGljj2DR+jUS0igV3Bx6h06du05myIkJYa2/jH5U2gTeJshH48/D30CYasgKukyh1aeSgJrg5UAGqJKB5QVzoAJAC1RwgEtuOHmQ2sAHVG13sMGaQBtuB2AnqidAxkd0LgnLLgDgAHAtKJBP2sgheUii3uddmU+WBE16D0dh4vvAGd31O20/ygNOP0tYGHlFwdgFQL5LvdiAIrQyFnLvSeglHKhcRwXegEYJRcpubcFMFouUnNPeQBGy0Wv3JM0wKi5+DFWXIDzVS3kLsJMZkCVHfSZQfdSHC/3hdyZdJ9nn8EMSFjZQeQZlPkWx7skcuVl4es5KDPgDzk4eHyoK+4P+ZCqY0pRhYSWRT13mRRat3Up6riQwrJNVWhurXyblJXw1tK8+kapTv3tEO23xAP3DcKegbNd6gAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 15
+  },
+  {
+    "id": "effusion_of_dexterity",
+    "realmId": "2832",
+    "name": "Effusion of Dexterity",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABKElEQVR4nO2ZQQrCMBBFv9hFKF26aZfeQOgRvEcZ8AIuuukNvIcn8FoewUWkkEoTNJ2YREFn4O/a9PGZ+bRTgFcrAAWANYAKwAZACaBhqjT3VOaMwpyZrCbAOVwNoGWqdiCTA07uqRncHkAHYFhQZ66dINXMxSzuNcaV8cGaqc7c0+Rw8RXg6I4+H7ZeGcDhbwFX5qBcgEUMpBstKiGgio2cpdx7ABKRpb7vLT0BTJKLnNx7BzBZLnJzTwcAJsvFoNwjHmDSXPTGigtwuxwtucXoSQHU4mBID7pDcT3tLLk96V6fvQcFkFHiIKQHSabYWzIkkCEhGRJvyZBAhoTsdzzyfDR9/X2QBPCHHOwCFpY690IzZuU7fGIlHLs0b3Mv1WN/OyT7LXEHg8QXWNVQiPoAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 20
+  },
+  {
+    "id": "effusion_of_life",
+    "realmId": "2833",
+    "name": "Effusion of Life",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABJ0lEQVR4nO2ZQQ6CMBBFP5FFQ1y6gaVn4AheghWZxCuw4QRuvIXn8goeoYakGNpomdpWE51J/g7Ky8/MDwwArwoAJYANgC2AHYAKQMNUZe7ZmjNKc2aymgGXcDWAlqnagUwOOLunFnAHAD2AcUW9uXaGVAsXs7jXGFemB2umenNPk8PFV4CTO/py3HtlAMe/BSzMQbkAyxhIN1pUQkAVGzlrufcAJCJLwzBYegKYJBc5ufcOYLJc5OaeDgBMlotBuUc8wKS56I0VF+B2Oltyi9GTAqjFwZAedIfi2nWW3J50r8/egwLIKHEQ0oMkU+wtGRLIkJAMibdkSCBDQvY7Hnk+mr7+PkgC+EMO9gELS517oRmz8h0/sRKOXZq3uZfqsb8dkv2WuAOJlQn4zKtajwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 15
+  },
+  {
+    "id": "effusion_of_mana",
+    "realmId": "2834",
+    "name": "Effusion of Mana",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABJklEQVR4nO2ZQQ6CMBBFP5FFQ1y6gaVn4Ajeg0zixgOw4Q7cwoV3cudFakiKoY2WqW010Znk76C8/Mz8wADwqgBQAtgA2ALYAagANExV5p6tOaM0ZyarGXAJVwNomaodyOSAs3tqAXcA0AEYVtSZa2dItXAxi3uNcWV6sGaqM/c0OVx8BTi5o8/HvVcGcPhbwMIclAuwjIF0o0UlBFSxkbOWew9AIrLU972lJ4BJcpGTe+8AJstFbu7pAMBkuRiUe8QDTJqL3lhxAS7jzZJbjJ4UQC0OhvSgOxTj6WrJ7Un3+uw9KICMEgchPUgyxd6SIYEMCcmQeEuGBDIkZL/jkeej6evvgySAP+RgF7Cw1LkXmjEr3+ETK+HYpXmbe6ke+9sh2W+JO10WICiB5mWvAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 15
+  },
+  {
+    "id": "effusion_of_defense",
+    "realmId": "2835",
+    "name": "Effusion of Defense",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABIUlEQVR4nO2ZTQqDMBCFn9SFiJv+bHTZM3gBofcIA72CG8/Te6YIsZjQxkmTtNDOwNtp/HjMPHQEeFUAKAHsADQATgBqAB1TtbmnMWeU5sxktQCu4VoAPVOtA5kccHGvWsFdACgA04aUuXaBrFYuZnGvM67MD9ZMKXNPl8PFV4CzO/p2PXtlAKe/BSzMQbkAyxhIN1qqhIBVbORs5d4DkIgsjeNo6Qlgklzk5N47gMlykZt7OgAwWS4G5R7xAJPmojdWXIBhGCy5xehJAdTiYEgPukNxPOwtuT3pXp+9BwWQUeIgpAdJpthbMiSQISEZEm/JkECGhOx3PPJ8NH39fZAE8IccVAELS517oRmz8p0+sRKOXZr3uZfqsb8dkv2WuAOrBU8Z3xOVmQAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 20
+  },
+  {
+    "id": "effusion_of_attack",
+    "realmId": "3436",
+    "name": "Effusion of Attack",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABJ0lEQVR4nO2ZQQ6CMBBFv5FFQ1i6gaVn4Aiewg2ZxCuw4RiewWu5dmu8QA1JMbTRMrWtJjqT/B2Ul5+ZHxgAXq0AFADWACoAGwAlgIap0txTmTMKc2aymgDncDWAlqnagUwOOLmnZnA7AB2AYUGduXaCVDMXs7jXGFfGB2umOnNPk8PFV4CjO/p02HplAIe/BVyZg3IBFjGQbrSohIAqNnKWcu8BSESW+r639AQwSS5ycu8dwGS5yM09HQCYLBeDco94gElz0RsrLsDleLPkFqMnBVCLgyE96A7FeX+15Pake332HhRARomDkB4kmWJvyZBAhoRkSLwlQwIZErLf8cjz0fT190ESwB9ysAtYWOrcC82Yle/wiZVw7NK8zb1Uj/3tkOy3xB1fBE/ozH+vdAAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 20
+  },
+  {
+    "id": "effusion_of_speed",
+    "realmId": "3437",
+    "name": "Effusion of Speed",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABJ0lEQVR4nO2ZQQrCMBBFv9hFKF26aZeeoRcQvEcZcOEFuunKo7jwaK68RKSQShM0nZhEQWfg79r08Zn5tFOAVysABYA1gArABkAJoGGqNPdU5ozCnJmsJsA5XA2gZap2IJMDTu6pGdweQAdgWFBnrp0g1czFLO41xpXxwZqpztzT5HDxFeDojr4ctl4ZwOFvAVfmoFyARQykGy0qIaCKjZyl3HsAEpGlvu8tPQFMkouc3HsHMFkucnNPBwAmy8Wg3CMeYNJc9MaKC3C8nS25xehJAdTiYEgPukOxu54suT3pXp+9BwWQUeIgpAdJpthbMiSQISEZEm/JkECGhOx3PPJ8NH39fZAE8Icc7AIWljr3QjNm5Tt8YiUcuzRvcy/VY387JPstcQeTYAmYi7qHFgAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 20
+  },
+  {
+    "id": "effusion_of_vitality",
+    "realmId": "3438",
+    "name": "Effusion of Vitality",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABJElEQVR4nO2ZQYrCQBBFnxiYIC7dmI3g2qVHmHuEgrlCNjnPnGeu1CJ0JN04bWW6W8Gpgr9LOo9P1SepgK5WQAOsgS2wAzZAp9TG37P1ZzT+zGI1Ac7h9sBZqX0EWRxwcq+dwX0CPTA+UO+vnSDbmYtV3Ou8K9cHO6V6f09Xw8XfAK/uuO+vY1IecPy3gCt/UC3AJgcyjpa2IGCbGzmPcu8GKCKBhmEIdAewSC5qcu8vgMVyUZt7bgFgsVxclHuiAyyai8lYiQHcxylUVIqeNEBnDi7pwXgofjgEinsyvr56DxqgosxBrAfFpjhZNiTYkIgNSbJsSLAhkfAdTxIfTS9/HxQDfCMH+wULS1d7oZmz8h2fsRLOXZqfay/Vc387FPstcQFCZp+J0My8/QAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 20
+  },
+  {
+    "id": "effusion_of_wisdom",
+    "realmId": "3439",
+    "name": "Effusion of Wisdom",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABJElEQVR4nO2ZQQ6CMBBFP5FFQ1i6gaVn4AiuvASZxCuwYeUdXLr1nNaQFEMbLVPbaqIzyd9BefmZ+YEB4FUBoASwAVAD2AKoALRMVeae2pxRmjOT1Qy4hGsAdEw1DmRywNk9tYDbA+gBjCvqzbUzpFq4mMW91rgyPVgz1Zt72hwuvgKc3NHX484rAzj+LWBhDsoFWMZAutGiEgKq2MhZy70HIBFZGobB0hPAJLnIyb13AJPlIjf3dABgslwMyj3iASbNRW+suACni7bkFqMnBVCLgyE96A7F4Xyz5Pake332HhRARomDkB4kmWJvyZBAhoRkSLwlQwIZErLf8cjz0fT190ESwB9ysA9YWOrcC82Yle/4iZVw7NK8y71Uj/3tkOy3xB0GOiOYvs68MwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 20
+  },
+  {
+    "id": "pirate_rum",
+    "realmId": "2640",
+    "name": "Pirate Rum",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABq0lEQVR4nO2YP2rDMBSHfyUeQvDoJZ57gqKlU5ceoDqBL5GhaOm1DD2cSoIcHCG9P6pUd7DglyHE5OPpy9OLAKAHMAA4ARiFOYVnegAHAB2AJzRaC9wZgBHmHEF2AbAJ5AL3DmAC4JhM4bML5HFVxSaVHENVrl/shZnCM2Oo4rHldi+A1+p4//1FJgC6FeBIOJnLnwEawkkuYthSQMrJnonK2RJAzsmBicpZEnD+/HiIfX55CNJOVu2jNQFNiz5aC9AJo+6jNQC9Mqo+SjbqGCjO5e2VjNBZ0knqqGsNaCRO5oaF1oBO6GRy3GoN6BVO3l768ObAOckBXaJwPzqBk/dSHgIk6WRjQJNw8i5jF2130smGgC7j5G0tgAfOyUaAnnASOcjYSRGgZ4aNOII+iRTkerv/FSASPu6AtmYF4y3xyi0tOKt3QL9XEMTZPEeNl3OuhoPQnM3zRoDis3neGJA9m+eNAFOQonnRMgNuwQBLrvXZLHLSlgGy4xYHKXbSlgNmB1YppMhJ+zvA5MhfCilyssIfedXSOukqXIWol9RJs+WlPOekNtmrjx9bUe/yf+xkVwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "magic_mushroom",
+    "realmId": "2641",
+    "name": "Magic Mushroom",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABTUlEQVR4nO2YQQqDMBBFf6gLEVelm3qOHKF7j+A9chIv4vkshQgx6GSmmUaKDvydjC/ykMwAV131X2WUolpL00o5RgM2BLsBaJVyi0Cz4BawGsBDKXUEanLhPk0bAJ1SGt/zK8jQuRDuCcAq5RlBsp2MnasDuBeAAYDLzOB7LZA118k95zp/6k/jWSmD79lxnUw5Z/3p51SN9zsZD+gCwKSTXOd+AWg5Tkqc0wR0TCdlzikBzgInaefiF0gBU8VwknauMKDdcJJ2riCg23GSdq4Q4Ew4STuXm1Qx/pMX4Mm/YKpG5QNdgOOZv+DAuWz2fZ8VyC+0oiu9FqATjATsoUgb0DKHKtZY+SvAjjGWJgfzFaBzbpVpmsjEz28ApgZ7crVRCrAlViO7y6HSgBVnubQ14ZUENJLtQltwcG+l+5mjVh/sOmp5BCng4eu3N/OgOeuWHXTtAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 20
+  },
+  {
+    "id": "purple_drake_egg",
+    "realmId": "2729",
+    "name": "Purple Drake Egg",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABbklEQVR4nO2ZwW3DMAxFf1AfhCDHXOI5NEKP3cG3DJCjRugM2qdDBPAqKgrQgCLYlEhLRdpIAG+2/Pz9TZM0sL4OAAYAbwBOAM4AjgBGZRxpjxPtOdA1VOsQAcZwFwBWGZcEcgEUQy5gi3omgnsHMAFwwpjo3AXSRCqKlEwfq6E7HkmFnwsFZUy0x0h7GunjznnOkhrB3+4PMX8GNgjQRYAqT5Z4rgagzXhyc5V6bg+gK/BkkXqs55SAIeNJVsUtQJViPjn++vH1ECue/PuAwxMBDmuQW3nvNwENl3LYvCcFuCaRHq/Ji2zeawxoS/Iim/caArrSvMjmvUaAQZIXRZ7b+5L4vCc7YHhtBf1OIJ8JzaevA/qXUnB+9pdk7oD3f66gzwDtLRZ8B7x1Bc9bHlwtWFNPVWqagqRgZUv+RoBOUvKzTVNDQFvaNLFtZ2PAsaTtbDGwDDUHmrVHvq72SLjF0NzWHqrX/u1Q7bfEN7mSdWaV7j1sAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 35
+  },
+  {
+    "id": "white_drake_egg",
+    "realmId": "2799",
+    "name": "White Drake Egg",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABZElEQVR4nO2ZTQ7CIBCFn7ELYly6sefgCN6j9yDxOG7deBA33AdjMk2QtAMMYPxhktlV+vX1MQ5TYDk2AAYAWwB7AAcAOwCjMHe0xp7WHOgeoth4gD7cEYAW5jGAnAGzIWewWT3lwZ0ATABMZk702xlSeSpmKRm+VkVPPJIKzxs5YU60xkhrqtzXHfOcJjWcvV9fMhYEaDxAkSdTPFcDUEc8uRqpnisBNAmeTFKP9ZwQ0EU8yaq4BihSzAbX3y7nl1zw5PcDDh8EOCxBrtW9dwIqruSwdS8X4BZkeL2kLrJ1rzGgTqmLbN1rCGhS6yJb9xoBupy6mOW50k1i457sgO6/FbSFQDaSkr++Dmj/SsGP3yRhdED8moI2AlTaLNgOeO8KHtY8uNiwhp4q3SQQNKxsy98I0OS0/OyhqSGgTj00scfOxoBjyrGzxcDS1Rxo1h75mtoj4RZDc117qF77s0O1zxIPLDLG9Y2BG9cAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 50
+  },
+  {
+    "id": "blue_drake_egg",
+    "realmId": "2800",
+    "name": "Blue Drake Egg",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABb0lEQVR4nO2ZMY7CMBBFPyKFhShpyDl8BBoOQJ0juKLxGWhziO24BccyQppIxkrGHsdesYstTZc4Lz8/k5kJML82ADoAWwB7AAcAOwB9Zuxojz3t2dE1stbGA/ThjgB0ZhwDyAlQDDmBTeopD+4EYABghTHQuROk8lQUKRk+VkV33JMKrwu5zBhoj572VNLHHfOcJjWcud7fYvx5sEGA1gPM8mSK50oA6ognF1eq59YA2gRPJqnHei4T0EU8yaq4BJilmAmOv5xvbzHjyb8P2H0QYDcHuZT3fhNQcSmHzXtSgEsQ4fE5eZHNe5UBdUpeZPNeRUCbmhfZvFcJ0Enyoshza18SE/dkA3TfraBZCWQikfPpa4DmqxQcP/0lGRvg/Z8raCJAa4sF0wCvTcHDkgdnC9bQU4WaJicpWNmSvxKglZT8bNNUEVCnNk1s21kZsE9pO2sMLF3JgWbpka8tPRKuMTTXpYfqpX87FPst8QRckXe3pTNuWQAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 45
+  },
+  {
+    "id": "orange_drake_egg",
+    "realmId": "2801",
+    "name": "Orange Drake Egg",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABaklEQVR4nO2ZwW3DMAxFf1AdlCDHXOJzR9AIPXQL76FLRuoEGUkzsChAA4pgUxItFWkjAbzZ8vP3N03SwPo6ADAA3gCcAVwAnABMyjjxHmfe0/A1VOsQAcZwVwBOGdcEcgGshlzAFvVsBPcBYAbgK2PmcxdIG6lYpWT6WC3f8cQq/FyIlDHzHhPvaWsfd85zjtWgcDs+BH29i8GAPgJUebLEcy0AXcaTm6vUc3sAfYEni9QTPacEpIwnRRW3AFWKheT4+6d5iBVP/n1A80SAZg1yK+/9JqCVUo6Y92oB7kmkx2vyopj3OgO6krwo5r2OgL40L4p5rxMg1eTFKs/tfUlC3pMDkF5bwbATKGRC8+kbgOGlFKRnf0loAB7/uYIhA7S3WAgD8DYUvGx5cLVgTT3VqGmimoJVLPk7Afqakl9smjoCutKmSWw7OwNOJW1nj4EltRxoth75+tYj4R5Dc9d6qN76t0Oz3xLfnVQJV5g2IV0AAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 35
+  },
+  {
+    "id": "green_drake_egg",
+    "realmId": "2802",
+    "name": "Green Drake Egg",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABbUlEQVR4nO2ZPY6DMBCFX7QUVpQyTajTbmdplT6NT8EtKHyG3CbnyhkcrTRIjgVjj7Gj/NjSdGA+Ho9hZgDm1wZAB+AHwA7AHsAWQJ8ZW9pjR3t2dI2stfEAfbgDAJ0ZhwByAhRDTmCTesqDOwMYAFhhDHTuBKk8FUVKho9V0R33pML/hVxmDLRHT3sq6eOOeU6TGs5cTw8x3v7YIEDrAWZ5MsVzJQB1xJOLK9VzawBtgieT1GM9lwnoIp5kVVwCzFLMBMcfL78PMePJ9wfsXgiwm4NcynvPBFRcymHznhTgGER4fE5eZPNeZUCdkhfZvFcR0KbmRTbvVQJ0krwo8tzal8TEPdkA3XcraFYCmUjkfPoaoPkqBcdXf0nGBnj6cAVNBGhtsWAa4LUpuF/y4GzBGnqqUNPkJAUrW/JXArSSkp9tmioC6tSmiW07KwP2KW1njYGlKznQLD3ytaVHwjWG5rr0UL30b4divyXuhbdlyH/C3bMAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 35
+  },
+  {
+    "id": "yellow_drake_egg",
+    "realmId": "2803",
+    "name": "Yellow Drake Egg",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABbElEQVR4nO2ZPW7DMAyFX1APQpAxQBHvuYGO0LVn8Cmy6F4Zcx3doROLAjSgCDYl0VKRHwngZsufn59pkgaW1w7AAOADwAHAEcAewKiMPe9x4D0HvoZq7QLAEO4EwCrjFEHOgMWQM9isngngvgBMAFxhTHzuDGkCFYuUjB+r4TseWYW/C5EyJt5j5D1N6eNOec6yGuSv57ugn28xGNAFgCpP5niuBqBNeHJ15XpuC6DL8GSWeqLnlICU8KSo4hqgSjEfHX+7fN7FgiefH3B4IMBhCXIt7/0noJFSjpj3SgFuUcTHa/KimPcaA9qcvCjmvYaALjcvinmvESCV5MUiz219SXzakx2Q3ltBvxHIJ0Lz6euA/q0UpEd/SagDnl9cQZ8A2los+A547Qoe1zy4WLDGnqrUNFFJwSqW/I0AXUnJLzZNDQFtbtMktp2NAcectrPFwJJqDjRrj3xd7ZFwi6G5rT1Ur/3bodpviV/qQwIm5y+MYwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 35
+  },
+  {
+    "id": "coral_juice",
+    "realmId": "3090",
+    "name": "Coral Juice",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABmElEQVR4nO2ZMU7EMBBFP9ototUWFAhpI2ougHsaqij1tlGuQOkL0HAfSo7BcYxAjuSZJLbHmdBgS7/aZPbl58eOJ0B83AQ6AjgAOAO4A3AC0Gbq5M85+xpHVls0QiCuEO4CwGTqwiCXamfBhmCTW6GaAO4FwADAJjT4YyfIZqHugYFG4Sawxl8xV+td+fljl6nBn9Ou1GwWbn8ULpUx491x18dboteneyIPaANASUZngJKMlQBKMkoAJ/ekGXMCQElGJxcX3RNl7JoHKM0ocXEN8NehcRyJ+r4nen44E3Fgfjyvt5DRCuiqg4g8JDxD7u2D6vOLaCVzoodEMs1oAVrJNJM7UWsDGslEnVrq9gJspUtdEpDPa657p2LA2oDJW6wMaLTXYk1Au8tarATo1NZiKdBsyDNZAemoDvaJDHaJTLLf/z6DXQXEP3Owi4vXq4CuOohtLwu9ULvvSZQA7W57EkVAs8ueRBmwzX3ljzUwSxqWTtgsSjYwOWRpO84WtoSzWsAhZElD02xsqos6/ls/O5R+lpiNb5A0oyOi2h/MAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 80
+  },
+  {
+    "id": "pollen_powder",
+    "realmId": "3098",
+    "name": "Pollen Powder",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABfklEQVR4nO2YMW4DIRBFP7ItISulG+8B0jrFtulyjy3d5QAcw+2eIVWKNHsaX4RoJVAWZC8zMKSwWelXK+DpM8wwALxPZarq5xfZFkrVgF2CbQC8ZGoTgYrCeTAN4JApHYEqabh5kT2ALlN7N4cYpAdcwh0B9Jk6RpDFgN49vYD7ADAAMEwNbqyH1AsXRdzrnAvzQjZTg5ujk3DxHuDshrXjLtT3W6jovwOcxzZAU8HBbc42/8cW65KUwzok59evVd0ALM6LipFmLBMwlRcVt/ZKAhpCXlx18l7tldhim8iLyZhM1d6/Q/LzHuhyugaK/xMODSkmKbW3BmBPrdXkmBMENNRazUorQoCWU6vXE3MKaNwViVKrG6B9bgfHaNJC4OlTBWqAl+Yg1mMwjhnuIZii8eIx2ADxwA4Otwp7asGJBsRu7MnXLSFAw30aIV9YBQF7zoWVfOUXBuw4bWhW0wSZxyRyI89tO43wcxypgVcVHjB7qcadGpOlIj99/AICRLsGxE45BQAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 40
+  },
+  {
+    "id": "holy_water",
+    "realmId": "3105",
+    "name": "Holy Water",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABk0lEQVR4nO2ZvW3DMBCFnxAVgqHSjT2HRsge2oOLaICUGSFZIECAdNekTZEuSKWSgQMKIAlSd/yxEhgi8CpK1ufj8zN5AvJGA6AFcAegB3AEcABwjuhgrunNPa35jKuMxgLsLbgTgCGikwe5AFaHXMCW6nUW3D2AEYDyNJq5BbKzqli1kv6yXh50NEs4GBAd0WiuOZt7utrLzXluMNXS+tWVAVQW4FU8KfGcEgBynsweUs/pFUCJJ6tUb9VzOgzIebKoijHA34rN8+zo6wGO/PmAJ28bsLHyagvANgWSy72agMm5KM49InLk/yAi88W5KM49igNw80W5KM49ygfMzsWk3KM8wKJcTIoVxB8Y/EI1YicHUAWWLGiJ/wCoVvRngFqqzQGfP7Sj929X/vwOOO8VRF0PTk8vjh7fPh3585t7cNoBb62C5P35Tx4AJ8H+cAfUewVRsGElRrUO8tlbfpIBFrdCsg9NJAcsOjRlHzspDbCoHVfSsNSMqjU0c1q+ilH1lnBO03xgVL2pnvragZPYcz84OqfL1BPQEAAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 50
+  },
+  {
+    "id": "ghost_pirate_rum",
+    "realmId": "3109",
+    "name": "Ghost Pirate Rum",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABvElEQVR4nO2YsWrDMBCG/xIPIXjo4CHxW5R6areQSYOheOviVyh009jn6Ls6JMjBEpLuTpXqUiL4MyQx+Xz6JF0MADWABsAOQMvMzlxTA9gAqAA8oNCY4Q4AOmYODmRlAItAznAnACMATWQ0350ht4sqFqlka6py+eGJmdFc05oqbktO9wx4qc60f3y20p++rBhAvQBsI06G8muAXcRJKmzYVMCYkzURkbMpgJSTDRGRsxagC+Tm7f3bCvxOZt1HcwJ2JfbRXICaGfE+mgNwEka0j0Y36uPLh5Vh/2qlJ26A6WzUydhRVxqw4zgZahZKA2qmk952qzTgJHDy+lKbNxvKSekiGpwbSnDyVsqNgYw6WRiw8zh5k7FyptvrZEFAHXDyOmbADeVkIcAp4iRCkK6T3kVzJBYRFUa/CR/kcrr/FCA8Pt4B+5wVVE+fVoYfTmn2Kb4D4h9XcPRtqooAdrchF8j9nAMIydmsVgJkn81qZUDybFYrAfogWf2icoCpSJqFGGSyk4oHSLZbFGSyk4oPGGxYuZBJTioZoLflT4VkOZnhj7xoSJ3UGR6FiAfXyW7Nh/KUk9IEH32cAS3sJFLtYWsLAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 35
+  },
+  {
+    "id": "bahama_sunrise",
+    "realmId": "3129",
+    "name": "Bahama Sunrise",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABmElEQVR4nO2ZMWrEMBBF/xIHjHG5jV242iJVIKAipNgqZe7gJqfwQXKBhZwhBwhk77EnSOFmG4Ul0iIJSdbYjqWAB37lGfQ8Ho3HMvBrGwAZgBsAJYAtgAJAPVIFMb4Qa5aCIRNMV5OAKlwFgI1URYyvDEgJeIWU2csVuGcALYCOqFbEhsZLfwmZK1nMbNmrxV1dAvlItcT4VqxZC4ZcedxOwMvd8V3/ran5+tS0M66LBWV2OOdPXin+zFGTSQEyS00mA9g5avJPALlUIKCvJqdtksYAHgLqe2gKqMlJbYYvBRjSqG3AfGlA16vO+cibhQBtkLlt03y86eqPfpn+p9OtJhPYB6hCOnd1bMDBtrMCIrEMIqBRpwDY+V51qQAy17CQEmBtG7dIgO8vd5rOr4VXpv+YgTUGYEcZ+WMBMspHUyzAOvSzMybg1qg5L1wswFKpOS9cbMDNENz/BzzsHzSdH++9Mv1XwMOawWFbaxDrLt6n2WbaCQeafGD+IwHOfSTcEea/YJv7UJ0Fzn9kwLl+S5B/O0j7Aaej578HZXI1AAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 60
+  },
+  {
+    "id": "blue_paradise",
+    "realmId": "3130",
+    "name": "Blue Paradise",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAB5klEQVR4nO2ZvU6EQBSFj1kKQig02WZ5DENlR7Kt1nY8gS/Aw1hYW1nxJBb2PsGGxA6D/GRmvHf+WRomORV74ePOmcPAAuO4AZAAOADIARwBZAAKS2VTTR6h/jCxDEzLmAHFk58AlJY6CRcJrc8FwAVy7l4qnPwMoAbQGFRPv50vElqfCl1MqO4V010Nhb2l6qmmiFB/nCDn6WYBh7vru+cHrTBeoCEA/+pfOr2YenG6owKWgnwAKU8ucx0KeCY85wLIeXKJljQQsKb8ZQmo8ySZW6zJPx/vJUHuwD+Apw+9LDzJ5hY5ZVsAZg65tQlg4ZJbDGDPeS4m4Lgovu8kVV+dJLz9SKqU46+XXpJ6XD3/DljtHYR+kaieUT0IgyctPacNal3MXAuw0T3quKC+NmDJbRa4R90WgAW13eI2C16e7NTjETasicOW3xewCd3y27w0hQKWIS9NptfOWICF72snBennSVh5TFVqglMh/T0JY67NMKJEz7FwIqS/J2HMtdljqiTP2UD6eRLGXBOn0QnKC7B9v5XkCOg9rKe41QOaYsR7WC+Slge0CeIo3dPGTEsDmmImqIv6TyHKougMIjy5A/Z7Bw0jxgfNfs1FEvpJuFk7Zqguun4UL9cO6tC/Jbz2e9T4BTUkYbOoknGqAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 60
+  },
+  {
+    "id": "pink_passion_breeze",
+    "realmId": "3131",
+    "name": "Pink Passion Breeze",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAB60lEQVR4nO2Zz0rEMBDGP9keyrLHXjaCb+AtIHhVfI1e+hKbBxIfxYNv4U1YXFgPnqxY0yWZzZ9JupEiW/hOzQy/pl+SmRb4vS4AVAAWAFYAGgBLAMKjpR6z0jFVYnxMZv4BbgQ0k68BSI/WJEmVGB+Tmd96+tpIfg+gBaCIWn1vTFLrWG58TDT/4bXUmljop/gZ2HvU6jFCx9TG7HHiYzLzOz0j9dP0j7tLSzqBMhII43U0NH63vbH1fGWL3Hfk93qGAygdnjk5YMgzIUCfZ04OGPSMBzDkGVEKcEi4uX21xARWXkACRPPT+7mAnFcuXR6eE6By6M8AUz3ZjyoO+HH3HtRb11vaP9mi948Apy6SM+D2v81gd/1iKQb49fBpiQLR8TQ/p1iYA6AKlVtzAZS+gnVOgMJV8geLBWrqqUJaAbyIlluFABWjhRhbkXDBWhBQRpqwsZkLl/yFAUWgjR3gcpumgzrevpbiOQsup+20PNrF9zVu21q54HIbd++2BH8By/ac60r99MEFFAmfTrxwPsjRk03KIkK8b456jgPpmk3WNgTeNhL0XMpMxhZNP3EjToYzAVnfWjZ5R9mqBGDWxo1jT54B+/MMnnKRIO/snbRIMOFsVolnb/aVczbLjLN3MmCJ3wpJm/Q3U/0zghBWiYoAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 60
+  },
+  {
+    "id": "lime_jungle_bay",
+    "realmId": "3132",
+    "name": "Lime Jungle Bay",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABgUlEQVR4nO2ZvUrEQBSFT0iKsKRMk8HKZ0hjJYK1VYqASBqbLXyB9RFsrXyPVHaWPoQvYJ1mm4gykbmXzM5PJuyKs/BVk518nD25sBMg7CdRyACkAAoAJYANAKFhI68p5HcyuUdQqWwGVa4CUGuomGQwwUSRmdJSyRW5awAdgB2jk2uTZK6kGEQuVWTKGYRM6Vtk1NDJa4RriskBXDpWy7TGy9ueIAV3LoKHOuXbsTqUoKlTE6kkt+iYyiJB206Vcm1Kz6Zjv/gK+s6tkndsvLsg7M8FwfchSRbMLeEh6DxmpvR85pZYW5Cn5zq3xNo/sU7w54b3j5+EmVIL9XouxLHYL6hgzefcKQnOzrlTEdSyP7ZgP7wQtk9vBL7OiYJ9TBBuHWy374TmoyA8DCC8DmcEvs73W/yQREH89wQbgzBfj4JNTBDrdrAxcPQONlEQfyzBq5tnAr9B6wjfLwq2MUF4/XEPTWc6m3E5+ghNZ3M243p4FJrKdIjuevwWGu1riC8DSL81CHyKrAAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 60
+  },
+  {
+    "id": "transformation_potion",
+    "realmId": "3137",
+    "name": "Transformation Potion",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABuElEQVR4nO2ZMU6EQBSG/81SkM2WNlCZmBhrQzwBlSUtBQfYG1Bub0XiBay9ifVyA2sbG5sxksHMPGHevHGogOSrFoaPxz+PgQXc284gAbAHcARwBeAAIPfkoI856jESMrZoM4UoplwGoPAkI5JTY3vJmmJjtUxSQ64E0ABoGRq97yiZToy7J6JOuVEs1VdMyXVVfk6sPGn0MfnMmOnE7XfKcRkrdHXU+fHO4qW+t9CCrSEoyegfQUnGQgQlGbUEx+pJM6YEgpKMjlWcrJ4oY2c/QWlGrSrOCQ4VOtW1m4drCyrMHT+R0U1QbRWEY5JUZWnx9AaL7mJD9w+ZJJI2E0uwlbQZ30YdW7CQNGruUbeUYC591LGCtI91ROj148bCo++xgjvJLY4sWDC3eJBMJJMkomDrMUmGiULXf842E0lQMW3GXB/GzVz/9WwRIZNxM9f/T3Aqk3Ez14cLzmUybub6MEFXJmWZe/+8tegYYfo7xSOTm6BaVwUr8nDnTtAxcBfksZjYBNW6K1gR2Pfk2g03/iZ4WnMFG8EHyaVpTEHpJ92laehyK+Sj+NJk5oI15G+Fpfld8n8Dc2yJCiWwN3YAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 40
+  },
+  {
+    "id": "mad_god_ale",
+    "realmId": "3163",
+    "name": "Mad God Ale",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABbklEQVR4nO2YMU7EMBBF/2opolVKCpJz+AicgQ65orDECSxxEU7AYei24Aq5AaURyEbxyHE82WSCFlv6XcZ+GX9H8QficRASa4SiG2EdSmFDwRFAK6QjAc2OANYAuBVSQ0CzkK0vOgHohXTya1LI5LYHuA6AElJHILMeDXD3ADQAu7G0XytANjMe/Wm58oVOSNqv2Rd49Bfw++2cfX6K9Hl+jfXxltc5fp7O5wHtCHDOo7sCqgKP7gZoCz26C6BjeJQJyJQl85nHh0gFHq2A7n938N30kYaXO5bszCH5q4B2ar0KOFxbBw05NBVwuJIOuiA2IC1YG9CQ+SvgUDsInge5njTpQ7D8h1UI0C7+5RcEVIsuTcKAPefamby4z323TNl37aKLey76WAvQXhJ9TIVHawOqpeFRKn7bCrBfEr/RAHOLMEkTz7ECzHEE3GwQx+mE51gR8DhEbzcKNLuE51iJfwAM2712JDzludnxBcjHJUM94ggLAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "oryx_stout",
+    "realmId": "3164",
+    "name": "Oryx Stout",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABS0lEQVR4nO2ZMW6DMBSGvwgGFEWqVHUBZeoZsmVth+5RFwZPHegRfKeeoqfI2FN0pKJ6SNgi1DQYiPQs/QsY+PzrGX4bgB3wAGyBYiFthaFhSYAU2CCthcuBw0LKPUgHsIV7AgxgZ5aRZ7eQWcfF31bIKJqO9UIywlD0udgCNqOp7fubo+/zh6uvz3E6u9f79xfA5tkKWKuDhNTglbLRa1ABuXEHq/LV0f4unVSVd38F3KuDTFuDx8d7R6urwaMClut10PSFydPLs6OxgCfv+v8E1qHIHwvQjon8lxZNsQEPoYumvmXnXIBFyLIzkROZdJr0tVOFTYrsEhxyIO04uQTgrsPhwCEH1gK48eFuH9B6AVMBe5o6WM05Sa4VCliqg8E1GHND04yZJMjJRD7asbeEzV/5L8TF2Jvq+VD+GwJso1fs3xKD+a/bfgDoGw5eqy7M6QAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "realm_wheat_hefeweizen",
+    "realmId": "3165",
+    "name": "Realm-wheat Hefeweizen",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABpklEQVR4nO2ZsU7DMBCG/4gMUZUNBuLnyIDEhFRYszGweGLIK/i9+hCVeAIGlswsLIxGAaeKje2cm9gUNZb+LY2/XC6/767Az8oA5AAuAJQArgBsALBE2qg9S8WQK6bDGgDHcBWAOpEqA/IX4BC9YgS3BcABiMjiaq8BshhF0Ro9pp6q/6FMJK72ZLYougD7p5OifdbUvb5o+nx/88q83ryfAhT/GjA/YcAcI2spTgiwGFmO1ffcgPvrWRLTgKYvOn3vLwBriy96fS8loHD4ot/3EgFKjy8G5tzuUtfeD/TRPWg6IidXQHnmEdwZQIGA3XxfXAHl2USQ20yzfXrUNBe4Ne5HMWrvUZcIUPiOOm+xkBCwdhUL3nIrMSCzlVuugpWUk22giE2TVrDmAW3nUoCC2HZ+l/wZsXFfGrAmNO6H5n1q9BELkFFHHzZIUk422ztN97c3mo7IOSucCUnOyYYGGJJzTjhbJFMDZlNwwbOaZplXXC4BaP1IhHHYmyJ8JCugXCNorBQDTT4nB2OPhPnUyJeyYg/Vq6mhORUw1t8SpLO3J/kCq5oQRVo0aKQAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "rock_candy",
+    "realmId": "3168",
+    "name": "Rock Candy",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABg0lEQVR4nO2ZMU7DQBBFv5UUVpSSJqagp0ACuadJxSX2Hj4CN6CkSM8B9ko+w6JIY7S7ON7ZmbUswVr6Xew8fT9ZnjHAOxoAewA7AEcAdwAOADpmDnTOka6xp2sWORoP0Ic7AeiZOUWQE6AacgKb2ms9uDMAA2BIxNBvJ8jWa1HVZHxbW2qgo1auf+yYMXROR9dotbc75VxP7Thnv8KY1yAEOHiAaie5zkkA1U7mOucyANVOipxzPEC1k3Ln7DLgeH4KInVS7pxVAaac/DnkzlkxIMfJ2fbynLMiwJSTQYu3AOcbu3xkZYwAGc/JCuhqg/AdjJz5lUvCw7eXIO+P90H0DlZA/LMGx+i5NiYSA30+PwSpgGNtEMsO5jrnImdj54o7WAHxhxs0cy+XKSCXAJQ8qLNe+bcCbLhD09aAu9TYuRWgfHA3y4A3gLKGJt3qw4gAs8bOOUj+IG/EgFmDu3wVYlSAqnVcyQWmW2uhWWIFPKy9Ei6xRO/XXqprP0OIP0t8A10E6j/sqeKLAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 70
+  },
+  {
+    "id": "red_gumball",
+    "realmId": "3171",
+    "name": "Red Gumball",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABPUlEQVR4nO2ZQQrCMBBFf9FFKIIbN+05egTvEVx6hV4yW/EeWUcKqaTR2kkzKQ408HeWPManmUyBvFURs+kaNz0mZhPYEOwA4ETMIQItCjeCKQAXYlQEWpWGGzatAbTE1P6ZIpChcyFcA6Ajpokg2ZyMnVMB3BWABtAvRPvPjpCKy8k551pflWFjR4z2z7RcTi451/nqOKPOP+MB+wAw20mqc2sAs51Mdc4lAGY7uco5QwPMdpLNOXu7T8LlJJtzNg1wycn3YnPO0gEpTn6tXpZzlga45OSkinOAqypmH89p0p3cAd1eQSQ4aBJ/JJs7aHZAyK2gXvNHbXiah4/jju2oM/SKkY861mbBpH2l5GaBrd0yBa8Af92wimj5RVyaRFw7RVzcRYw+RAyPRIzfRAwwRYyARQzREa3iryFekBPjAimhUpoAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 25
+  },
+  {
+    "id": "purple_gumball",
+    "realmId": "3172",
+    "name": "Purple Gumball",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABP0lEQVR4nO2ZQQ6CMBBFP9FFQ1y6gXNwAuM9eg/WPYPn4EJewbW7GpJiShWZtlPiJDT5O0lfxqedDkDeqojZdE2bHiOzCawPdgBwIuYQgBaFm8AUgDMxKgCtSsONm9YAWmJq90wRSN85H64B0BHTBJBsTobOKQ/uCkAD6Fei3WcnSMXl5JJzravKuLElRrtnWi4n15zrXHWsweNnHGDvAWY7SXUuBTDbyVjnbARgtpNJzhkaYLaTbM4Nl+csXE6yOTfEAa45+V5szg10QIqTX6uX5dxAA1xzclbFJcCkit1vdpYEJ3dAu1cQEQ6ayB/J5g6aHRByK6hT/qgNT/PwcdyxHXWGXjHyUcfaLJi4r5TcLLC1W6bgFeCvG1YRLb+IS5OIa6eIi7uI0YeI4ZGI8ZuIAaaIEbCIITqCVfw1xAvpMJDB06xmNwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 25
+  },
+  {
+    "id": "blue_gumball",
+    "realmId": "3173",
+    "name": "Blue Gumball",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABPUlEQVR4nO2ZQQ6CMBBFP9EFIS7dwDk4gvdo0mOw6Lk8h0dx47KGWEypItN2SpyEJn8H6cv4TKcDkLcqYjZd06bHyGwC64MdAJyIOQSgReEmsBrAmZg6AK1Kw42bNgA6Yhr3ThFI3zkfrgXQE9MGkGxOhs7VHtwFgAIwrES5ZyfImsvJJec6V5VxY0uMcu90XE6uOde76liY2++8AAcPMNtJqnMpgNlOxjpnIwCznUxzzpAAs51kc05fH7NwOcnmnI4DXHPyvdic03RAipNfq5flnKYBrjk5q+ISYFLF7tbOkuDkDmj3CiLmKDORf5KtHcQOCLkVVEnNgWFpHj6OO772ypArRj7qWJsFxP2k5GaBr8U35a4Af92wimj5RVyaRFw7RVzcRYw+RAyPRIzfRAwwRYyARQzREazinyGewRx6Ab4MCGIAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 25
+  },
+  {
+    "id": "green_gumball",
+    "realmId": "3174",
+    "name": "Green Gumball",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABPElEQVR4nO2ZQQ6CMBBFP8EFIS7dwDm4gS56i96DG3BGN17CdQ1JMaWKnbZT4iQ0+TtJX8annQ5A3qqI2XUtm54iswusC1YDOBNTe6BF4RawBsCFmMYDrUrDzZu2AHpiWvtMEUjXOReuAzAQ03mQbE76zjUO3A2ABjAGou1nF8iGy8kt53pblXljQ4y2z/RcToacG2x1jHr8jgUcHcBsJ6nOpQBmOxnrnIkAzHYyyTlFA8x2ks256XldhctJNuemOMCQk+/F5txEB6Q4+bV6Wc5NNMCQk6sqbgEmVcyY+yoJTh6A5qggIhxUkT+S3R1UByDkVlCn/FErnubh47hjO+oUvWLko461WVBxXym5WWBrt1TBK8BfN6wiWn4RlyYR104RF3cRow8RwyMR4zcRA0wRI2ARQ3R4q/hriBfi0TURLa2e9QAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 25
+  },
+  {
+    "id": "yellow_gumball",
+    "realmId": "3175",
+    "name": "Yellow Gumball",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABO0lEQVR4nO2ZTQ6DIBBGP2MXxHTZjZ7DI/Qe3sML9hDdsOoNWNOYYIP0hwEG00kk+XY1vExfyzACZashZte1bnpKzC6wPlgL4ExMG4BWhVvBFIALMSoAbWrDLZt2AAZiOvdMFUjfOR+uBzAS0weQbE6GzikP7gpgAjBHMrnPrpCKy8lvzg2uKsvGlpjJPTNwORlzbnTVsfr2Ow5w9gCLnaQ6lwNY7GSqczYBsNjJLOc0DbDYSTbnzGMbLifZnDNpgDEnX4vNOUMHpDj5sXpFzhkaYMzJTRW/AWZVzNr7JhlOHoD2qCASHNSJP5LdHdQHIORWcMr5o9Y8zcPbccd21Gl6xchHHWuzoNO+UnKzwNZu6YpXgL9uWEW0/CIuTSKunSIu7iJGHyKGRyLGbyIGmCJGwCKG6AhW9dcQT4DF0mFJ6javAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 25
+  },
+  {
+    "id": "golden_ankh",
+    "realmId": "3184",
+    "name": "Golden Ankh",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAB10lEQVR4nM2YzXGEMAyFHwMHssMxF6iDErYP+nAnlJJSqIZMZk3idbD8ZGsTPKMbPx/y85ME8FgNgA5AC2AA8A7gBmAi4+bvGfwzOv9Mk9UEgCHcCGAmY4wgD0ATyC7IXh/A3QEsAFwmFn/tAdkHWTTJ5LGtvc/A5LPy9eKdjMXfM/ln9Jbbfaa52Wdn3z7kwAPQBYCSJou2PaW5EsBZ0GQcNKykOQ2gEzQ5RKHSqKg5EnDPaDIOlUafNbe+PUXugGycJqt8kwFMWcxOapL1zSrA+CU5wJSPSr5ZDZi1IfxcL/lorFExi3WAqygJRqOmgL+3eL0O4PkhWa8BmLaZVb7eEnBhALRAmwGgXOo4QFfRXGQB5WbhAoCD2G5dYIvbmoZ1U35AiVHXtPy7UgK5UtfUDE0Wh8iVzjC5sdPMhlAxw8SQsSbLDs1K1Xa6Pzwgw+0uAXTK2q6aq5s/AnSkJv8FcFdokgbUDvLL6aHSz9Wny+JXyJ0ZYwlNni6Ln0mjcoZJaVIErPkdd1PMMJImkyvli0z0bG0nfFJcoS8eoEy0pIarAQ/IEFQTg7bfLAE8g2Wiy9T2lwBqP6Yr7DepQ2IJ2Sl8lbIZa8hG6atZo34FpMZXv0vdJ0C7I+dF4n1GAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 400
+  },
+  {
+    "id": "eye_of_osiris",
+    "realmId": "3185",
+    "name": "Eye of Osiris",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAB4klEQVR4nO2ZPW7DMAyFn9EMRuCxi3UOH6Fj76B76Ag9QS/RqWOH3iJADxCgQ6eOWVTYkAFa0Q+pSMnQGOAUh/4sko8SDYSvDsAOwAOAAcAjgD0AVcn2zufgnrFzz2RfKyCFGwFMlWz0IMWA6+r1BO4JgAZgLjTtfK2QPVnFotVT7q1nx7aSaedTlaxiDHB+e3t4SdvxNW0OcPZ1B7QNVpAV5luEuOdKTneDIlE5XaRQ1FrLzMTQxQWSAg2etQA0Al1ctHEF690b+NYixDajizQnWb22WpEc80Xj5yS7114DcArkpCjHWgKaSE7KcqwRoE3kpCzHvj4/Nvb78520t2dszP/99I6NBXLyDmj/zQpqTpFIi+DkAUSAkkUikplGgCYlMyKhbgg4xYRa1OoaA6pQq+MCFgk5KmwWOCEuboU4zzHxditXJNQBhQ7dXxtw2bByQuhv0aP3H+qEeHNOThZBJImjwo4McMk5WQKY3R9iG9KrApYUhb0WoFRWTAvAYNL7DplFoLk5yimSlMxwAU1ANriykx3HxYRaCjgJi4g90Ay1ulJAxZQhIxl9+Af3koO65go5o/eeDY8uncVoL4ckrTPUezvOREs6NB9JmLibj+iwKDUTLP3sQB/G+T/7M8QfLAdoRYBNy/QAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 550
+  },
+  {
+    "id": "pharaoh_s_mask",
+    "realmId": "3186",
+    "name": "Pharaoh's Mask",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABpUlEQVR4nO2ZQW6EMAxFPyoLNGLZDax6CE5Q9QZdzQqk3iJHmDN005N03YNwAS6QqlWoEjfYyUzCzAgieWc5L8Z8HAP4VwGgBPAAoAbwCOAAoE1kBxOzNnuUZs+gVViANlwDoEtkDYGcAUXIGWzOXmXBvQDoAagLrTexZsjKyiKbSfpYK3PC1pz6J7BOZL2J2Zo9KulxSzXXmdPr4XhybPoCa9TfACoLMKgmQ2ouB2An1OTfCq25lIAqoCa92WNrLhGgFmrSyeIS4G/G6Ibju2sDAaBG/Wk8T03eH2B5w4AlGN27JmBlSU6c7kkAY+QBAnQxTvcyA3YeXYzTvYyAakEX43QvE6BmdDHupTg9Pzk2CUJN/c94aXZAva0MDkJRS0BTZPMQoIs7oN5WBkdBeD/fXJsEIOovxd8Bpy1nsPd9uKWP/xjZLCwAsc0C226tBKi4dottWFcE7JYaVrblXxmw9bX87KWJFvnHa+HYKABSfxov5NLEXjuvBFjb187ihgGLuwbsEw4sdeRA898ILufIV10wEo4aYOa0Rhpg5v7tcPZviW9UwM9d1byYiQAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 700
+  },
+  {
+    "id": "golden_cockle",
+    "realmId": "3187",
+    "name": "Golden Cockle",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABeUlEQVR4nO2YwY3DIBBFP8oerMjHXOI6KGH7QNoyqCTd5LqN0IAbYBUJSxjZzIwZ21olSHMymTysZxgGkA2jFKpjSvqlHEYDNge7AOiV4lKANsFNYB2Am1J0BahphXslvQIYlOKacm6CzJ3L4e4ArFLcC0i2k6VzXQb3DcAB8I3hUq4JsuM6uebckFb9ShyVwqWcA9dJyjmbVh/DYx7j7zzK58+feSRAnwGSTnKd2wPQcpyUOKcJ6JlOypxTAowCJ+vOUQCjELCcz3Cy7tzBgHbBybpzBwL6FSfrzh0EGCtO1vc56g+CcH75vPz9gpMfwPheb3AUAgTio6HmM87qD2B8mzfotmzUQbiADcVD21EXdACrR11TsRD0AFeLhaZyK+gCLpZbooKV+gievI1YVLCKSn4lQC8p+UWXJkVAK7nIs6+dyoCDpBVCXdz3uhffJM2kvPXRHwjYS9px5kRAQ8H9a0C3Y/Ool/YIz2q/scdZDUxIAU9vAf8Bf0D2GS/Tf8YAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 450
+  },
+  {
+    "id": "golden_conch",
+    "realmId": "3188",
+    "name": "Golden Conch",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAB0UlEQVR4nM2YMW6EMBBFP4JitXJJg0+RwkfIPZByDN8jUm6zbQ6RdpuUXMDRRt7IDMaesYmMpV8B8tPwPR8GqFtdQgOAHoACMAK4AtBMXf0zqgbqAZBTCDcBMExNAaQYbiDVUQldArhXADMAm9Hs731CiuH6YPORIe2r8tjYMTX7Z3QpnNRTxlfH3T/WWj7X8oBWAhh6rtRT5r8AqedKPGUDHQq457kST7mnjgLMeY79ypbv95Xo/VRSwJTnmgJyPedaANLqJT13PxHgb8XohgsBygHsHApRo24BaCVR1wrQcD8WWgJqzudWEtB9vSS11B+K0XcP5TvJKQFVELFRuLMAdpLsbQrYcbOXmtxRQHL99rZWLWA2e1sBDtzsbQHYSbL3TIA2dihyADceUCp7TwFoE9l78Xb764FDI0Czk72bAyLqewcD6kj29hRQ1PeYjdcJfsxp9m4SRNT3BMlgmaON0HMbOEj7njC6DGM4FHpuAwdp3yvIVp0Zr0VfawwwWrGSn3NsPUaV9FwJoGS8MUc8RsdySc+VAkoGRVPEY1S7nqsBLBnh9gSIBRUDnCs8NdZ4LLdy4zSOp1SNx3KLM5DkeGoo9VhucUa6OU9RHbZ+AL/zI1/NMYiWAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 550
+  },
+  {
+    "id": "golden_horn_conch",
+    "realmId": "3189",
+    "name": "Golden Horn Conch",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABtUlEQVR4nO2YvW3DMBCFnyEVhsFSjbVEGo2QPbSH9vA8rDJFahZpvQADB5RBnvlzFMlYCXzAqyTAn86P90gCbetgqQfQARAABgAnAGNAJ/OOaAnVe2TDnQFMAZ0tyOpwPemWraMF9w5gBrAQzebZClkdrrNgBo9G06UbiA5oNu+Mz/LYZLqlrx+uDOBSAljDY1MrwBoeWyxVBazpMb2qFLC6x9TF1ZZF0tRjyg/IHjPNPabCgMlB/SseU3HAYNRt9pj+fHN0/bo4okCMRTGY5gjD4wBme0y3ARSW1X5q7V62x3RbwIOve1ke008E3NQhlQBiLJK/B9jvHbAjc293gMIz9+6AKQBNP6A8ex8AQ3OvJeASyd6j+VfvMzA291oCToHsdbqH1NxrDDh6srcLAXo7Jue4VOYiYWSvA7cXQGGNOwdub4AH3w76fwPKBPALUL46CLYHNw1qSTrM2eSmspdWUdRJP2DsmJDMXlpFmwUZBowduKLZS6touyXjgJwrXm+82RXasLIOTeB5jCqavbT6gmPnwvQYvUJZwZJw9LIo5+Ce6zGq9XdZlXv1kVLIY1lQN7JvGpE7g5vZiyQAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 650
+  },
+  {
+    "id": "golden_nut",
+    "realmId": "3190",
+    "name": "Golden Nut",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABkUlEQVR4nO2ZMU7DMBSG/6oZoqoTsNQcgsUSF+ACzAzZOUAHX4GpO1svA2eokDgCyoz0EJIj2U+pnx84Uas60j/W/vzyJbVfgPFrAaABsASwBnADYAXAFMrKj7n2czR+zqxrEQCGcBsAtlA2DHIAFCEHsKF6bQD3AKAD4P6Zzo81QLZBFZOV5Le19Ss0ftW/A1OhdH5M4+dopdstOWf96ok+7qP0b4jy/XqbjAd0AaDoZK5zUwDaHCc1zpUEdJlO6pwrBEgKJ3XO0eEuSs8AJeCvF0TJcFLn3MSAdsRJnXMTArojTuqcmwiQEk6Wda4X8v68TGbEyQpIF1bBQxqID7h7vIoi/f5z20SpgLtaQcQOaiXfP11HkTYT3EEe8SGpgNtLqyAJ7zXiL3YBkC+wAlKtINIbVu1mgJiz/J+GP1Q5G9bkln8mQJfa8icPTTMC2mOHpuSxc2ZAM3bsVB3cJcA9A+CAfzm4q1ofhQCdpvWhah4VBLSahmZ2+60woNG0hE+6gXkWLeCzaKIjgDyJzxA/Ygtv5Bx3fYgAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 450
+  },
+  {
+    "id": "golden_bolt",
+    "realmId": "3191",
+    "name": "Golden Bolt",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABj0lEQVR4nO2ZP27CMBSHf1EYIhSJpaqUDFUPwRE6dOwNoo69gtUD9AJsLB17gy7d2RBrOzOwcgFXqWzkZznGf9IQwJY+CeEhH/Z7L88GAEoANwCmAOqRMBVOrdtBrgIwHwmVInmQewDQAGAnphEuUvJvSedigo+ERjjVqmBrz/n3PWG/AmG7sLN5o+jz70+ZFSHYuiRBfp0ruNeEdGFfoY02nwS3aQXRGYNBhXr5eEdYv4Lw+TwjhBTqmFcdDxT0etW5NgumH8AjBJ2bBZd2qzMElnGCTu1WLj4U4ksda538+aDowg4xZnpmIZxaN0wEUlSlL0FmiTEpo5IrXsgEE40hBXPD86UXGapsOeAWlzYpk6RJ0JgkXy+3hGPNhSFJdEGnIWOyOFIneRI8xy3OrEmyW1BWVKiHJDmJIHMsM07jKgX5EFs8miRpR6qDuOQtzs41SdgllxlmOXN4Z/B/CtaGM0fel2DMBWejxVwRKudbB1nAla7e4nvLmVYx9pK96oi5IDlVUJ70Yv+mCI65XwdyYBQmv238AAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 550
+  },
+  {
+    "id": "golden_femur",
+    "realmId": "3192",
+    "name": "Golden Femur",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABtUlEQVR4nM2ZwY3DIBBFvxUfrMjHXEIdlLB9uIq90Mdet570sBX4FqWBXVnCEUxYGMyM45H+LYZn/I3nE0CmOgA9gBOAEcAFwBmAYersrxn9GL0fU6w6P2gIdwVgmboSyBVQDLL3dz4EcB8AJgCuoMn/doUcglVcJL56xq/KMvEvU5O/xvgxhuBxqwG6ZfLH/BXrhkge0AWA1JOHArQJT4rA9QKA/3lSbGsZGgBznlTZ9+wT8JbXz2eshCc3wXH2PfcOwNBznH1vV8CS56aUn/YC5Htuzr8U9++8tgDWeW7eF7Dec/N+gNs8N+sCro9TzXOobx4iICpxz+H101ZqvyKPjUTinkO6Ocg1sC8eoxL1HNLtVS4CsDIE+9N153mONqhUUcPKzRAtgK7Q4lNrRS1/TYZoAbSFkET1DE1VGaIR0BRiZjLJVXlMyHNDTQbWAHQVsbKYfbUArVQw1wQ0EkcbESCdkDaUFBAKntMAdJKe0wK0WodBkoBG4zgtu1FTQMZLcWn1HK1sO7URcGzxHK1sQ9oI2EGgsi39EQBPNaGIue+NkoC94hGuSHWKh+CQqsP+jfAH0yf8YdsowiYAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 450
+  },
+  {
+    "id": "golden_ribcage",
+    "realmId": "3193",
+    "name": "Golden Ribcage",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABhklEQVR4nO2ZQW6DMBBFPwoLlLLsJpyDI/QM3bLoCbr1vbgDd6Cn8AWoKg2VMwHPjIPqNDLSXyU2L9/fCP8AtqsKVAM4AWgBvAI4A+iUOtOYluaoac6kKwTiagO4C4BeqQuDXAHNkCHY6laoJoB7AzAAcIIG+u4K2QQumpzky9jQL+bqyJWfGy9KDTSmozka63JbM9aTO4ufmL7er0SALgA0ZzLMnCVjLgFQyqSYOWvGFgOgJpOqzJky5nWAUiZvXJQy97uE8+e1PAMYP16i4uM3MhkFjGUuK2CtzFwWwIq5F83cIwE6TehHBsA/vxnPVADH4iDiGeShlhwb/3qTFEA8u4Pe+hyc4s+9/M/BqQDifzk4s1A/3MvCXADxvA4Om4ciBjQLwEdsEtMrfy7ASntoyg14ko6duQCTD+6e3XBnE1jLpN36w1p9LErA1DrurvLICphSaO5e+kxOJsBDK+FDyiRsZ4zLXGCmZtIpM8ar5KQK+N5CsxcyxpVUonMnj/7bQYT6BqDF+E+0ypjyAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 500
+  },
+  {
+    "id": "golden_skull",
+    "realmId": "3194",
+    "name": "Golden Skull",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABlElEQVR4nO2YwW2EMBBFP2IPBO1plQuuw+ec0geXVOEK0sB2kBaoYdNGtKdcaYCIjZFsx4zHgJGlYOmfBuyH9YHxB+JGkUirxjTJKbGKJbAmWAngnEilAxoFN4FVAJ4TqXJAi1i4cZIagEikWq/BgjQ9Z8I1AGQiNQ7krCddz1UG3CuAFoDaWK2ee4KsHE8GPSf0U44TDYnU6jWEx5Msz0n9tEP/fbX19WLrE6TuH7Y0oDIAXU9agJTn9gCUHk8+BtdzKQHVjCf/7B7puUSAA+HJWcDfHXMBIoH6SHk8eQAO/3sHu7cnS6EFOuf62PsPwO7YQdgevL1fLMV68Ba4n/Fvzh/wlDtgOdP/ZQN4Jvu/AEDvQgY+5C4QB5Du/zIArMn+LwNAQfZ/GQEqb3Ow8ud/5wGRDWsOgIpq+XMBlHOHppwAhe/YSX73Qi8NIutLDu4cQLVRXS2JPvYClEvDoz0BxZL4jRMOtRvUpeGxqAAzFK9NHllbbwyPRUXAnICy2aBeOx5jh+iciHesra37PBZM9n8Am4gj9bgXiKAAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 650
+  },
+  {
+    "id": "golden_candelabra",
+    "realmId": "3195",
+    "name": "Golden Candelabra",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABo0lEQVR4nO2YwW3DMAxFaaQHIfAxl3gOjZA9tEduHa5n79ARvICKFFJBu5L4KVlpi1rAPxG2HqhvmSRR2xoyQuNdVtzkpVFdYDnYiYjGjE5AnIPuChc3NkR0ycgAcQ5aDcl9w+Eem5yJaMroDMQvCUjo2Ese43BXIrIZXYE4h4Q9KnnMMLgbETkium/kQkyKR0gjeFTtsSlk4bGRz8gBcRveJXk0CSd5zIZseP9+WykAxGz55W0tFregR1eAqMf2ArSARz9XzJ7GY62AqEe/ZQ/1WCsg6tEsoLQBFN/Boweg/40Z9FHdj1i7wfy6VoNHD0D/kxn80lJ3xIhH6z4SCWARpPDoAej/fQZd6kcumX7eeEz7fKpY0JRb4rUxpwHR55PlFlqw9ga0pYJVKvmfBTjlSv5S06QqYJf2AjXZNOXaTnULsLSX+CbXdqYa95Inaz4iDiQ18sUpA+LJqmsocaSlUUhxSZ5MZmz78wc+iqZhEvfk2BFwbBnHDU8EHLRwfxrQFe41SW5PQFLei3dBpXuvetUMl6xygNk0q9aO5yTB994H6jeN0uxSRTsAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 450
+  },
+  {
+    "id": "holy_cross",
+    "realmId": "3196",
+    "name": "Holy Cross",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABdklEQVR4nO2Ywc3DIAyFH0oPUdVjL80cGaF7ZI8M0Rn+cdji3yELUEUKEqGh2MY0rRSkd8KCD/eVGAO8YYiSxouGX+RUWUYCG4I1AC5ENYL4EJQF5zdqAVyJagXxIajhws2LnAF0RJ0F8VcOpAcM4W4AeqJugvgQMgvos9cGcHcAA4Axo2GJ5cZ7yDbIIil73XLKeSFH1CCI75e9sllMAc6nddP/Yy2LlZYNfXZe5qe/tYL4A9D9Ugad1+cBMxtO8QHi+bRnD0B3ZFByUU85z0Xzmhc15VPnhIDiT11c/30VoEnUf1/xE5tM/bfrPWiI9d9ugCeW53YAbFie2wHwUuQ5yywW0v/qJGCZ5yyzYBUAlnnO1gcs85z9HCBpwZznUOHRpAE41nx2agH2tR7umoBdjdZH0aMI2x5SbR6VPMzHNx5Sa79JAXMeUmtglgB2GQ+ptIClzaHYc6wGJGdI22tb95Y6HAoalFv3ljrcPKQtXlbLVjqeLu3eom0VU/wAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 500
+  },
+  {
+    "id": "pearl_necklace",
+    "realmId": "3197",
+    "name": "Pearl Necklace",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAB1ElEQVR4nO2ZQWrDMBBFv4kXwmQZCvY5fITew5coFHSbLnqE0ht07333gVxCxSAFWYyskUZ2Q2ngrzJYz8r4W/MD0J8GQAvgBOAM4AKgAzAw1RXUX+xaJ7v2whD9OEAfrgcwMtUX1PuQSUC3e8qDewYwAdAJTbY2t95BKm8XWbs32LtcLmSYmgrqR7tWchdjgMvdmvnrbaXb9Xslu6AuqP8bgI394lEA2y1rUQJA41QIqDzLYfneHfDj/XWlOQD4fHlaKVVPAIa+yPa9IwBHwhezfG9PQB3xxTzf2wnQbPhiFVsxXBU8NFV9TydUBFjL98aEigFr+J4ObCKUCFDke6CN1pf0ejLfQ/xVda4FKPI9HAAo8j3E36WqNqDE9ybiXdrVekikvjfZ9kjNJL8GqDNmksMAi2eSWQqYauLMHTap+uyH5B/w+hg7aLg9JzbqXOO+BQA1Dqw50cZegHrryM8Nh/YGHGNDEydeOwpwoMbO8MAaO89JDhOGYezRwd0d+R2oL/EYCv6rkYrfWjc0+ZmML/EgD97MEgswyfCoqRmFgDezZEfAnDBJElCGUrlwVBwnjYR7r8fCXvd7jg0X/uzSUL0jsj9fZM/l7qTkbwmqx5JQP9N1XCMCUOPEAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 400
+  },
+  {
+    "id": "golden_chalice",
+    "realmId": "3198",
+    "name": "Golden Chalice",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABlElEQVR4nO2YPWrEMBCF3+IUZnGZZt0EUqXebJM+kGMYAmlTB1c5xp4jF3CVKwRyAEGKVL6AgoMEnomsv7VWECR4lSX78+ys/J4AOjaZZB160kVmbZZg9YQKQJNJFQMlQ4PVAC4zqWagBLJRk7YA2kzaKgYjpIbbAThk0o5BEkANdw+gA9CfWZ16toasZ1X8Ha16i2mizKROMbSmKmrA6W3k+M70/UXFrsunB6I/65nEkUoBTs8ugLJUEIB8218R8R4abq+JxtcXos+7GyK+nt8/uAcL4P6/V1Ac7fp4phoYML/uul8BHEoFYTcLwyOVq6cEE18fYxZsdisVYB9it5YMa2rAg69hNVn+cwG2Ppafh6YgAzv49Zir56yhaR4768AIID16LMTiG2PnPLg3ASHKBRgTkhZPGTRg5RlDfQHbmJi5KqBwf1tXBQz+iYUdMCoHm0b0n0QsA0bnYFf1grYZYQY8KQf7Anr5w9GRe2P8XwEUpYJIfpjUhfTgKdtMn+K4ba2NOtmBpQ3Q91OX9Mh3Pn4AG8kvL9zoYpgAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 500
+  },
+  {
+    "id": "ruby_gemstone",
+    "realmId": "3199",
+    "name": "Ruby Gemstone",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABo0lEQVR4nO2YsW3DMBBFv+AUgiGkShFpDgFBAJcZIT2b1B5AU3iLtJ7BZcbhAgoMUAB5oo5H0b44sAn8SqL4JHxSdx/gR6WkrDFNelJWJYH1wTYAGiVtCCgLN4HVAF6UVBPQKgV3nrQF0Clp69aMQvqe8+FaAL2SWgIZeNL3XO3BfQAwAIYry7i1JsiaeHLmuc691XniqCTj1uwinox6rndvN9rDV6if71AHcj11P5EDHDxA6slFz/0FYB/xJOs5TcBhwZO855QAR8aTup6zifkRTz4Ax/v6gse3JtBp9xyoFOhEnkfXewDae/6CJnZozgA/X0Pt33mR++nzJAc1+6tTAhy4Xx1bLCgC9kvFAltuKQN2sXJrqWCNbppSwGN6U8wK1qm0bm4IsPFL/uqGAat/DWhiZ1Qu8DEOlGqaAkBktJ2XAhyEbecsWeAa90sD9oLGXRx9XAuwk0QfqfCIb6r2/KZY0aiLEi6xJ60MMCfqEGWEYk9aOaA4LJIMsSdtHmCW53IhS8Ils9ZzUsiSeM6Uek4CWRpwtqWek0CWRMSrPfcL18p7oBk8Sd4AAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 600
+  },
+  {
+    "id": "speed_sprout",
+    "realmId": "3200",
+    "name": "Speed Sprout",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABw0lEQVR4nM2YQY6EIBBFvxkXxrjsjR7CFX2DuYZh30dw34s5yxySyaQxoUsopGgIJH8l4hN+qqgCXqMD0AP4AjABuAEYASxCjXaNya7Z22+IRucAunAzACXUTCAPQBFk7+ze4MB9A9AA9kRp++4BOTi7KNrJ41gH+8eL3YX/DxmhtF1jsWsOOcft85yyu2G2n/ubnr+KFV6AuwPIefLSsYc89wlAxXiSKgjLeS4HcGc8ORGxHmU9JwQ0EU9SsR5N8hx9vkXmBzyZFDdrAipJ3KwFuAvjZhVAkxE38+Les4xH3eNuClB5PNkM4B7wZBOAhvEkD0gVM/z6uL8p9gMXPCkCDIUM0xIgDbZNAi70/ZKAKRdUXRNwTLziu2FA1ThiSZEUvD+uBQAlZWbQEmsBQFo0heStWVYCFAOMAfsA3bKTXsW5OrkaoFu494l1sqkBGOsyJHluLQwIBlCUqzdZbtelAfeM3H66brUCqEIX1pYAF9+V/ypgaq7Wwtx+Kpp8I6cdp+1cSW73lp1XdlGSq+eSDc/clvAomJ/cMqaQsVx9I82g1PmiBmd3IVdPgXZa6nxxiziUqz8tcZPdBxuTdP5p/AH9+7hcB7m1UwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 35
+  },
+  {
+    "id": "draconis_potion",
+    "realmId": "3265",
+    "name": "Draconis Potion",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABZElEQVR4nO2ZwY2EMAxFfzRziEZ73MtwoIotYZuYE31QwVy2BO6pihamBFZIiQSWILbjYRcpkf4pknmY4G8MIFvOSKYrBb0ay1nALsEuAD6MdCGgRXAJzAP4NJInoK4Ubg56A9AY6RZjqiET4BLuDuDLSHcCKQZM2fMLuG8AHYC+UF2MlSD9Iouq7DXxrufAk5G6GLPRZHELcL77KbTtrsbHYyW6HwHnWBVwqhm0eElC5ky+8yXhlJmJCcgtM07qvUcDXvcgt7z3iEfsc7aX897NOghy8WEYVmLUQZY3c7x3D7BP+0JAtjerzxz0gGxvLior0D1iUdkReS/12tfzZyW66L7Gmyvgq2aw3T6DY+ZMWvSHRWdwrIA4bwY7TXMQ3tQfmrVXwbb9Km8Wgh5Q1Cyo261QBigahagaVth8uLOHSdKWvzcefbC/S/5qeORycKcZv/37AeYpRsCnGKKDrMN/Q/wCMBxyacmKnNUAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "saint_paddy_s_brew",
+    "realmId": "3267",
+    "name": "Saint Paddy's Brew",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABQklEQVR4nO2YvQ6CMBSFD4GBGCbjIs/ByuZTdGFg5QFIE5/MzYdw9k1qNK2xFfsToK3am5yxvR+X078LyJF5klOIQYVnZbawYkAOoPKkXAHVhgArAew8qVRAtZAVH7QBUHvShudUISd/u4DbA2g8aa9Aaj0q4A4AOgB0ZXU8l4AsDR59lLzhA5kndTxnbeHRJ+D969g4DJJO1+Msjcp8HJC+AJo8GhSwsfBoMEBq6dEggMzBo3pActlKas9w0qjM1xMiycKjCZD9dwVbRyCifJBpkcQKSD/lS4AkdAVdF81oAFQXTQJsf6SCTGhxwKU36j4BnlMFEfQsxtwL68pnMZ195V8RsFnk0bQyYO387DRdKF3Vm/c5t4d7IMDKpvURGrD41DyKCTCbar/F0DyqdI3MGNpvufDbVMTSwMy+oQX8FjeBDLVfdlyVAQAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 250
+  },
+  {
+    "id": "candy_corn",
+    "realmId": "9077",
+    "name": "Candy Corn",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABpklEQVR4nO2ZTWqEQBCFn8RFZ3CRRQIzQm7hCUJOkAt4hmy9TvbJPXKIWUp2wuxkFh0CLbSNVpVdpmdIbHgrf+bj+Xi2NYBsZQByADcACgD3AHYASqF27prC3SN391xlZR6gD3cAUAl1CCAHQDXkADa4Zzy4ZwA1gIZR7c4dII3nosrJ8LEa50DpXPn5YStU7a4p3T2M9nFzmaucOzZcfd+P5AAbD3CVTEoyFwPIZVK8pJmzCwAlmYxyj8ycEJDL5CIX5wBFjrVtS2oik38LMPP66RKAOQXJ9d5vAhqucqJ7bylwbC9G954SUNyL0b2nABT3oqr3IgEX9SJZK8en25FOr3ekjsH5Hy8FKUntXD1gfsWAObjeuxCg8SqH7j0O6KQEFvQi3XuJAauJXqR7LyFgM9OLdO8lArRELwbv2vPbMnX7sbjjgb7eH0eayOQGaP+5g91+VXWfDyNtgHZzEMwGNcgkl6GOOT6TObKo6S1+GsCGetXRH0npAKu5zQL9mZkWsJzabq0xoLRKUQNO9Yi3UYobEa8yJK+UYofs2r8ZtJodfXwDLVhJHJubMmgAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "crashy",
+    "realmId": "3322",
+    "name": "Crashy",
+    "tier": null,
+    "sprite": "",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 50
+  },
+  {
+    "id": "bottled_honey",
+    "realmId": "284",
+    "name": "Bottled Honey",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABWklEQVR4nO2YwWnEMBBFv1gfxJJjLus6toQc0oXZNtJEGlAn6UTNKBgk0E6wNRqN7A1I8E+G4Xk0/nwPUHeMklRPKjopy2jA5mAXAG9KuhDQJrgEZgG8K8kSUNMKtxa9ApiVdI01xZAJMIe7Abgr6UYgqwFT92wG9wFgAfDVqCXWSpA266Koe3N867VwUNISa86SLm4Brm8f3GNf/vtZ9HkEXGsNwDA6qPGRuMJM9vhIamwmMAFVbeblAc2rX7Gp8UEUTPl0H8TfK9wdgVbAPP+dATjtQW7lvyOu2JaiVyn/bQKGn89nkcMAZOVDTv7rAXjn5kOx7wU5INsXm3wvyACrfLHKVmje80QUWCMfDkA/Ovjgz6Av6PQZ9AMQ/6eDiySguk4BVi3iu06/AOKw4OSAVWFBHLdcG2DVOq4UWHsujyx3V0hXvkev3ybuf8lZC0xTguPO5GEr4F8sI+sHY63nTQAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": null
+  },
+  {
+    "id": "wooden_box",
+    "realmId": "3393",
+    "name": "Wooden Box",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABXElEQVR4nO2YMW7DIBSGfysZrKhDhizhGuUI3XsADx479AYsyewzdOcO3nIyV6mwhAmOAec9kOon/St8Rp8l+IG4qYiyasZF9sSpUmBtsB2AN6LsHNAouBGsBnAiSu2AVrFw90UOAARRDmaPIEjbORvuDEAS5exAzjrpOldbcB8AWgDqxWnN2iNk7Ti56JwwX3lfaCBKa/YQHieDnJPma4fr53FVbj/fkxhAZQG6TgY7xwEoPU5GOUcJqGacjHOOCHB44iSvc/rrNEnXdZN4nOR1TicAsjqnEwBZndMrAP9OrL+8r8ptAWgD7LcTBK2DvRPXuaZpJmH/SfoN8PLPT1A7CbkslAConl23SgGUcxfWkgCF78rPCoiER1MOQBXz7MwFKEMf7jkBRUj1QQqIeOceehkOQBXh3EMfwwUoU8oibkCRUrflLof2S4Vl7nqtwsIUVVDCM8VVvPb8At9Vg25EMe1ZAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 100
+  },
+  {
+    "id": "royal_jelly",
+    "realmId": "4253",
+    "name": "Royal Jelly",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABe0lEQVR4nO2ZQWrDMBBFf4ihJnhVurFP0ANkn02OUfA93JNo1SPkIr2GzqFikMESUfQ1mqaLSvBXNvLT+HtGIwP3xwFAB+AIYADwBuAEYFLSyc85+Gd0/pn02AD3cCOAs5LGCLIYcItev4O7ApgBLJWa/VwbZL+Loih6k1/1OrFT0uznnCRRTAGuq3e3y0sg+/ka6PtjCBTf7wHXuRqgaxHU+EhukccSnvuVj4RJM44EZNPMgYX7K8DuEWRc3vonvuI+V/ZytTeZB5FJykQepGozU3sfAS4J5QDp2iz2HOSAdG2uSiuQveKitFNVe93XGCoe0XVJbW6ArkXwkvagzXgyvv50D9oGiH8WQZtRA7QtgqA9eHezYN6PgWwmovH90h6F3m4pAS6lRyH0hlUR8FyyYaW3/MqAU8lxnKhpMhGA0HPZpkncdhoOUKXt3EOKPWnqPEcfYoo9aRQ9VwpJeRLKnmMha46E51rPMZC1h+pjrecYyJrfEmLP/QAN5H/s//3GawAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 37
+  },
+  {
+    "id": "gravel",
+    "realmId": "584",
+    "name": "Gravel",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAACD0lEQVR4nM2ZMYvDMAyFFc5DKBm7NL8jU+eOXQrdOsTQsQQ658/nOLAhUiVbchx6hjed43wnXp5tFUA3GgBwAPADAB0AHAHgAAC9oEOY04VnXFhD0qYRF3EE7gQAg6ATgXQKFcFGsFi9dgV3AYARAGaiMfwtQrbh2Vh9Tj8E1AQXF25DRfpQpT+QRdAY5vSrKsbnObWMHTZ5bgjVWqZpQgqAMwEs9WwWMOU5C2CJZ5OAWs8tCsBSzzpt9ZKem/KApZ5lq8hFCvLc8/lEut/vSAlAiyUQ4BpqrRqAQ6FnEeA652g+bQG8FHqWhvtHzlGVAo6FnqW5qNpbcyZfGNOz/9D1ekUSPLuOHHVOSTExC7FRAsjloimn1ovk5lsBpVw055R2/mwATL0PfwTv9xspl2vee6TcR3I+n5EejwcS8z4T4EeueRmQjZk9AVmPeRmQnb8XoOgxzwOK8zcD0hfebjckUqGFBvXr9UKi8zd/JF8CnDUx823AQQrq/wTYc1sdAhSAOI+wOWfNRcZzH4cFDSDnETbnjLmYO/I7C6Bq7/Uy4FBwaWosgKq916cBi66dps2/kseOlou79rhV02OdpfWhObAOO3jMaZtH2iP/Hh5rNH0Y7aVpN4/lRuraWdpu62q01+KQLu61G5ZNzW5q7ZbvLkNqYFb32JZBW8BVW7i1RsqjrrbHasFW/RkhNX4BbUq437e4siIAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 120
+  },
+  {
+    "id": "gluhwein",
+    "realmId": "10243",
+    "name": "Gluhwein",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABuUlEQVR4nO2ZMW6DMBSGf1QGlCAlQ5dwDsZIydATRN0ZonADFm6QMUfo1gNUSnKCDp3YK65C1chINtjGzxhEVZC+LThfHg/7vRdAf3kEfABPAEIAzwAWACJDFuyekK3hszW1Ur4FISe3ARAbsmlI1oItSV6sjgaFgJN7AZAAyDtI2GdryYCLoi+Tq8UC9ouoRCwqv19cGZKweyK2RsA9bqkcNYeiBjGLTlW86mGCOSfYzElB0DaHYgk2grKcfFx19GxyKNdAEVTlZCt6NjlUqTAU1OWkUvARgc/jUeB9udRy324FqhRaDHJyFqz+dwQ/0lTgvF5redvvBb5vN4FZ8DxHELQcvJxOAofVSku22wl8Xa8CzfV6b9QjCeY2R93YgrGqWJiSYCQrt5wKHjowEGwVrFMUDPmSf8qC3p8WTGR7FFX4Qt/3WoKUkt+VYG7YdoLSNLkWjA0ad5i2nUMJRpTRh6pxJ+VkWRQCFo1651zG75OTpVyQMupQyskiObag1yXXe9sp7R5x6EJQGrGsURw0sdmYZ8FsjiCGGybBwUsy5DguNz17qS+Ki4FmTDl7TQVdjYSt/3b4AVnqAOVdFo8IAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "grog",
+    "realmId": "10244",
+    "name": "Grog",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABvklEQVR4nO2YPU7DMBiG35IMVbHEkiW+BoETMHCLnIE1C70AjEjchIGhe8vKiCohMTAiMRuB3NZ2nc8/SVojJdIzpYmf2q8d+wPoa9KBHEAGgAEoAMwAcE9m8hlGSeU9wBS5EkDlSalI7snlxr/vwlSRuwJQA2gc1PK3G8k9uUx5edEDXPbKb8PCk1o+w9vkQjPDHVSyd8Tz9ZnG/eWphhRsVEE1c7GZqTyIFlQzF5OZJoAoQTNzMZkRvsQI2jK3HRLx/UHzABKXkFjONWyCbZlLRnBGZC4JQU5lLiXB5k/I/sBO2Lj/entC8vZ4oSE+Vzo9Ce6GfBTEP+/B9dNcwxQ07y9uQPJyd67x9b7SINobBcUhe3DLMYe4ti3U5gtCBRcOfATJT10KggW1WUhBkFHbrRQEsy4b1rXRgGvz4JqEtkNTly2/6EmQPHbGHpr6FiQP7qHHzqEEOVX68D24B62bwtjgemSukG0z6RJU+nBlVHgKUpmbyrY3Ht7Fo+wIgpO2sptNlh1wiJmvIAhB6wY2FMskGQXF2IPGFTRJEEenSYKBy3M1scx4X0MXOEvj8xbUe6rgUCViVU5bpH8AVQdBX+oR2JwAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "cranberry_punch",
+    "realmId": "10245",
+    "name": "Cranberry Punch",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABuUlEQVR4nO2Yv06DUBSHfw1NShpMHIixDE5OzCTOJt2cfAJ2p873DTqw+hR19nV4BAfSuGFoLubeU7h/oaLS5Jso3C+HHwfuAfx+CwVLAAGACEAMYA0gMWTNz4l8pBoBHaLcBkBmyEaQtJZbkupECkJBbgsgB8A05Py/raS1XCAsHhuQ8Ko0C9eG5PycxPR2+mYq49WpH4pQIn1ZSXBBphJUZcw1U9lQgrqMuWSKCXgJmmbMJVN1i6ugbca+b1lKFqACh2tI1LcytoI2GbuoYFs924zVlxCk1bPKWPqDgqcKVWUp8R7dK0nJgvsrSFBhk0Y9BUGmetXNgvsxb/FHWUq8ru+UvG2fJehx3UNl/ZDMgsVfr2BF2sxudaOkeHySoMfp9QZv1LMg/nsFdxro9QZ/F48kyAZ7F48omPVt3KckmHSNPqYmGPMv+4h/5U9SMBK2v5MWXPxqwbyrR9EFKsLn8Sjh0PfOBG22nUMJMkXfC7nLKX82G/ehBbOevndWPZPRx1iCSUffC7oEVcMjr2ERzDIX6uT6xm++4zZmMOIVM6eUEyVdhkmZ45BczJxWzjSTvhhlrjH5AnCvACopd6NBAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "fairy_dust",
+    "realmId": "2108",
+    "name": "Fairy Dust",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABkklEQVR4nO2ZQWrDMBBFv6kXJmTZTbzpGQrZdVvoLeqeoUvRU/QOpWcxZONDZF3wBVQMcmtNKmtGmSoQJPirCOlpNJrJjIG/RwWgBnADYAvgFsAGQKukjVtz6/ao3Z7sMQMu4XYA9kraEUgx4Gy9ZgH3CKADYM5U59aaIZuFFZOs17pTTwtbJXVuzTbFiiHA6fR2+Pzy9PZw5+nj+d7TeLSeHOC0VgG0xYIaj2QgPhnwuX95JJwwY5mA3DBTceEuBVivQdL01mS84iaW9mK59ycOMgHsLEYcZOVmTu5dAzQBxQDZuZntcwIfM8L5wdwsCisCHzPC+cGws5p7YxuM/YunhYUkBzTagL9X3gcBpS6SHdAIfTLrFVuhT+oBUqCTcXz1dGLxAthfpwVttjBzeH/yNEaA6e8F8FAsCJkP0j+k1IKWPArqc3Q+Xe/sR1IAccUW7DhF0iBUap2cXGYOaYDidhy7aFIE3EuKJnbZqQzYSlrCSYU7dBqY0cI9tfVhlFvA7P7MpZroVQyO65PZPkN8A7s+8ZI+lhZEAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 30
+  },
+  {
+    "id": "hot_sauce",
+    "realmId": "2413",
+    "name": "Hot Sauce",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABO0lEQVR4nO2ZMQ6CQBBFv5GCEEobKaypiaWl8Ro0HMJ4BmtOwiGoPYTHYAzJYpiNhsXd0aizye9gefn52R9mAbe1ABABWAJIAawAJAAyRyXmndTsEZk9g60BcAy3BrB11NqCDA44uBeP4PYASgCnCZXm2QEyHrko4l5mXOk/TI4qzTuZhIvPAHt3qKkrpktzZDKA/bMKmKqDEhms85ypLQom/DvgwmwkBRj5QNr1FgcEjH1rb6p774DVZsNkAz8ADNLNLt37CmCwbnbtXpoBGKybZ3Vv5QYYtJu9jhU6V0wSx44CQh3Mn2ewndDHM9gqIL7cQWp2XHRk6rqOia4HJgUkddA3g1amOjtzViZtx+UzqIC/7mA986Cup/9RFJDUQYGBJUkPNH1Gvqd3jIR9h+Zb6aG677VDsGuJG67G3unciN6sAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 50
+  },
+  {
+    "id": "mystery_reward",
+    "realmId": "1769",
+    "name": "Mystery Reward",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABP0lEQVR4nO2YwQ2DMAxFP2oPCPXYC+yQGyN0D5iDC1MxBFOlogpS4kISF9xClUj/iPOwHlVtgHcyoWw6c5GrcLJPYG2wC4CbUC4ElAU3g+UA7kLJCWjGhZuKFAAqoRTmjihI2zkbrgRQC6UkkKtOUudyC+4BoAHQ7ZzG1J4hc+Jk0LnKvOVUSAulMXdUC05GOVebt9Wh0/c9KwawswCpkw6gz7lvANYLTr5OrHOSgN2Kk2/d8zonBKg9Tq4CLnaMFhuYoc9HOJkAdeqgfZRSThD4EaYO0ud3dzAB4t87iI1AKgEidVCzHBzH0QntoAo4Fvqo2rZ1wv5IEmCbOqgcx0L//37u4JAAcZ4ONksFKfBIQi8MJWZoYo2dQoCdb+xkDe6CgLVvcI9efQgDVmurj8Mvj06xfjvFAhMW5CFWwE8EAJuLeFMs1gAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": null
+  },
+  {
+    "id": "server_heart",
+    "realmId": "1409",
+    "name": "Server Heart",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABnElEQVR4nO2YsWrDMBCGz7iDCRmzxFtbWvIAeoRupZ0KhS5+BWPIIjJl8GurBGSQDvkknWTZkBj+ybL0Sf59vjsA+qqYWvSaFnlKVLUErAlWA8CeqRqBZoWbwBoAODDVINAqN9xtkR0AtEzt9BxZIE3PmXBHABBMHRFkkidNzzUG3AcAdAAgI9XpZyfIJtWT2HOtPoXbQoqpTs/R5vCky3NCn4bqP58tnb9fLfXovgaUBiDlyaDXPue5HICC8GRw3KQ8lwIoCU9GxU3Sc0xA5fFkVNy0PHf5eSM1/p1I9WGejIqbJQEFJ26WApTMuFkEUCXETRtw+Hqx5AO4eDaA58PjA+LmpgCFw5ObAZQzntwEoCI8Sf97Yz+SwbNBRtx8AKr7OsEzSgZ8ycHoAcAb9CUfD8Dxnk+wC0lYr7/vpAbPR+Ib7wKMSvnXADzEFE1rAO5jys41AOuYwt1n8isCwPdngMhkIab1sRSgpNKt0ObR0oBiLmENab+VAmxdKf8cZM5mkkopmlyQOdtxMrXsLNHQFLkbnrlbwuyW8T91oRL7yWnBcQAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "neutralized_acid",
+    "realmId": "48156",
+    "name": "Neutralized Acid",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABd0lEQVR4nO2ZMWrDMBSGf1MTRMiQoR7koRfo6Aw9QLv3Br6BCXTz3BOU3qK36JylUHIdhYBcLMWy3lNkuwQJ/k3In5+ffqTfwPDIAOQA7gBsANwDWAMoI2mt19zoZ+T6meTRAfbhJIBdJEkLkg3YVU/04J4B1ADaK1XrtTpI0atiUPVK/dbnhVUk1XrNMqSKLsDz26uieTQkf94NVYcnQ/Z8DdjeLGCmJy4FmI9B2tYiZgQUPsvx+Z5zk2xfqlERNgnJFym+N2Qzigg4ZDMsXwz1PRUAyPbFq3xvG/aJWb7IspWHj9dRFdZ8nyi2kwCLVMHmomf+9Pt1MOTbEJP3oGUbygHotKUEiP/+id+O34bsMcXxKwFWqYKN+4C6+tyPavYeTIC49QquLADp8T3feTEBylRB8C5N3DtHMdxz7DCJeu2MBdhy4zjKxT024I5zcadEH1MAlpxI2BceTRlgCmpe3Y/floiAc2pGuFSInvngqD0522+IEznZuliYCVvwAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 75
+  },
+  {
+    "id": "katalonian_battery",
+    "realmId": "48157",
+    "name": "Katalonian Battery",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABU0lEQVR4nO2ZwW3DMAxFf9AcjCDHXuI5NEL38B5CF+gYOneVHrWPggR0IQuuSVo0UCD8AE+O5Zfvb8GkAZlOAM4A3gBcAbwDuAAYhXWhc660xpnWNNGpAqzhbgCCsG4N5AzYDTmDze4NFdwHgAlAZGqi386QQ+Vil5PtbR3IgZFceVy4CGuic0ZaY+i93VzmArlTOBFgrAC7MynN3B7A7kxqM1cUgN2Z3JU5TlaZFGcufX0uKn//LKpVe3xvJsWZMwYMTCZ/Jc6cIWAUZHLVvc3MGQEWJpMLF/8CfDrWXqCt1ABr/8BKJh2wuIPY2FZ6lfl9UZdBB8SrOZiU+1wrB0zuIDyDm/KHJP23hyQz73/ZAeEOHpbB1aaJ61EyU3uaJlXbaQQYNW2nqnE3BAyaxl08+jAGHDXjOMuBZTlqoGkx8o1Hj4Qthubh6KF672cHs88Sdz6NTxjet31iAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 75
+  },
+  {
+    "id": "horned_fruit",
+    "realmId": "48158",
+    "name": "Horned Fruit",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABw0lEQVR4nNWYMW6EMBBFB5ECrShpliZlUqSkSpMmB8gNUMo028dtDhLlClwp0h6AksbRSl7JHpnxjLEdFulXgPxsZv6ID5D2qpgqelVGd0IVga2sBWsAaJmqEWhWuNos2gBAx1SDQKvUNYThOgA4AEDP1MG8w4KMraGLbLgjAAxMHREkCRhTQ1c1FtwrAIwAoAIazbNXyMY6Re8VU0O2enMql4U1U6N5p+ecYkwNYQ3mdPT8+UPKACoJYEwN+aRyAUpriJLeCOiFjKmhVc1xgKQvOjW0vL85Oj8/OJrunxzNCOD35csRo0mCvlgCUHlshu2LpQGV1Bf/4xNriS+STaK/P0idAxvA9/EBcGyHspldAHYrRr0bwNYz6m4HcEIL4gUWpNCGYpqE/MSZAJXEZsgmyQg4SI3aazOZAXvxqMNFLW2CCd0/9Y+Obg1wEM/igoAqahYXAtTJZnGoKU4IACu0oc2zeA+AHWXUewBsqVG3B8Aa/biTNRkCWAIbimkSO/oIRRmpAJXEZuzwiAqDUgMOkjApFKflAuwlcdxaIJn0xx78NccONHGkGxOvqQ2/may0lVuTW7RWc6IoeEvEmywC/gMCahY1C4hCCQAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 75
+  },
+  {
+    "id": "bubblolecule",
+    "realmId": "48159",
+    "name": "Bubblolecule",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABM0lEQVR4nO2ZQQ6CMBBFf6OLhrh0AwfoCdi4N16AA3AI4oZzeAX3rjyAh/A6GJJi2gnQIoOh2kn+jkwek5eGDsC0Ekxhra7pljmCA9YE2wDYMWVDQGfBdWASwJ4pkoCKuXBt0wRAxpRE9/wI0nTOhEsB5ExJCaS3k9Q5acAdAZQA6pkpda8OUvo6OeRcpt+6bdwwpdQ9M18nXc7l+u2b4nqzUj0fo6HPa8DaAPRy0se5JQBzh5Pv8nWOE7D2cLJ3eqPOMQE2DietKQ4B9k6M5nC+W3GVh5MRcLT+b4IVkZ4CqdPFiqtovwio4gQxzUE6MeUIdXZxByMgfm2CBTlYaSkHkOugj4AqThDr/2Bd/Sd/EJcmsfZr5+ov7kGsPoJYHgWxfgtigRnECjiIJTpIff03xAtB2WUvnHeQ4wAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 75
+  },
+  {
+    "id": "cactus_juice",
+    "realmId": "28901",
+    "name": "Cactus Juice",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABnklEQVR4nO2ZMU7DMBSG/4gMUcnYDPURGFiaI3ABxIxyDy+9AWMPgxh7i87M7CxBlRxhP2T7vdiuADnSP9ltP73an54dgPc0AFoANwB6AFsAGwDKk42Z05vPtOY7ij0LoA23AzB6siOQxQGX6nUW3AOACYAmmczYAtlZVbxK9ZSp0gVk9mQyc9Q1qugDvFRrPr1/ODGAOgDY/GbA1koW2AUuB2BvZVmTSX87VUuXALgl6VIVFPOeZJOoEp7keI+jmWKeXOO9kQAU82Sq91RpTwa18nZ4coKfm8KZf54/nTA8+bcBm5j3CgO2IUiW9woBdjHlcLwnBZwEmyrqRY73OICjwJMiL3K9FwLUKxP1osh7HsA5MUEvBrWyP946eXm8c3IizQLdFDTPr/dOONqpgOdaweP3GqRraJ84nn0NVkD8twoOBzf0BwcyHgOk8yvgUCsIWbNAKzYIs/YQxW63MgFq6TGU3bBmBBwlDSu75c8MqCRXIbFDU+iMMSc2qOzLJPvYyb360BlbfPbZWHppPgrjW3PsCyTpawdp2NdvXzXythwUAYQ4AAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 40
+  },
+  {
+    "id": "cubic_jelly",
+    "realmId": "16953",
+    "name": "Cubic Jelly",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABSklEQVR4nO2ZTQ7CIBBGP2MXjWHZjZyjR/AePUd7BxY9APfwKu7dufEGGnVI2glgf1IgCsksC4/hNSlfAfvYASgA7AEIABWAAwAZqA60pnDBGcAh3BFAHaiOA0hr50z3ygHcCUADoNu4GlrLQDqPtaQdSNrV68FHoGpoTTnVuZp291Dn+6aFD2A3BJzqXDTAYoZzUQD3c5yLAShCOqevt1G1/WVUNsCgzukFgEGd0wsAgzqnVwC+O8YnWFt8cKAMqHMH4Xdw65eiXfuSZMD+1zvYsgkyIHIH77/loJrwwZoB9V93ULEJvkmuvgA6gLwX9xQAO1/0kQpg7QqPUgKUtvjNew9eeydR852rKEQQFCpEAew8zpUEZiKZaIC1wzlBYCbUigooLc6Z7r3hkEBAWTHnRnBIIOItmXMjOCQQkgvuHB+xfzNYj9WMJxQBl22X6dc4AAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 50
+  },
+  {
+    "id": "minor_teal_nildrop",
+    "realmId": "46441",
+    "name": "Minor Teal Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABk0lEQVR4nO2YQY7DIAxFPyoLFGXZTTlHVrOee+QSs8qNZjPXmRv0GhlFIhJFGDAGppVqySvc5sXC346BPqYAaAAXADOAK4AJgCV8cjGz+412/9HNlHuID3cDsBB+CyC7A2qXCePBfQJYAWyBr+7shDReFodkz7osHSA74auLsdwsKsJz8ToCeGRr/7r/PrgD3DiA/kNSHkKH510A/QedFRjz847oTHxTwFAajAuOufFAL5n4JoAS3ZoL4sVFItGta2G8SGYkujUx4quEWqpbtiKe1eqkumUriiBVdGT1jgScE7JFat9oQE0IP54B0HBGq1ZFsh1noREvxJ7/amVm8bwEsHr+qxHq2AukAEXzH7fVkVcgtJbzX+mwkCyK0FrMfzHI6vGpNyCkA+gIQAr2KQHBBfz4+X7wNyDeGUS3OxgVauLONftQl/bqPVEUXVcdJb16Kxi3ui2Lcr16Yc6PXdZtVK+2Fd+9rIG1BrLVek332AOqhgtK1RruZVa8kmWTHgEnWdepUXA+JGfh+a/GXRln7Q8uDBagEmJ3XAAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "minor_hazel_nildrop",
+    "realmId": "46442",
+    "name": "Minor Hazel Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABm0lEQVR4nO2YwW3EIBBFP1oOluXjXpZbenAJqSPuw7d0kh7STrqgAEeWsIQRgxkGyEZapH9idv08Yj7jAdosBUADuAGYANwBjAAModHFTO432v1Hs6XcQ3y4B4CZ0COAbA6oXSYGD+4dwAJgDbS4vQNy8LLYJXvGZWkH2QgtLsZws6gIXcXrCOCere3n++MkB7hyAP2HpBRCh/tNAP0HHRUY03FG9EV8VcDQGgYXHNPggd4u4qsASnxryogXF4nEt+6Z8SKbkfjWyIgvMmqpb5mCeNZVJ/UtU1AEqaIjq7cn4JSwLdL7egNqwvjxDIADp7WqVSTrvmetPYl4IXb/V2ozs6ccwOL+r8SoYy+QAhT1f9yrjjwCNg5Ypf/LbRaSRWEDwBr9XwyyuH2yjQEhbUBtB0AK9ikBwQX8+nw76QWIVwbR7AxGjZo4c9U+1KV39ZYoiqajjpy7es1ot5oNi67u6pnZPzYZt1F3tSn47mU1rCWQtcZrusUcUFUcUKracP9mxCsZNukecJJxneoF50NyBp5/urgj48v1C9Uz6yEXeq11AAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "minor_azure_nildrop",
+    "realmId": "46443",
+    "name": "Minor Azure Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABk0lEQVR4nO2Y0YnDMAyGf1M/mJDHvtRzZIGDW+AmyBpHxrhpbqnOkCPggGss27JsXwsV6Mlq80VYvxQBfUwB0AAuAGYAVwATAEv45GJm9xvt/qObKfcQH+4GYCH8FkB2B9QuE8aD+wSwAtgCX93ZCWm8LA7JnnVZOkB2wlcXY7lZVITn4nUE8MjW/v1zf3AHuHEA/YekPIQOz7sA+g86KzDm5x3RmfimgKE0GBccc+OBXjLxTQAlujUXxIuLRKJb18J4kcxIdGtixFcJtVS3bEU8q9VJdctWFEGq6MjqHQk4J2SL1L7RgJoQfjwDoOGMVq2KZDvOQiNeiD3/1crM4nkJYPX8VyPUsRdIAYrmP26rI69AaC3nv9JhIVkUobWY/2KQ1eNTb0BIB9ARgBTsUwKCC/jx9fvgb0C8M4hudzAq1MSda/ahLu3Ve6Iouq46Snr1VjBudVsW5Xr1wpwfu6zbqF5tK757WQNrDWSr9ZrusQdUDReUqjXcy6x4JcsmPQJOsq5To+B8SM7C81+NuzLO2h/3iPUhBerfDAAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "minor_crimson_nildrop",
+    "realmId": "46444",
+    "name": "Minor Crimson Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABlElEQVR4nO2YQY7DIAxFPyqLKMpq1E05R07QmXvkHrnf3IldqkhEIggTjIHpSEX6K9zmxcIfx0CbpQBoADcAE4A7gBGAITS6mMn9Rrv/aLaUe4gP9wAwE3oEkM0BtcvE4MH9AFgArIEWt3dADl4Wu2TPuCztIBuhxcUYbhYVoat4HQHcs7Vt38+THODKAfQfklIIHe43AfQfdFRgTMcZ0RfxVQFDaxhccEyDB3q7iK8CKPGtKSNeXCQS37pnxotsRuJbIyO+yKilvmUK4llXndS3TEERpIqOrN6egFPCtkjv6w2oCePHOwAOnNaqVpGs+5619iTihdj9X6nNzJ5yAIv7vxKjjr1AClDU/3GvOvII2Dhglf4vt1lIFoUNAGv0fzHI4vbJNgaEtAG1HQAp2LcEBBfw9wsnfQDxySCancGoURNnrtqHuvSu3hJF0XTUkXNXrxntVrNh0dVdPTP7xybjNuquNgXfvayGtQSy1nhNt5gDqooDSlUb7t+MeCXDJt0DTjKuU73gfEjOwPNPF3dkfLlebyGx0byry3EAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "minor_scarlet_nildrop",
+    "realmId": "46445",
+    "name": "Minor Scarlet Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABkklEQVR4nO2YQY7DIAxFPyoLFGXZTbnAXCBHmOXcIVIvMVLOOHfKqCMiUQYDxkBbqZa8ilteLPztGOhjCoAGcAIwAzgDmABYwicXM7vfaPcf3Uy5Q3y4C4CF8EsA2R1Qu0wYD+4TwApgC3x1zw5I42VxSPasy9INZCd8dTGWm0VFeC5eRwBv2dr37+udO8CNA+gfkvIQOnzeBdA/6KjAmB93RGfimwKG0mBccMyNB3rKxDcBlOjWXBAvLhKJbp0L40UyI9GtiRFfJdRS3bIV8axWJ9UtW1EEqaIjq3ck4JyQLVL7RgNqQvjxDICGM1q1KpLtDzAw4oXY81+tzCyelwBWz381Qh17gRSgaP7jtjryCoTWcv4rHRaSRfHPGsx/Mcjq8ak3IKQD6AhACvYpAcEF/Pn6uPM3IN4ZRLc7GBfqeFE0+1CX9uo9URRdVx0lvXorGLe6LYtyvXphzo9d1m1Ur7YV372sgbUGstV6TffYA6qGC0rVGu5lVrySZZMeASdZ16lRcD4kZ+H5UOOujLP2C91Y5PHTjFjFAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "minor_beryl_nildrop",
+    "realmId": "46446",
+    "name": "Minor Beryl Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABmUlEQVR4nO2YQW7EIAxFPxoWUZTlbIZzZNdt75ErdLa5Qe/V83CFVJGIRBAmGAOdSoP0V3gmLxb+OAbaLAVAA7gBmADcAYwADKHRxUzuN9r9R7Ol3EN8uAeAmdAjgGwOqF0mBg/uE8ACYA20uL0DcvCy2CV7xmVpB9kILS7GcLOoCF3F6wjgnq3t+fN1kgNcOYD+Q1IKocP9JoD+g44KjOk4I/oivipgaA2DC45p8EBvF/FVACW+NWXEi4tE4lv3zHiRzUh8a2TEFxm11LdMQTzrqpP6likoglTRkdXbE3BK2Bbpfb0BNWH8eAXAgdNa1SqSdd+z1p5EvBC7/yu1mdlTDmBx/1di1LEXSAGK+j/uVUceARsHrNL/5TYLyaKwAWCN/i8GWdw+2caAkDagtgMgBfuSgOACzt8fJ70B8c4gmp3BqFETZ67ah7r0rt4SRdF01JFzV68Z7VazYdHVXT0z+8cm4zbqrjYF372shrUEstZ4TbeYA6qKA0pVG+7fjHglwybdA04yrlO94HxIzsDzTxd3ZHy5fgFIl8ChB1dyuwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "minor_onyx_nildrop",
+    "realmId": "46447",
+    "name": "Minor Onyx Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABlElEQVR4nO2YQY7DIAxFPyqLKMqym3KOHGHWuULvkU1Ox7kyikQkgjDBGJiOVKS/wm1eLPxxDLRZCoAG8AAwAXgCGAEYQqOLmdxvtPuPZku5h/hwLwAzoVcA2RxQu0wMHtwPgDeANdDb7Z2Qg5fFLtkzLksHyE7o7WIMN4uK0F28jgAe2dq3bbvIAa4cQP8hKYXQ4X4TQP9BZwXGdJ4RfRNfFTC0hsEFxzR4oI+b+CqAEt+aMuLFRSLxrWdmvMhmJL41MuKLjFrqW6YgnnXVSX3LFBRBqujI6u0JOCVsi/S+3oCaMH58AuDAaa1qFcl67FlrLyJeiN3/ldrM7CkHsLj/KzHq2AukAEX9H/eqI4+AjQNW6f9ym4VkUdgAsEb/F4Msbp9sY0BIG1DbAZCC/UhAcAGXZbnoC4hvBtHsDEaNmjhz1T7UpXf1niiKpqOOnLt6zWi3mg2L7u7qmdk/Nhm3UXe1KfjuZTWsJZC1xmu6xRxQVRxQqtpw/2bEKxk26R5wknGd6gXnQ3IGnn+6uCPj2/ULbiucYeKTovYAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "minor_amaranth_nildrop",
+    "realmId": "46448",
+    "name": "Minor Amaranth Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABkklEQVR4nO2YQY7DIAxFPyoLFGXZTTlHjjCnmE3ukSt1NQeaO/QGGUUiEkUYMAbakWrJK9zmxcLfjoE+pgBoABcAM4ArgAmAJXxyMbP7jXb/0c2Ue4gPdwOwEH4LILsDapcJ48F9AVgBbIGv7uyENF4Wh2TPuiwdIDvhq4ux3CwqwnPxOgJ4ZGv//X48uQPcOID+Q1IeQofnXQD9B50VGPPzjuhMfFPAUBqMC4658UAvmfgmgBLdmgvixUUi0a1rYbxIZiS6NTHiq4Raqlu2Ip7V6qS6ZSuKIFV0ZPWOBJwTskVq32hATQg/3gHQcEarVkWyHWehES/Env9qZWbxvASwev6rEerYC6QARfMft9WRVyC0lvNf6bCQLIrQWsx/Mcjq8ak3IKQD6AhACvYtAcEFvNufJ/8A4pNBdLuDUaEm7lyzD3Vpr94TRdF11VHSq7eCcavbsijXqxfm/Nhl3Ub1alvx3csaWGsgW63XdI89oGq4oFSt4f7NileybNIj4CTrOjUKzofkLDxfatyVcdb+AMCSD/ApUEapAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "teal_nildrop",
+    "realmId": "46449",
+    "name": "Teal Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABsUlEQVR4nO2YTWrDMBCFn4kXxnjpTXQOrbzuPXwJr3yjbHqd3qDXcClIoApJ86dAChG8VZTkY/z0NB6g7xoSjQBuABYAK4AZgKtoDnuW8J0x/EZXqLGgFO4OwFd0zyC7AQ4JTKxWqimB+wCwAzgz7eGzCDklVewCd0tg1oJcqNIvyFXRHvY4aRWHhiQe86Fa1/H99UcB8JQAtjyl9ZjvBUh5KuoWNAk8ZgbkemoNn8XqcT1mAtTm1irwmOmQDIbcckxAU8zE6mlyywkOgSqo8+pJc8sJT6n4qqsBSv7Qx/35quyfK4eueA9bAH2ecwRg7ZFGsGb2SQFLHm0Bcg5FV8CiRyuAVKyoHrEqeKlFeLIKqYmZHoDsfpAT1EXPHXpAUVBTV131kR86QFU/WGsWmodm+3w0la+e7dbyioDi2NnegE+u4Jbp5R7x9gbE/6ngzgnqg1CvF3fu3XwpAc2jD87dbAU0DY84d3MPQNP4jbqbW/0iJVHDyoGU9IsnIXHLz4GUvth75XuwemgpHY04Qk8Z+UqGSyshtee4kNR4biFk8hwHkjvgHBsyeU4KKxV7/QAuTfU5C+takwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "hazel_nildrop",
+    "realmId": "46450",
+    "name": "Hazel Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABsElEQVR4nO2YTWrDMBCFn4kXxnjpTbTrHXSEnqO+h3e5ie/Q6/guLgUJVCFp/hRIIYK3ipJ8jJ+exgP0XUOiEcANwAJgBTADcBXNYc8SvjOG3+gKNRaUwt0B+IruGWQ3wCGBidVKNSVwnwA2AHumLXwWIaekil3gbgnMWpALVfoFuSrawh4nreLQkMRjPlTrOr+//igA7hLAlqe0HvO9AClPRd2CJoHHzIBcT63hs1g9rsdMgNrcWgUeMx2SwZBbjgloiplYPU1uOcEhUAV1Xj1pbjnhKRVfdTVAyR/6uD9flf1z5dAV72ELoM9zjgCsPdII1sw+KWDJoy1AzqHoClj0aAWQihXVI1YFL7UIT1YhNTHTA5DdD3KCuui5Uw8oCmrqqqs+8lMHqOoHa81C89Acj4+m8tWz3VpeEVAcO8cb8MkVPDK93CM+3oD4PxXcOEF9Eur14s69my8loHn0wbmbrYCm4RHnbu4BaBq/UXdzq1+kJGpYOZCSfnEnJG75OZDSF3uvfA9WDy2loxFH6CkjX8lwaSWk9hwXkhrPLYRMnuNAcgecY0Mmz0lhpWKvH1Usrcntq5LpAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "azure_nildrop",
+    "realmId": "46451",
+    "name": "Azure Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABsUlEQVR4nO2YzYnDMBCFn4kPxvjoS1SHGjBsA1uB2zAuI9VsU1uDlwUJtELS/CmQhQjeKUryMX56Gg/Qdw2JRgA3AAuAFcAMwFU0hz1L+M4YfqMr1FhQCncH4Cu6Z5DdAIcEJlYr1ZTAfQDYAZyZ9vBZhJySKnaBuyUwa0EuVOkX5KpoD3uctIpDQxKP+VCt63h8/1EAPCWALU9pPeZ7AVKeiroFTQKPmQG5nlrDZ7F6XI+ZALW5tQo8ZjokgyG3HBPQFDOxeprccoJDoArqvHrS3HLCUyq+6mqAkj/0cX++KvvnyqEr3sMWQJ/nHAFYe6QRrJl9UsCSR1uAnEPRFbDo0QogFSuqR6wKXmoRnqxCamKmByC7H+QEddFzhx5QFNTUVVd95IcOUNUP1pqF5qHZPr+aylfPdmt5RUBx7GxvwCdXcMv0co94ewPi/1Rw5wT1QajXizv3br6UgObRB+dutgKahkecu7kHoGn8Rt3NrX6Rkqhh5UBK+sWTkLjl50BKX+y98j1YPbSUjkYcoaeMfCXDpZWQ2nNcSGo8txAyeY4DyR1wjg2ZPCeFlYq9fgC8xLcpUQNBewAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "crimson_nildrop",
+    "realmId": "46452",
+    "name": "Crimson Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABr0lEQVR4nO2YS4rDMBBEy8QLY7wK3kTn0Alm5h6+h+/nO3mnYUACRVjqnwIZiKFWUZJHq1RqN9D3GTKNAG4AFgArgBmAq2iOa5b4nTH+Rleo8UI53AOAr+hRQHYDHDKYVK1cUwb3A2ADsBfa4mcJcsqq2AXulsGsF3KxSn8goaItrnHSKg4NSTzmY7VC+P56UgTcJYAtT2k95nsBUp5KukVNAo+ZAbmeWuNnqXpcj5kAtbm1CjxmOiSDIbccE9AUM6l6mtxygkOgCuqyetLccsJTKr7qaoCSP/Rp/XmeT6qsnyuH7vIetgD6MucIwNqWJrBm9kkBrzzaAuQciq6Alx6tAFKxotpiVfCeBaDQk1VITcz0AGT3g5ygvvRc0AOKgpq66qpbHnSAqn6w1iw0D81xR1MlYM92a3lHQHHsHB/AF1fwKPR2W3x8APF/KrhxgjoQ6vXizr2bgxLQPPrg3M1WQNPwiHM39wA0jd+ou7nVL1ISNawcSEm/uBMSt/wcSOmLvVe+B6uHltLRiCP0kpGvZLi0ElJ7jgtJjecWQibPcSC5A86xIZPnpLBSsZ9flL0+6RMOyhwAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "scarlet_nildrop",
+    "realmId": "46453",
+    "name": "Scarlet Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABsUlEQVR4nO2YTWrDMBCFn7EXxnjpTXSBXkBH6LJ3MOQSBp/Rd3IpSEV1JM2fAilE8FZxko/R09N4gLarSzQA6AHMABYAEwBX0BSemcN3hvAbTaGGjFK4GwBf0O0C2QywS2BitVKNCdwngBXAftEaPouQY1LFJnB9ArNk5EKVfkDOgtbwjJNWsatI4jEfqnWe2/2PAuAuAax5Susx3wqQ8lRUHzQKPGYG5HpqCZ/F6nE9ZgLU5tYi8JjpkHSG3HJMQFPMxOppcssJDoEqqK/Vk+aWE55S8VVXApT8of99/rIKz0+FQ5e9hy2A/iHn6oClLY1g1eyTAuY8WgPkHIqmgFmPFgCpWFFtsSp4qUV4sgipiZkWgOx+kBPUec9takBRUFNXXXHLTx2gqh8sNQvVQ3N8fVT1sBq2W/MrAopj53gDPrmCx3XLX22Ljzcg/k8FV1ZQb3W1enHn3s2nEtA8+uDczVZA0/CIcze3ADSN36i7udYvUhI1rBxISb+4ExK3/BxI6Yu9V74Hq4eW0tGII/SUka9kuLQQUnuOC0mN52ZCJs9xILkDzqEik+eksFKx1zd1L55pA2ra8AAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "beryl_nildrop",
+    "realmId": "46454",
+    "name": "Beryl Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABrUlEQVR4nO2YPYrDMBCFn7ELY1y6ic6hbtu9h6+wbn2D3Gvv5RCQQCskzZ8CWYjgVVGSj/HT03iAvmtINAEYAawANgALAFfREvas4TtT+I2uUFNBKdwNgK/olkF2AxwSmFitVHMC9w1gB3Bm2sNnEXJOqtgFbkxgtoJcqNIT5KpoD3uctIpDQxKP+VCt6/j9+aMAeEoAW57Sesz3AqQ8FTUGzQKPmQG5ntrCZ7F6XI+ZALW5tQk8ZjokgyG3HBPQFDOxeprccoJDoArqvHrS3HLCUyq+6mqAkj/0cX++KvuXyqEr3sMWQJ/nHAFYe6QRrJl9UsCSR1uAnEPRFbDo0QogFSuqR6wKXmoRnqxCamKmByC7H+QEddFzhx5QFNTUVVd95IcOUNUP1pqF5qHx96+m8tWz3VrfEVAcO/4D+OIK+kxv94j9BxD/p4I7J6gPQr1e3Ll386UENI8+OHezFdA0POLczT0ATeM36m5u9YuURA0rB1LSL56ExC0/B1L6Yu+V78HqoaV0NOIIvWTkKxkubYTUnuNCUuO5lZDJcxxI7oBzasjkOSmsVOz1AAzlZSlbgPPwAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "onyx_nildrop",
+    "realmId": "46455",
+    "name": "Onyx Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABqUlEQVR4nO2YTarDIBSFT0gGIWSYSV2HS3jjbCH76MSl5/FAwSfq/bPQQoUzqm0/bo7HmwuMXVOmBcAMYAdwANgAuIa2uGeP31nibwyFWirK4R4AfEOPAnIY4JTBpGrlWjO4HwAXgGehK36WINesikPg5gzmqMjFKv2B3A1dcY+TVnHqSOIxH6t1hxD+KQI+JYA9T2k95kcBUp5KmqNWgcfMgFxPHfGzVD2ux0yA2tw6BB4zHZLJkFuOCWiKmVQ9TW45wSFQBXVZPWluOeEpFV91LUDJH/q0v1yN/Vvj0FXvYQugL3OOAGw90gTWzT4pYM2jPUDOoRgKWPVoA5CKFdUjVgUvtQhPNiE1MTMCkN0PcoK66rmgBxQFNXXVNR950AGq+sFWs9A9NOd5dlWuke3W/o6A4tg5v4AvruBZ6O0e8fkFxOdU8OIEdSA06sWdezffSkDz6INzN1sBTcMjzt08AtA0fqPu5l6/SEnUsHIgJf3ik5C45edASl/svfI9WD20lI5GHKGXjHwlw6WDkNpzXEhqPLcTMnmOA8kdcC4dmTwnhZWKvX4BurRFScfN4KYAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "amaranth_nildrop",
+    "realmId": "46456",
+    "name": "Amaranth Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABr0lEQVR4nO2YzWnEMBCFn7EPxvjoy6oOlZAqcnEfbsmnFOQe0oFDQAJFSJo/LWxgBe+02t2P8dPTeIC+a0g0ARgBrAA2AAsAV9ES9qzhO1P4ja5QU0Ep3AOAr+iRQXYDHBKYWK1UcwL3AWAHcGTaw2cRck6q2AVuTGC2glyo0i/IXdEe9jhpFYeGJB7zoVr39fn9RwHwkAC2PKX1mO8FSHkqagyaBR4zA3I9tYXPYvW4HjMBanNrE3jMdEgGQ245JqApZmL1NLnlBIdAFdR59aS55YSnVHzV1QAlf+jj/nxV9i+VQ1e8hy2APs85ArD2SCNYM/ukgCWPtgA5h6IrYNGjFUAqVlSPWBW81CI8WYXUxEwPQHY/yAnqoucuPaAoqKmrrvrILx2gqh+sNQvNQ3O6r6by1bPdWl8RUBw75xvwyRU8M73cIz7fgPg/Fdw5QX0R6vXizr2bbyWgefTBuZutgKbhEedu7gFoGr9Rd3OrX6Qkalg5kJJ+8SAkbvk5kNIXe698D1YPLaWjEUfoKSNfyXBpI6T2HBeSGs+thEye40ByB5xTQybPSWGlYq8fAAjl6RDArEcAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "force_nildrop",
+    "realmId": "46457",
+    "name": "Force Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABh0lEQVR4nO2ZMWrEMBBFv/AWxrh0s75BercLCeQUbnwPV2lCah0mkMu4ywFyA4eAFqQhimZGsk3Agleti8fwGY1mgbLHRDj0GMclwSGyxhOoALQRKiK6q1zlJGoAXYSaiJq95ToADYA+QuO+2UXSz1zryV0BDBGuRHIzQZq52pN7BjABmAmT++0uWXtV3CVzvavSj8gaYXLf9FtVMZW5wVVrvb2/BjjBeUtBbubmIwSlmVuFglmSqszdeILZfZGdOfv4EcAQzO6LosxZmWCqL5rimbN8QU5f/LOSqsxZnmCqLyYzqc7cMn4FPH2+BJTKpDpzS54g+65WZ27RC7Lvalo9UeYWnaDoro4J/lqx8eEtYCGC9CgyeQoG56ygTWRwJNCKHV7B8RTE/63gxGnUNjEslGjUWVed1QmKn6XqYcHqBUXDgnrcsnmCoidAzsN8FSIeWLUj/6xAPfLnLIcGIepHEzeTuTQl1nGSBWUnpNhCk7vibYUUXQlzl+QXIZss1WN/M0hhn2/gN3Df/1Xi9QAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 100
+  },
+  {
+    "id": "cinder_nildrop",
+    "realmId": "46458",
+    "name": "Cinder Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABhklEQVR4nO2ZMWrEMBBFv/AWxrh0s75ALuAjpMwdDCm22QMIfJQUKXOKtOl8pwkBBSQRrWZGsk3Agleti8fwGY1mgbrHJDj0GMclwyGyxhNoAPQJmkh0V7nGSbQAhgRtJGr2lhsAdADGBJ37ZhdJP3O9J3cFMCW4RpKbCcaZaz25ZwAzgCVidr/9SrZeFXfJ3Oiq9CNCCWb3zbhVFXOZm1y16H67BTjBZUtBbuaWIwSlmSOhYJGkKnN3nmBxX2RnjuxrAEOwuC+KMkcywVxfNNUzR3xBTl98WElV5ognmOuL2UyqM0dfnwEf728BtTKpzhyVCbLvanXmSC/Ivqvj6okyRzpB0V2dEvyzYuvLUwBFgvFRZPIUDM5ZQcpkcI2IK3Z4BddTEP+3gjOrUdvHw0KNRl121VmVoPhZqh8WrFpQNCzoxy1bJCh6ApQ8zEmIeGDVjvyLAvXIX7IcmoSoH03cTJbS1VjHSRaUg5BqC03uircXUnUlzF2SX4RsslRP/c0ghX2+AalFlc+F/fYEAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 100
+  },
+  {
+    "id": "blood_nildrop",
+    "realmId": "46459",
+    "name": "Blood Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABhklEQVR4nO2ZMWrEMBBFv/AWxrh0s06bYtP7BGGrkDv4HjpPDqBb5Bapcgh3DgEFpCGKZkayTcCCV62Lx/AZjWaBusckOPQYzyXDIbImEGgA9AkaIrqrXOMlWgBDgpaImr3lBgAdgDFB57/ZRTLMXB/IXQFMCa5EcjNBmrk2kLsDmAFYwux/+5FsgyrukrnRV+lbZE0w+2/GraqYy9zkq7Xe3t4jvKDdUpCbOXuEoDRzq1CwSFKVuRtPsLgvsjPnHl8iGILFfVGUOScTzPVFUz1zji/I6Yt/VlKVOccTzPXFbCbVmVueXiOePz4jamVSnbmlTJB9V6szt+gF2Xc1rZ4oc4tOUHRXpwR/rZh9uEcsRJAeRSZPweicFXSZDFoCrdjhFbSnIP5vBWdOo3aZYaFGoy666pxOUPwsVQ8LTi8oGhbU45YrExQ9AUoe5qsQ8cCqHfmtAvXIX7IcmoSoH03cTJbS1VjHSRaUg5BqC03uircXUnUlzF2SX4RsslRP/c0ghX2+AIhrTE95XBnDAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 100
+  },
+  {
+    "id": "moon_nildrop",
+    "realmId": "46460",
+    "name": "Moon Nildrop",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABiElEQVR4nO2ZMWrEMBBFv/EWxrh0sz6BD+BUalOpygESfA/fIG1ynRR7hNwkN4hDQAFpiKKZkWwTsOBV6+IxfEajWaDsqSIceirHJcEhspUnUAPoItREdFe52kk0APoIDRGt9pbrAbQAhgit+2YXST9znSd3BTBFuBLJzQRp5hpP7h7ADGAhzO63H8nGq+IumRtclb5F1giz+2bYqoqpzE2uWuvt5SHACS5bCnIztxwhKM3cKhTMklRl7sYTzO6L7MyZx7cAhmB2XxRlzsgEU32xKp45wxfk9MU/K6nKnOEJpvpiMpPqzNnXz4CP96eAUplUZ87mCbLvanXmrF6QfVfT6okyZ3WCors6Jvhrxca75wBLBOlRZPIUDM5ZQZPI4EigFTu8guMpiP9bwZnTqE1iWCjRqLOuOqMTFD9L1cOC0QuKhgX1uGXyBEVPgJyH+SpEPLBqR/5FgXrkz1kOTULUjyZuJnNpS6zjJAvKXkixhSZ3xdsJKboS5i7JL0I2WarH/maQwj5fAvd872xPIPIAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 100
+  },
+  {
+    "id": "book_of_chess",
+    "realmId": "14267",
+    "name": "Book of Chess",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFklEQVR4nO2ZPQ6CQBBGH9GCEEsbOAetlXZ2xtLIDbY1wc5mL+HNOAzGZEnYDSAblV3IbvJVwMybj+FvgO4VAWtgBWyALZAA2URKVM5NH1wD2IZLgXwipS3ITuca9+IW3AEogPLPKlSuBrL3tMaqgkxV9T6wnkiFypmN7blcVVeL61GTvJ2/khlPAZZ9gEM95xRwPbLnnABGhnuDPecTYPne+bzfafqUQFjKjBcARXAQux6UP9bPe1AGQBbuoAj3QYKDtdNHnfT9IpEBkIU5KHx/YRUBkIU7WFWVptPlocl2mfECoO1atINF14e7CXy5PzWZ22319ejDFWA0dnjkGnD1afzmCtD7AeYsRsCzGKLTgvTiN8QL3ferZyhm8fMAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "book_of_backgammon",
+    "realmId": "14268",
+    "name": "Book of Backgammon",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFklEQVR4nO2ZPQ6CQBBGH9GCEEsbOAetlXZ2xtLIDbY1wc5mL+HNOAzGZEnYDSAblV3IbvJVwMybj+FvgO4VAWtgBWyALZAA2URKVM5NH1wD2IZLgXwipS3ITuca9+IW3AEogPLPKlSuBrL3tMaqgkxV9T6wnkiFypmN7blcVVeL61GTvJ2/khlPAZZ9gEM95xRwPbLnnABGhnuDPecTYPne+bzfafqUQFjKjBcARXAQux6UP9bPe1AGQBbuoAj3QYKDtdNHnfT9IpEBkIU5KHx/YRUBkIU7WFWVptPlocl2mfECoO1atINF14e7CXy5PzWZ22319ejDFWA0dnjkGnD1afzmCtD7AeYsRsCzGKLTgvTiN8QL3ferZyhm8fMAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "book_of_arcade",
+    "realmId": "14269",
+    "name": "Book of Arcade",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFklEQVR4nO2ZPQ6CQBBGH9GCEEsbOAetlXZ2xtLIDbY1wc5mL+HNOAzGZEnYDSAblV3IbvJVwMybj+FvgO4VAWtgBWyALZAA2URKVM5NH1wD2IZLgXwipS3ITuca9+IW3AEogPLPKlSuBrL3tMaqgkxV9T6wnkiFypmN7blcVVeL61GTvJ2/khlPAZZ9gEM95xRwPbLnnABGhnuDPecTYPne+bzfafqUQFjKjBcARXAQux6UP9bPe1AGQBbuoAj3QYKDtdNHnfT9IpEBkIU5KHx/YRUBkIU7WFWVptPlocl2mfECoO1atINF14e7CXy5PzWZ22319ejDFWA0dnjkGnD1afzmCtD7AeYsRsCzGKLTgvTiN8QL3ferZyhm8fMAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "forgotten_log_i",
+    "realmId": "14270",
+    "name": "Forgotten Log I",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFklEQVR4nO2ZPQ6CQBBGH9GCEEsbOAetlXZ2xtLIDbY1wc5mL+HNOAzGZEnYDSAblV3IbvJVwMybj+FvgO4VAWtgBWyALZAA2URKVM5NH1wD2IZLgXwipS3ITuca9+IW3AEogPLPKlSuBrL3tMaqgkxV9T6wnkiFypmN7blcVVeL61GTvJ2/khlPAZZ9gEM95xRwPbLnnABGhnuDPecTYPne+bzfafqUQFjKjBcARXAQux6UP9bPe1AGQBbuoAj3QYKDtdNHnfT9IpEBkIU5KHx/YRUBkIU7WFWVptPlocl2mfECoO1atINF14e7CXy5PzWZ22319ejDFWA0dnjkGnD1afzmCtD7AeYsRsCzGKLTgvTiN8QL3ferZyhm8fMAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "forgotten_log_ii",
+    "realmId": "14271",
+    "name": "Forgotten Log II",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFklEQVR4nO2ZPQ6CQBBGH9GCEEsbOAetlXZ2xtLIDbY1wc5mL+HNOAzGZEnYDSAblV3IbvJVwMybj+FvgO4VAWtgBWyALZAA2URKVM5NH1wD2IZLgXwipS3ITuca9+IW3AEogPLPKlSuBrL3tMaqgkxV9T6wnkiFypmN7blcVVeL61GTvJ2/khlPAZZ9gEM95xRwPbLnnABGhnuDPecTYPne+bzfafqUQFjKjBcARXAQux6UP9bPe1AGQBbuoAj3QYKDtdNHnfT9IpEBkIU5KHx/YRUBkIU7WFWVptPlocl2mfECoO1atINF14e7CXy5PzWZ22319ejDFWA0dnjkGnD1afzmCtD7AeYsRsCzGKLTgvTiN8QL3ferZyhm8fMAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "herbal_tincture",
+    "realmId": "35253",
+    "name": "Herbal Tincture",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABTElEQVR4nO2ZsWrDMBCGf5MMJnT0Eo8hSyFTa/oCDcZDpmyBgMnQZwjoDfJWgT6YiqkMkrBylqWkCj3DNx1Yn38fkjkDw1cGYA5gBuAFQAFgAaB0sIhQL9RaM7V25+C8ekFdbgmgcrCMUNclScE+vVyT2wJoAQiLVtVC671krqU4Kr1SPWV3I+mgjVCv1Fpkii7B7mll87k1wO8CIkKdBUXKCcqeifX7Cb5vPgy+jnsDu86CDSeIyT04uNE2VqIUMTZqn6NOThQMOuqSF8xSf8VZyEYNgr8+iwUBC8qne8Xny9tNvq8HAxZsOEHE7cH69GpQ7dYGR7EyeHgP1iz43xKsLVgQnCCi9WAyH6zJf/KPHWCGCgYNMKkRcCzBcuoIeEgy9xhoSgK753JfOVvSZyQsCG71nJecLuk7VK8IXD3nLWcnOfa3BMXonvsBQV+5AXZFgeEAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 50
+  },
+  {
+    "id": "paper_machete",
+    "realmId": "14661",
+    "name": "Paper Machete",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABrElEQVR4nO2YsW3DMBBFvyAVhKEyjTVEKg2QIkX6DKA9uE8GSKEZPEDquM4WDAyQAEVI5B2PpBoT+JVE+OH4cD4KAEYALwAuACZiLnbPCKAHMADovBRdDu4KYCbmGkAOOykG6+DeASwAdCKLfddBKgvppw9ARWuyVXn8sCFmsXsmW8Uwauf4xYCP6pi/z49oLKD2ACeGo80BZ4ajzQE5jroqNgPkOjpKqrgBvL2+bRIChs/DtePoE9AUrOCQc8wtjlhJWk60UaeA7r8/mxz0SVFfjP3VSQHnRF/sJMOCFFAT+iKpknvjlhTQJPoiy8nevqzs5g1gCLB+f22SWiWcdKUeGwDOOU52jQB1rpMtAI3EySNA0gC7NnJysA8U8wpgKjt5WEXKJUoKyJofHWBPvIZKAU3O/BhCur4YJuroKncyOj86SB/UT8pRUxvQQfqgfmKO6laAe7ApR+ezACmOThInS99hQkeV1Mkalyz/yEepkzUAUdJJVALMdvKevsMUA/QhyU62BmQ7eQYgy8mzALOdrPGxqaSTusbnOgpkx5wvi37wpEJy5svDkf8fGs9tmJpLHq4AAAAASUVORK5CYII=",
+    "classes": [
+      "Kensei"
+    ],
+    "slot": "ability",
+    "feedPower": 500
+  },
+  {
+    "id": "shrouded_summons",
+    "realmId": "37455",
+    "name": "Shrouded Summons",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABm0lEQVR4nO2ZMWrEMBBFv8kWZnEVtrG7tKllFlKGQC4RcJ8jiJxDN8gxUuZGAZUOCTJYYlceaWbAkBh+Z8uP0WN3NAbqrgbAAcANgA7ACcARwEDMMTzThTUOYU2Rq1kBdiu4HoAhpk8gF0A25AK2VK9dwT0BmADYjUzh3gWyXVWRVcl0W38WPoUtM+HFMzFTeGYIa7Tc7d5yzoTqzO72Pspn/xwlANoVINtJqnO2ApDtZKlzcwEg1UlZ5xwNsMRJWefcBuDL+S0KwUlZ5xwP8JKTss65esBrTso65+oAc07KOucKAQlOyjrnFABFnXMKgKLOOQVAUef8+znK/PURpQZQ1DmvACjqnFcAFHXOKwL+Vuy1eWTFJ4BpUqDx7iHKP6D/8xUcEye2nBmZoTQLewC0uXZrL4DmWsO6J8DhUsuf/aGWBkbFoSn7V6cEaEuOndlmQRHQUA/u2XZLGXCgjD6KGtZSYAgMj4pa/kpAyxm/FR2aGICGMywiHzuZgANn3CY5oJy1BpYSI16rPfKVGJIb7aE59zOD2GeHb0gV7rAZauGxAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "intercepted_letter_1",
+    "realmId": "37456",
+    "name": "Intercepted Letter 1",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABm0lEQVR4nO2ZMWrEMBBFv8kWZnEVtrG7tKllFlKGQC4RcJ8jiJxDN8gxUuZGAZUOCTJYYlceaWbAkBh+Z8uP0WN3NAbqrgbAAcANgA7ACcARwEDMMTzThTUOYU2Rq1kBdiu4HoAhpk8gF0A25AK2VK9dwT0BmADYjUzh3gWyXVWRVcl0W38WPoUtM+HFMzFTeGYIa7Tc7d5yzoTqzO72Pspn/xwlANoVINtJqnO2ApDtZKlzcwEg1UlZ5xwNsMRJWefcBuDL+S0KwUlZ5xwP8JKTss65esBrTso65+oAc07KOucKAQlOyjrnFABFnXMKgKLOOQVAUef8+znK/PURpQZQ1DmvACjqnFcAFHXOKwL+Vuy1eWTFJ4BpUqDx7iHKP6D/8xUcEye2nBmZoTQLewC0uXZrL4DmWsO6J8DhUsuf/aGWBkbFoSn7V6cEaEuOndlmQRHQUA/u2XZLGXCgjD6KGtZSYAgMj4pa/kpAyxm/FR2aGICGMywiHzuZgANn3CY5oJy1BpYSI16rPfKVGJIb7aE59zOD2GeHb0gV7rAZauGxAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "intercepted_letter_2",
+    "realmId": "37457",
+    "name": "Intercepted Letter 2",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABm0lEQVR4nO2ZMWrEMBBFv8kWZnEVtrG7tKllFlKGQC4RcJ8jiJxDN8gxUuZGAZUOCTJYYlceaWbAkBh+Z8uP0WN3NAbqrgbAAcANgA7ACcARwEDMMTzThTUOYU2Rq1kBdiu4HoAhpk8gF0A25AK2VK9dwT0BmADYjUzh3gWyXVWRVcl0W38WPoUtM+HFMzFTeGYIa7Tc7d5yzoTqzO72Pspn/xwlANoVINtJqnO2ApDtZKlzcwEg1UlZ5xwNsMRJWefcBuDL+S0KwUlZ5xwP8JKTss65esBrTso65+oAc07KOucKAQlOyjrnFABFnXMKgKLOOQVAUef8+znK/PURpQZQ1DmvACjqnFcAFHXOKwL+Vuy1eWTFJ4BpUqDx7iHKP6D/8xUcEye2nBmZoTQLewC0uXZrL4DmWsO6J8DhUsuf/aGWBkbFoSn7V6cEaEuOndlmQRHQUA/u2XZLGXCgjD6KGtZSYAgMj4pa/kpAyxm/FR2aGICGMywiHzuZgANn3CY5oJy1BpYSI16rPfKVGJIb7aE59zOD2GeHb0gV7rAZauGxAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "vagrant_s_journal",
+    "realmId": "37458",
+    "name": "Vagrant's Journal",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFElEQVR4nO2ZSwqDMBRFj7SFIg47qaNCcQd2knF3kAW4DxdS6GpcjAuxFCKY4Je2JpUn3JGad3K9fvKE/i0C9sAOSIATEAPpSopNzWQIrgXswp2BfCWdO5C9zrXuHTtwd6AAyh+rMLVayMHLejQzSM2s3ic2K6kwNdO5mcvN7BqllCWt9UdyxzOA5RDgWOa8Au5nZs4LYOS4N5q5kADL98FZllmaKqAWyh1PAJU4yLIM6i/r6xnUAsjGHVTyHEQcbLy+6nToN4kWQDbmoAr9g1UJIBt3sKoqS8/rzVJd14vkjieAtTjI+MLdzeTjcLHk7l+qj1sfvgCjuc0j34C7qfabL8DgG5h/0QL+iyY6HcggfkO8AApXZ/iPKQNfAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "captain_s_log",
+    "realmId": "37459",
+    "name": "Captain's Log",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFElEQVR4nO2ZSwqDMBRFj7SFIg47qaNCcQd2knF3kAW4DxdS6GpcjAuxFCKY4Je2JpUn3JGad3K9fvKE/i0C9sAOSIATEAPpSopNzWQIrgXswp2BfCWdO5C9zrXuHTtwd6AAyh+rMLVayMHLejQzSM2s3ic2K6kwNdO5mcvN7BqllCWt9UdyxzOA5RDgWOa8Au5nZs4LYOS4N5q5kADL98FZllmaKqAWyh1PAJU4yLIM6i/r6xnUAsjGHVTyHEQcbLy+6nToN4kWQDbmoAr9g1UJIBt3sKoqS8/rzVJd14vkjieAtTjI+MLdzeTjcLHk7l+qj1sfvgCjuc0j34C7qfabL8DgG5h/0QL+iyY6HcggfkO8AApXZ/iPKQNfAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "izel_s_prayer",
+    "realmId": "37460",
+    "name": "Izel's Prayer",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFElEQVR4nO2ZSwqDMBRFj7SFIg47qaNCcQd2knF3kAW4DxdS6GpcjAuxFCKY4Je2JpUn3JGad3K9fvKE/i0C9sAOSIATEAPpSopNzWQIrgXswp2BfCWdO5C9zrXuHTtwd6AAyh+rMLVayMHLejQzSM2s3ic2K6kwNdO5mcvN7BqllCWt9UdyxzOA5RDgWOa8Au5nZs4LYOS4N5q5kADL98FZllmaKqAWyh1PAJU4yLIM6i/r6xnUAsjGHVTyHEQcbLy+6nToN4kWQDbmoAr9g1UJIBt3sKoqS8/rzVJd14vkjieAtTjI+MLdzeTjcLHk7l+qj1sfvgCjuc0j34C7qfabL8DgG5h/0QL+iyY6HcggfkO8AApXZ/iPKQNfAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "nefret_s_journal",
+    "realmId": "37461",
+    "name": "Nefret's Journal",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFElEQVR4nO2ZSwqDMBRFj7SFIg47qaNCcQd2knF3kAW4DxdS6GpcjAuxFCKY4Je2JpUn3JGad3K9fvKE/i0C9sAOSIATEAPpSopNzWQIrgXswp2BfCWdO5C9zrXuHTtwd6AAyh+rMLVayMHLejQzSM2s3ic2K6kwNdO5mcvN7BqllCWt9UdyxzOA5RDgWOa8Au5nZs4LYOS4N5q5kADL98FZllmaKqAWyh1PAJU4yLIM6i/r6xnUAsjGHVTyHEQcbLy+6nToN4kWQDbmoAr9g1UJIBt3sKoqS8/rzVJd14vkjieAtTjI+MLdzeTjcLHk7l+qj1sfvgCjuc0j34C7qfabL8DgG5h/0QL+iyY6HcggfkO8AApXZ/iPKQNfAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "ozuchi_s_vow",
+    "realmId": "37462",
+    "name": "Ozuchi's Vow",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFElEQVR4nO2ZSwqDMBRFj7SFIg47qaNCcQd2knF3kAW4DxdS6GpcjAuxFCKY4Je2JpUn3JGad3K9fvKE/i0C9sAOSIATEAPpSopNzWQIrgXswp2BfCWdO5C9zrXuHTtwd6AAyh+rMLVayMHLejQzSM2s3ic2K6kwNdO5mcvN7BqllCWt9UdyxzOA5RDgWOa8Au5nZs4LYOS4N5q5kADL98FZllmaKqAWyh1PAJU4yLIM6i/r6xnUAsjGHVTyHEQcbLy+6nToN4kWQDbmoAr9g1UJIBt3sKoqS8/rzVJd14vkjieAtTjI+MLdzeTjcLHk7l+qj1sfvgCjuc0j34C7qfabL8DgG5h/0QL+iyY6HcggfkO8AApXZ/iPKQNfAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "the_wanderer_s_journal_page_1",
+    "realmId": "37463",
+    "name": "The Wanderer's Journal Page 1",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFElEQVR4nO2ZSwqDMBRFj7SFIg47qaNCcQd2knF3kAW4DxdS6GpcjAuxFCKY4Je2JpUn3JGad3K9fvKE/i0C9sAOSIATEAPpSopNzWQIrgXswp2BfCWdO5C9zrXuHTtwd6AAyh+rMLVayMHLejQzSM2s3ic2K6kwNdO5mcvN7BqllCWt9UdyxzOA5RDgWOa8Au5nZs4LYOS4N5q5kADL98FZllmaKqAWyh1PAJU4yLIM6i/r6xnUAsjGHVTyHEQcbLy+6nToN4kWQDbmoAr9g1UJIBt3sKoqS8/rzVJd14vkjieAtTjI+MLdzeTjcLHk7l+qj1sfvgCjuc0j34C7qfabL8DgG5h/0QL+iyY6HcggfkO8AApXZ/iPKQNfAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "the_wanderer_s_journal_page_2",
+    "realmId": "37464",
+    "name": "The Wanderer's Journal Page 2",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFElEQVR4nO2ZSwqDMBRFj7SFIg47qaNCcQd2knF3kAW4DxdS6GpcjAuxFCKY4Je2JpUn3JGad3K9fvKE/i0C9sAOSIATEAPpSopNzWQIrgXswp2BfCWdO5C9zrXuHTtwd6AAyh+rMLVayMHLejQzSM2s3ic2K6kwNdO5mcvN7BqllCWt9UdyxzOA5RDgWOa8Au5nZs4LYOS4N5q5kADL98FZllmaKqAWyh1PAJU4yLIM6i/r6xnUAsjGHVTyHEQcbLy+6nToN4kWQDbmoAr9g1UJIBt3sKoqS8/rzVJd14vkjieAtTjI+MLdzeTjcLHk7l+qj1sfvgCjuc0j34C7qfabL8DgG5h/0QL+iyY6HcggfkO8AApXZ/iPKQNfAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "the_wanderer_s_journal_page_3",
+    "realmId": "37465",
+    "name": "The Wanderer's Journal Page 3",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABFElEQVR4nO2ZSwqDMBRFj7SFIg47qaNCcQd2knF3kAW4DxdS6GpcjAuxFCKY4Je2JpUn3JGad3K9fvKE/i0C9sAOSIATEAPpSopNzWQIrgXswp2BfCWdO5C9zrXuHTtwd6AAyh+rMLVayMHLejQzSM2s3ic2K6kwNdO5mcvN7BqllCWt9UdyxzOA5RDgWOa8Au5nZs4LYOS4N5q5kADL98FZllmaKqAWyh1PAJU4yLIM6i/r6xnUAsjGHVTyHEQcbLy+6nToN4kWQDbmoAr9g1UJIBt3sKoqS8/rzVJd14vkjieAtTjI+MLdzeTjcLHk7l+qj1sfvgCjuc0j34C7qfabL8DgG5h/0QL+iyY6HcggfkO8AApXZ/iPKQNfAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "sulfuric_concoction",
+    "realmId": "25575",
+    "name": "Sulfuric Concoction",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABoElEQVR4nO2ZP2rDMBjFn6kHETJ2iU/hwYQeoGOXDpl9hEKhiw5QQ7tk8JopZOgJMvcCvZJKiwySUKRP/ygNMrxNln88PX2yPwO0qwHQArgBsAZwC2AFoCNqJe9ZyzlaOWeWq1EAVbgNgIGojQG5ACZDLmCLe0yBuwcwAuAejXLsAskUF5OcNJeVSQc66crPgwVRo7ynk3Ow1OX2ZW6Q7ohpfHRKAnIFMEsmKZmLAfRlknxRMycCACmZjHLPmbmJBujLZJCLlwB/HTscXzVNHkBzvCWT1wXYKPXpLwBbF6Sv7pUEZL6SQ6l71k0yvz07RdgkpLpIqXvWMjPTAG1lJqguxp61IgIw5Kx27lrSWTvHLXFQXQwqK+fPkyZ4Hm6Ojyk7OQD5pQhUwMN/W+J+v9O0/XjSdPf1rskcXwH76iDSMmhmbmuof3lwqngGKyCu3cHefOh+51YFPFYHRWwGrS+svpeHM+3lIPhDntzqyATIQ1sh5GZRRsAh5KOJ3G7LDNiFtONyNixFqYZmjpYvL90SztE0H0o31VN/O2T7LfENqmRZ40Y3rDkAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 75
+  },
+  {
+    "id": "bloodroot_extract",
+    "realmId": "25600",
+    "name": "Bloodroot Extract",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABmklEQVR4nO2ZMW6DMBSGf1QGK8rYJeQaHKEX6Am4AFNHDhCkzqxMVYecIHOP4ouUqJWRbMex37ONqkZG+jdjPv3+/QwPgHZVAGoATwD2AJ4B7AA0RO3UPXs1R63mzHJVGqAOdwDQEnWwIFfAZMgVbHVPaHAvADoAQ0CdGrtCCs3FJCftZRXKgUa58vPghahO3dOoOUTqcocy1yp3lrF79UoBDhpglkxSMhcDGMok+aJmbmEAUjIZ5Z43cyMNMJRJlov3AH8dmz9OhsYAoD3ekcnHAqy0+vQXgLUPMlT3tgQUoZJDqXvOTTK9v3lF2CSkukipe84yM9EAXWWGVRdjz9olApBzVnt3LemsneKWmFUXWWXl8vVpCIGH2+Njyk4OwOFeBArg/N+WWFaVoe++NyWlIXt8AZTFQaRl8CZzvanz8ejV5hksgHh0B8/WA6W1q20VwLk4iOgMOl9YQy8PF9rLAftDntzqyAQ4cFsh5GZRRsCW89FEbrdlBmw47bicDctlq4ZmjpbvsHVLOEfTvN26qZ762yHbb4krhu51U37US6UAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 75
+  },
+  {
+    "id": "teal_treat",
+    "realmId": "17889",
+    "name": "Teal Treat",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABkElEQVR4nO2ZMW6EMBBFP4oLa7XlNss5XG2dI6Sn33orTpN2FSmHyAVS5gbcgcpRJCMZB2YGDzGrCEu/A/ZpmH22BkC2KgAGwBOAI4ATgAOAWphDuOcYnmHCM1dZVQQYw50BOGHOCeQAqIYcwIbq2QjuGUADoGXShGsHSBtVUVXJ9LXaUIE6VOXnh70wTbinDs+w2tfN9ZwL1fHp6vt+lADYRoCr9KSk53IAuZ4UL2nP+QWAkp7Mqh7Zc0JAricXVXEOUFSxruvITPTk/wKsIj9tAWgoSM57fwloOeVke28pcK4Xs72nBBR7Mdt7CkCxF1XeywRc5EVSK9fPj1Fu3ReZa3L9y9srGYl2Hh7QPDCgAee9jQBtpBzaexzQTQks8CLtvcKAbsKLtPcKArYzXqS9VwjQE14c99zl/b5p8Lsnd0C/V/Cy9+B9/5P4EpqZFHUh73lK1ORWV1DM7dxWRx4WCu8cbuqwQB63Ntja6vS4tcaA0itDDTjVI95WGW5EvMqQ3CnDDtm1nxm0mR19fAPxkh4Mz5iWAgAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "hazel_treat",
+    "realmId": "17890",
+    "name": "Hazel Treat",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABkklEQVR4nO2ZsW3DMBBFvxAWhOEyjdV5B42QIgOkjvZglxGygYtsEGQJz+BaO6hiEOAEUIx0PPEUyghE4HeS/HA6PxInQLYqAAbAA4AjgEcABwC1MAe650jPMPTMVVYVAIZwJwCNMKcIcgBUQw5gQ/VsAPcEoAXgEmnp2gHSBlVUVTJ+rZYqUFNVfn7YC9PSPTU9w2pfd6rnGqqOj1ff96MQoAsAV+lJSc/lAKZ6UrykPecXAEp6Mqt6bM8JAVM9uaiKc4CiinVdx2aiJ/8XYBX4aQtAw0GmvPeXgDalnGzvLQXO9WK295SAYi9me08BKPaiynuZgIu8yGrl+vEyyu3zlc01uv7r/ZmNRDt3D2juGNAg5b2NAG2gHN57KaCbEljgRd57hQGbCS/y3isI6Ga8yHuvEKBnvDjuucvbedPgd0/ugH6v4GXvwfP+J/ElNDMp6kLe85yo2a2uoJjd3FbHHhYK7xzN1GGBPW5tsLXV8XFrjQGlV4YbcKpHvE6Z1Ih4lSF5o0xyyK79zKDN7OjjG57Qif22m+VCAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "azure_treat",
+    "realmId": "17891",
+    "name": "Azure Treat",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABkklEQVR4nO2ZsW3DMBBFvxAWhOEyjTWHFjCQBVKkVmsgCxhsskOWibfIFuoygCoGAU4AxUjHE0+hjEAEfifJD6fzI3ECZKsCYAA8ADgCeARwAFALc6B7jvQMQ89cZVUBYAh3AtAIc4ogB0A15AA2VM8GcE8AWgAukZauHSBtUEVVJePXaqkCNVXl54e9MC3dU9MzrPZ1p3quoer4ePV9PwoBugBwlZ6U9FwOYKonxUvac34BoKQns6rH9pwQMNWTi6o4ByiqWNd1bCZ68n8BVoGftgA0HGTKe38JaFPKyfbeUuBcL2Z7Twko9mK29xSAYi+qvJcJuMiLrFYub5+jXN+/2Fyi619eP9hItHP3gOaOAQ1S3tsI0AbK4b2XAroqgQVe5L1XGLCZ8CLvvYKAbsaLvPcKAXrGi+OeOz/fNg1+9+QO6PcKnvcevO1/El9CM5OiLuQ9z4ma3eoKitnNbXXsYaHwztFMHRbY49YGW1sdH7fWGFB6ZbgBp3rE65RJjYhXGZI3yiSH7NrPDNrMjj6+AXF5ki3I2O0uAAAAAElFTkSuQmCC",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "crimson_treat",
+    "realmId": "17892",
+    "name": "Crimson Treat",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABiElEQVR4nO2ZQW6DMBBFP6oXVpRV1U04RLtxe4C29+Aevl9WPUYk7sDKVSUjGRdmBg81UYWlvwPyNEyerQGQrQaAAfAA4AzgCcAJQCvMKd5zjs8w8ZmbrCYBTOEuAJwwlwxyBFRDjmBj9WwC9wmgA+CZdPHaEdImVVRVMn+tNlagjVX5+eEgTBfvaeMzrPZ1cz3nYnVCvoZhmCQC+gRwk56U9FwJINeT4iXtubACUNKTRdUje04IyPXkqiouAYoq1vc9mZme/F+ATeKnPQANBcl57y8BLaecYu+tBS71YrH3lIBiLxZ7TwEo9qLKe4WAq7xIauX29jpJ+Hgnc8uu/3p5JiPRzt0DmjsGNOC8txOgTZTDeI8BCkpggRcZ79UFdDNeZLxXD9AveJHxXh3AQHhx2nPXx32D3z15AIajgtejB3H8SUINzcyKupL3AiVqcqurKGa/tNWRh4XKO4ebOyyQx60dtrY2P25tMaAMylADTvWI1yvDjYg3GZI7Zdghu/YzgzaLo49vOWGmjslM2KMAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "scarlet_treat",
+    "realmId": "17893",
+    "name": "Scarlet Treat",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABkElEQVR4nO2ZMWrEMBBFv4kKsWyZZn2BvYCPkCaQNkUqw1Z7g4Dul25PsYXv4EohIIOs2DNjjSMvwYLf2d7HePZJjAHZqgAYAE8AjgCeARwA1MIcwj3H8AwTnrnKqiLAGO4EoBHmlEAOgGrIAWyono3gXgC0AByTNlw7QNqoiqpKpq/VhgrUoSo/P+yFacM9dXiG1b5urueaUB2frr7vRwmALgJcpSclPZcDyPWkeEl7zi8AlPRkVvXInhMCcj25qIpzgKKKdV1HZqIn/xdgFflpC0BDQXLe+0tAyykn23tLgXO9mO09JaDYi9neUwCKvajyXibgIi+SWrlf30fxnxcy9+T6r49XMhLtPDygeWBAA857GwHaSDmM9xggrwQWeJHxXlnAZsKLjPfKAboZLzLeKwPoCS+Oe+72dt40+N2TO6DfK3jbe/C8/0l8Cc1MirqQ9zwlanKrKyhmN7fVkYeFwjtHM3VYII9bG2xtdXrcWmNA6ZWhBpzqEa9ThhsRrzIkb5Rhh+zazwzazI4+vgE7bnAdvY8mzwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "beryl_treat",
+    "realmId": "17894",
+    "name": "Beryl Treat",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABjklEQVR4nO2ZQW6DMBBFPyoLK8qym3AO77LtIdoVzQ2arW+QO/QGvUbPwh1YuapkJOPCzOAhJqqw9HdAnobJszUAslUBqAE8ATgCeAZwANAIcwj3HMMz6vDMVVYVAcZwJwBWmFMCOQCqIQewoXomgnsB0AJwTNpw7QBpoiqqKpm+VhMq0ISq/P6wF6YN9zThGUb7urmes6E6Pl19348SAF0EuEpPSnouB5DrSfGS9pxfACjpyazqkT0nBOR6clEV5wBFFeu6jsxET/4vwCry0xaANQXJee+egIZTTrb3lgLnejHbe0pAsRezvacAFHtR5b1MwEVeJLVy+Xof5fr9QeaSXP/2+UpGop2HB6wfGLAG572NAE2kHNp7HNBVCSzwIu29woB2wou09woCuhkv0t4rBOgJL457zt7OmwZ/e3IH9HsF7d6D5/1P4ktoZlLUhbznKVGTW11BMbu5rY48LBTeOezUYYE8bm2wtTXpcWuNAaVXhhpwqke8ThluRLzKkNwqww7ZtZ8ZtJkdffwARRns3vy/UmEAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "onyx_treat",
+    "realmId": "17895",
+    "name": "Onyx Treat",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABhElEQVR4nO2ZMY6DMBBFP1oXVpRym3AOt6TamivQcgY33JY7UDlayUjGC+PBw5oowtLvgDwNk2drAHirAqAAfAG4A/gGcANQM3Pz99z9M5R/5iGrCgBDuAcAw8wjgpwBxZAz2Fw9HcD9AOgA2EQ6f+0MqYMqiioZv1btK1D7qvz+sGOm8/fU/hla+rpTPWd8dVy8pmlaxAPaAPCQnuT0XA5gqifZi9tzbgcgpyezqkf2HBMw1ZO7qrgFyKrYOI5kVnryswCrwE9nACoKMuW9/wTUKeVke28vcK4Xs70nBGR7Mdt7AkC2F0XeywTc5UVSK33fLzIMA5k+ur5tWzIc7bw9oHpjQIWU904C1IFyaO+lgAYhMMOLtPcKA5oVL9LeKwhoN7xIe68QoCO8uOy5Z9OcGvztyQvQXRV8Xj3YXH8SV0Izq6Iu5D1HiZrc6gqK2W5tdeRhofDOYdYOC+Rx64StrY6PW0cMKJ0w1IBTPOK1wqRGxIcMyY0wySG79DODNJujjxdWRGmOsdvMowAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "amaranth_treat",
+    "realmId": "17896",
+    "name": "Amaranth Treat",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABjklEQVR4nO2ZMWrDMBSGf1MNImTsEp1DRyj0Dl18D10pU6BTl1whF8jquasnlYIMsmo/Pes5cigW/JvtfDy/fBLPAG81ABSAFwBHAK8ADgAMM4dwzzE8Q4VnrrKaCDCGOwGwzJwSyAFQDDmADdXTEdwbgBaAy6QN1w6QOqqiqJLpa9WhAiZU5feHPTNtuMeEZ2jp6871nA3V8enq+36UAOgiwFV6ktNzJYC5nmQvbs/5BYCcniyqHtlzTMBcTy6q4hwgq2Jd15GZ6Mn/BdhEftoCUFGQOe89ElDnlFPsvaXApV4s9p4QkO3FYu8JANleFHmvEHCRF0mtXN9vo9w/vslck+s/zRcZjnaeHlA9MaBCznsbAepIObT3ckB3ITDDi7T3KgPaCS/S3qsI6Ga8SHuvEqAnvDjuubO5bBr87ckd0O8VPO89eNn/JL6GZiZFXcl7nhI1udVVFLOb2+rIw0LlncNOHRbI49YGW5tJj1trDCi9MNSAUzzidcLkRsSrDMmtMNkhu/QzgzSzo48fBELp3XTZHCYAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 10
+  },
+  {
+    "id": "spectral_prison_ration",
+    "realmId": "23863",
+    "name": "Spectral Prison Ration",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABUUlEQVR4nO2XsWrDMBCGf5MGTMhkOtQaQ8eAh2julLVDobseopte3sUgg3SRT1IbXQrVwT/Fij6bz/Id0KpVq1atWrX6y9UJpajWRU/C6XJgfbAdgKNQdgSUhVvBegDPQukJaJeCWxYdACihHNyeUUjfOR9uBKCFMhLIwEnfud6DuwIwAGzlGLfXCtkTJ2+cU+6uloWzUIzbU0WcjDqn3d3N07AP8nEe2Hx9ntjQ6x2g9QCpk5vOPQJQR5xknZMEtBtO8s4JAc6Mk6Fzb+/XIBSwFHhKrKf7RZxsgPO/eYImJiz9g9fLJchENqS/0/UbQOxLwh4zQoCWO2bYg1oQUG8d1OynThhQxT51Rc3C8HL6VfCDZqGk3boXoC1pt3Ib1nsD6tyGNaflrwWoclr+1NBUo4E1jHNZk13NEcAknMuajWsPUWPKuRzImmNolnMLyTfi7f7ZkTm8tQAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 100
+  },
+  {
+    "id": "divine_snake_oil",
+    "realmId": "41476",
+    "name": "Divine Snake Oil",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABgUlEQVR4nO2ZPY6DMBCFH1oKFKVME87BEXIPl9tTcoso1V6Fk+yexhErI7GW8fyZpFiPNBXS+GP8mBkbIG0NgBbAB4AzgAuAE4C+kJ9CzHNYow1rsm0F3MJdAQyF/BpBigHX7HUbuBsAB2AyuguxVshuk0VV9vrw1ktgX8hdiNlrsrgHuLy9n79/sk5ZAFxiVUBfM1jiI5kJTR75kXDKjGcCcstMw4V7F2Cbg4zbW/fCLe6otkf13t06CKIoM+og2ZsbZu/NAU47TgFSvfkX0qQ5pBccGIBcTdo0h/SWUYASTRbRnEsAukKaNGvOhS2KtzgpEYUm1ZrTuEaTKs2pPTaGZPKauz/mrM/EPEjFY2iyAvr/ncHx8+uPxwuMxucVcKwZhKxQxxkbCWdqLluoRa3uIMAp1+pEw8KBgMPesCAatw4G7FPjlmlglZpmYDWN/FLTjPymQ5PUNIcm07FTappjp+ngjjIXmOTBXXv1MRW+Ambfz7zrEr2h4LiafNlviCfeSrkdBT+VwwAAAABJRU5ErkJggg==",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 125
+  },
+  {
+    "id": "salve_of_eden",
+    "realmId": "59885",
+    "name": "Salve of Eden",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAByklEQVR4nO2ZPW7DMAyFn1EPRpAxS7T6Ckb3Ah1ygc4+RTMIRQ7QqacoOnbr1jt0zwE89wIuEsiAzeqHtKQECGyAkxPpE/P0QDKA/SkAlADuAKwBbACsAKhEsTJrrs0epdmT/QyAY7gtgCZRbAmkGHDIXjWCewTQAtCR0Zq1BshqlMVZ2VPm1KeF+0TRmjXVnCy6AE+n7z8/3rzRHb8mQd8bQH2zgIX54LUASx8ktZbqgoBVyHJCvue8JIfXF28wLknQFwum79lspmcC2myG44tnyDLC9/oZgBJfPHujS3Ms3zvM+4lDvjjWpFNzrEuBwOb00tCwXBqqSafmJIDaJQEhoE2TXs1JABvbAQWALk36NScEVFQiTECfJv2amyFyJblkDE2yADk20TB8M6jRHIA6IpIBZosuFnDzvJvE/udhEvX7/SS+f58mQd/T7y+A9ZJB+DVIMyTV5D7wPlqDC+DxhjLYcooFukGdBshbLIjKrUyA2lduiQrWjICNq2AVlfyZAZWt5Bc1TaFGvYsvUP81TZK2MxWglrSd3MY9NWDDbdy5o48cgEoyEg4Nj3IOMCvuvHo8frvGCLjkzgivNUQvQnBcTV7sb4g/wZXZ7vZM/2sAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 125
+  },
+  {
+    "id": "water_balloon",
+    "realmId": "28445",
+    "name": "Water Balloon",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABkUlEQVR4nO2ZzW2EMBCFH1oOCHHcy1IHhxSQPboGquDiClJZSkgd6YBoJW9kJmA/D39WtJbeaUH+ZD68ngHYdxRkDh2FS5mYQ2ALb8ILgIbMRYDuCndxk1YArmQqAaqGDHlUenCPSWsALZna3aOCTHGq8eBuADoyNwFJO5nqVOXBvQPoAdhIenftE7ISTm7uVOtW5THxSKZ397QzTlJwqU51bnXG4XOc5P72NYkDtB6gdDLonNapTgk452TQOY1T1ksK4JKTUec0To3PkIAhJynnfh+Z+fieZBAAMrHr5e8zTk4AQ86dCliSzp0CWIjVCzqXE6BlgOSIASwABV+SHABtaJvJBbBb2qhzAmzn/upWAQ4RILkxE4B/Dgs5Ajb+cStnwOL/AZoIwD0C9AI0rxUE7SB1WDCJIYumCeCq45bRAbJlJ1YfWI0ekCnc6TJzL8A2pfWxS9GE9EI92JfZuuy0ilYH1Y/ZonDv9mgWsU6uTb2m3bZFQ/J6ZMNS09Jtjmz5apvi5RlNc/azwmafHX4ALDcsIUNrwdYAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
+  },
+  {
+    "id": "snow_orb",
+    "realmId": "28486",
+    "name": "Snow Orb",
+    "tier": null,
+    "sprite": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABHElEQVR4nO2YSw6CMBCGf4ILQly6gXNwBO/BPVhzExIv48ZL4MqVidvWYEpSRl5Vx7Q6Tf4l04/Jx6MDuK2IKW+tvsiGOdErsDZYDGDLlJiAOsH1YAmAHVMSAhq5wnVFUgA5U1KzxypI2zkbLgNQMCUjkJNOUucSC24PoARQfTilqd1DJsTJRedyc5ddIc2U0uyRjzi5yrnC3K2uD+0gzfHmFHq9AawsQOrkAHDOuW8AFiNOPtZa5zgBqwknn7o36xwToJ5xchJwtGOn82UQpa9OodevcFIA9X93sCGSuwKphdD6AqikgxAHtTwkSl4zkBe1li8JQvlZqAWw/d0Olr4cmrw/dgZxcI98H314PzwKYvwWxAATFqQXI+A7cc/5pysE9eMAAAAASUVORK5CYII=",
+    "classes": [],
+    "slot": "consumable",
+    "feedPower": 5
   }
 ]

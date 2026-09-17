@@ -2,13 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import sharp from "sharp";
-import { baseUrl, classSlots, classesFor, firstTexture, itemName, loose, openBuild, parseNum, readObjects, slotGroup, slug, tradeableEquipment } from "./lib/equip.mjs";
+import { baseUrl, classify, classSlots, classesFor, firstTexture, isLocalBase, itemName, loose, openBuild, parseNum, readObjects, slotGroup, slug, tradeableItem } from "./lib/equip.mjs";
 
 const ROOT = process.cwd();
 const args = process.argv.slice(2);
 const DRY = args.includes("--dry-run");
 const VERBOSE = args.includes("--verbose");
 const BASE = baseUrl(args);
+if (isLocalBase(BASE) && !fs.existsSync(BASE)) { console.error(`--base ${BASE}: not a URL and not a directory`); process.exit(2); }
 
 const CATALOG_TS = path.join(ROOT, "src", "lib", "catalog.ts");
 const ITEM_MAP = path.join(ROOT, "src", "relay", "trade", "itemMap.json");
@@ -128,8 +129,7 @@ function spliceCatalog(ts, lines) {
 
 const esc = (s) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 function catalogLine(it) {
-  const sub = it.group === "ring" ? "Ring" : it.group === "armor" ? "Armor" : null;
-  return `  { id: "${it.id}", name: "${esc(it.name)}", category: "UT/ST"${sub ? `, subtype: "${sub}"` : ""} },`;
+  return `  { id: "${it.id}", name: "${esc(it.name)}", category: "${it.category}"${it.subtype ? `, subtype: "${esc(it.subtype)}"` : ""} },`;
 }
 
 // --- main ---------------------------------------------------------------------
@@ -148,6 +148,8 @@ async function main() {
 
   const { ts, entries: catalog } = readCatalog();
   const itemMap = JSON.parse(fs.readFileSync(ITEM_MAP, "utf8"));
+  itemMap.extra ??= {};
+  itemMap.minEnchants ??= {};
   const realmItems = JSON.parse(fs.readFileSync(REALM_ITEMS, "utf8"));
   const siteNames = new Set(catalog.map((c) => loose(c.name)));
   const siteTypes = new Set(Object.values(itemMap.communism));
@@ -159,12 +161,12 @@ async function main() {
   for (const [id, t] of Object.entries(itemMap.extra)) if (!extraIdByType.has(t)) extraIdByType.set(t, id);
   const realmByType = new Map(realmItems.map((it) => [Number(it.realmId), it]));
 
-  // Tradeable untiered equipment, and what of it the site lacks.
+  // Every tradeable item (not Soulbound in equip.xml), and what of it the site lacks.
   const skipped = [];
   const tradeable = [];
   for (const o of objects) {
     const type = parseNum(o["@_type"]);
-    if (tradeableEquipment(o, (r) => { if ("Item" in o && !("Soulbound" in o) && o.Tier === undefined) skipped.push(`${type} ${itemName(o)}: ${r}`); })) tradeable.push({ type, o });
+    if (tradeableItem(o, (r) => { if ("Item" in o && !("Soulbound" in o)) skipped.push(`${type} ${itemName(o)}: ${r}`); })) tradeable.push({ type, o });
   }
   const seenNames = new Set();
   const missing = [];
@@ -179,10 +181,14 @@ async function main() {
     siteIds.add(id);
     takenIds.add(id);
     const tex = firstTexture(o);
-    missing.push({ type, id, name, slot, group: slotGroup(slot), classes: classesFor(slot, classes), feedPower: o.feedPower ? Number(o.feedPower) : null, texture: tex ? { file: String(tex.File), index: parseNum(tex.Index) } : null, animated: !!o.AnimatedTexture });
+    const cls = classify(o);
+    missing.push({ type, id, name, slot, group: slotGroup(slot), category: cls.category, subtype: cls.subtype, tier: cls.tier, classes: classesFor(slot, classes), feedPower: o.feedPower ? Number(o.feedPower) : null, texture: tex ? { file: String(tex.File), index: parseNum(tex.Index) } : null, animated: !!o.AnimatedTexture });
   }
-  log(`  ${tradeable.length} tradeable untiered equipment items in equip.xml; ${missing.length} not on the site`);
-  if (VERBOSE && skipped.length) log(`  skipped (non-soulbound but not real equipment):\n    ${skipped.join("\n    ")}`);
+  log(`  ${tradeable.length} tradeable items in equip.xml; ${missing.length} not on the site`);
+  const byCat = {};
+  for (const m of missing) byCat[m.category] = (byCat[m.category] ?? 0) + 1;
+  if (missing.length) log(`  by category: ${Object.entries(byCat).sort().map(([k, v]) => `${k} ${v}`).join(", ")}`);
+  if (VERBOSE && skipped.length) log(`  skipped (non-soulbound but not a real item):\n    ${skipped.join("\n    ")}`);
 
   // Health of what is already listed.
   const gone = [], nowSoulbound = [];
@@ -211,7 +217,7 @@ async function main() {
 
   if (!missing.length && !blank.length) { log("\nnothing to add — the site already lists every tradeable item."); return; }
   if (missing.length) log("\nto add:");
-  for (const m of missing) log(`  ${m.type}\t${m.id}\t${m.name}\t${m.group}${m.classes[0] === "ALL" ? "" : ` [${m.classes.join(",")}]`}${realmByType.has(m.type) ? "" : "  (new sprite)"}`);
+  for (const m of missing) log(`  ${m.type}\t${m.id}\t${m.name}\t${m.category}${m.classes[0] === "ALL" ? "" : ` [${m.classes.join(",")}]`}${realmByType.has(m.type) ? "" : "  (new sprite)"}`);
   if (DRY) { log("\n--dry-run: nothing written."); return; }
 
   // Sprites for items realm-items.json does not know yet.
@@ -237,7 +243,7 @@ async function main() {
       existing.classes ??= m.classes; existing.slot ??= m.group; existing.feedPower ??= m.feedPower;
       continue;
     }
-    realmItems.push({ id: m.id, realmId: String(m.type), name: m.name, tier: null, sprite: m.sprite ?? "", classes: m.classes, slot: m.group, feedPower: m.feedPower });
+    realmItems.push({ id: m.id, realmId: String(m.type), name: m.name, tier: m.tier !== null ? `T${m.tier}` : null, sprite: m.sprite ?? "", classes: m.classes, slot: m.group, feedPower: m.feedPower });
     addedItems++;
   }
   fs.writeFileSync(REALM_ITEMS, JSON.stringify(realmItems, null, 2) + "\n");

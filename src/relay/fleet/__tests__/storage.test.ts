@@ -14,7 +14,7 @@ import type { Packet } from "../../protocol/packets";
 const PDEF = toObjType("pdef")!;
 const PATK = toObjType("patk")!;
 const RING = toObjType("ubatk")!;
-const SOULBOUND = 0x0aaa; // some type the pool does not trade
+const SOULBOUND = 999_999; // a type the pool does not trade (the catalog now lists every tradeable item, so a real type would not do)
 
 const packet = (p: Partial<Packet<"VAULTINFO">>): Packet<"VAULTINFO"> => ({
   type: "VAULTINFO", last: true, vaultObjectId: -1, materialObjectId: -1, giftObjectId: -1, potionObjectId: -1, spoilsObjectId: -1,

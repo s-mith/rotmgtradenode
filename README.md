@@ -16,6 +16,10 @@ This is the successor to the RotMG Communism pool. The design lives in
   roster.
 - **Backpacks.** Claim and equip 16-slot backpacks on the accounts that need
   them (8 + 16 = 24 slots per trade).
+- **Every tradeable item.** The catalog is every item the game lets players
+  trade: whatever is not Soulbound in the client's `equip.xml` (1061 items on
+  build 7.0.0.2.0: all tiered gear, UT/ST, potions, eggs, consumables). Refresh
+  it with `npm run sync:equip -- --base <build mirror or extracted client>`.
 - **Storage.** Each account's vault chests, potion rack, Gift Chest and
   seasonal spoils chest, from the console (Fleet → Storage): put items away,
   take them out, pull tradeable gifts and spoils onto the character, and pick
