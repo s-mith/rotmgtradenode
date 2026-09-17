@@ -55,6 +55,9 @@ export function applyNodeDefaults(): NodeConfig {
   // turns the "proxy only" rule off, and then only a few at once.
   setDefault("PROXIES_URL", "");
   setDefault("DIRECT_ONLINE_BOTS", "4");
+  // The desk bot waits where trades default to meeting (the trade desk's
+  // default server), so a one-account node is already in place.
+  setDefault("LOGIN_DESK_SERVERS", "USSouth3,USWest4,USMidWest2");
   // What the hub and telemetry see as this node's version: package.json's,
   // unless the shell (or a release) set it.
   if (!process.env.ROTMGTRADE_VERSION) {

@@ -1789,6 +1789,19 @@ export class Dispatcher {
   }
 
   private loginDeskServer(acc: BotAccount): string {
+    // The desk sits where the work is. On a node with one or two accounts the
+    // desk bot IS the bot every swap and withdraw needs, so parking it on a
+    // fixed server would strand that work (a pinned row on USSouth3 while the
+    // desk holds the account on USWest4). Pinned work for this account wins;
+    // otherwise the configured desk servers, as before.
+    const wanted = this.lastWantedServers;
+    if (wanted.size) {
+      for (const sv of wanted) {
+        if (C.LOGIN_DESK_AVOID_SERVERS.has(sv) || this.deps.gate.serverJamRemainingMs(sv) > 0) continue;
+        const r = this.lastRouting?.get(sv);
+        if (r && (r.withdraws.some((w) => w.targetBotGuid === acc.botGuid) || r.deposits.some((d) => d.pinnedBot === acc.botGuid))) return sv;
+      }
+    }
     for (const sv of C.LOGIN_DESK_SERVERS) if (this.deps.gate.serverJamRemainingMs(sv) <= 0) return sv;
     const home = acc.info.server ?? "";
     if (home && !C.LOGIN_DESK_AVOID_SERVERS.has(home)) return home;
