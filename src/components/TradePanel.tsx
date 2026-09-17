@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PoolInstance } from "@/lib/poolWire";
 import { WITHDRAW_SERVERS } from "@/lib/servers";
+import { ItemSprite } from "./ItemSprite";
+import { TagSearch, type SearchTag, type Suggestions } from "./TagSearch";
 
-// Trades (design doc §6.2), as a bookmark on the vault page. The pool grid
-// on the left is the picker: clicking an item puts it in the offer tray
-// here. Below the composer: open offers to accept, your own offers, and the
-// meetings the hub has scheduled.
+// Trades (design doc §6.2) as a bookmark on the vault page. Every trade is
+// drawn the same way, mirroring the in-game window: a row of slots for what
+// one side hands over, a swap arrow, a row of slots for what comes back.
+// The pool grid on the left is the picker for the "you give" side; the
+// "you want" side is picked from the catalog.
 
 type OfferItem = { ref: string; itemId: string; name: string; enchants: number[] | null; count: number };
 type WantLine = { itemId: string; name: string; qty: number; slotsMin: number; slotsExact: number | null; enchants: unknown[] };
@@ -13,18 +16,74 @@ export type Offer = { id: number; poster: string; mine: boolean; botIgn: string;
 type Limits = { maxOpenOffers: number; maxItemsPerSide: number; completedSwaps: number; frozen: boolean } | null;
 type Rendezvous = { id: number; offerId: number; server: string; state: string; deadlineAt: number; me: { role: string; botIgn: string; gives: OfferItem[]; gets: { itemId: string; qty: number }[] }; partner: { botIgn: string; poster: string }; reported: { mine: boolean; partner: boolean }; requestId: number | null; localState: string | null };
 type Status = { linked: boolean; lastPollAt: number | null; lastError: string | null; rendezvous: Rendezvous[] };
+type Pick = { instanceId: string; itemId: string; name: string; enchantIds: number[]; botIgn: string };
+type Catalog = { itemId: string; itemName: string }[];
 
-const when = (ms: number | null) => (ms ? new Date(ms).toLocaleString() : "—");
-const list = (items: { name?: string; itemId: string; qty?: number; count?: number }[]) => items.map((i) => `${i.qty && i.qty > 1 ? `${i.qty}× ` : ""}${i.name ?? i.itemId}${i.count ? ` (${i.count})` : ""}`).join(", ");
 const HEADERS = { "Content-Type": "application/json" };
+const NO_SUGGEST: Suggestions = { items: [], enchants: [], effects: [] };
+const ago = (ms: number) => {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)}m ago` : s < 86400 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`;
+};
+const left = (ms: number) => {
+  const s = Math.round((ms - Date.now()) / 1000);
+  if (s <= 0) return "expired";
+  return s < 3600 ? `${Math.ceil(s / 60)} min left` : `${Math.round(s / 3600)} h left`;
+};
 
-export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted, maxTray }: {
+/** One item slot: a sprite with optional badges. `sprite` is a data URL from the pool; otherwise the atlas by name. */
+function Slot({ name, sprite, count, qty, filter, title, onRemove, dim }: { name?: string; sprite?: string | null; count?: number; qty?: number; filter?: string; title?: string; onRemove?: () => void; dim?: boolean }) {
+  if (!name) return <span className="trade-slot empty" />;
+  return (
+    <span className={"trade-slot" + (dim ? " dim" : "")} title={title ?? name}>
+      {sprite ? <img src={sprite} alt="" className="trade-slot-img" /> : <ItemSprite name={name} className="trade-slot-img" fallbackClassName="trade-slot-fallback" />}
+      {count ? <span className="trade-badge ench">{count}</span> : null}
+      {qty && qty > 1 ? <span className="trade-badge qty">×{qty}</span> : null}
+      {filter ? <span className="trade-badge filter">{filter}</span> : null}
+      {onRemove && <button className="trade-slot-x" type="button" onClick={onRemove} aria-label={`remove ${name}`}>×</button>}
+    </span>
+  );
+}
+
+/** A row of slots, padded to `min` empties so both sides of a ticket line up. */
+function Slots({ children, min = 8, count }: { children: React.ReactNode[]; min?: number; count: number }) {
+  const pad = Math.max(0, min - count);
+  return (
+    <div className="trade-slots">
+      {children}
+      {Array.from({ length: pad }, (_, i) => <Slot key={`e${i}`} />)}
+    </div>
+  );
+}
+
+const filterBadge = (w: { slotsMin: number; slotsExact: number | null; enchants?: unknown[] }) =>
+  w.slotsExact !== null ? `=${w.slotsExact}` : w.slotsMin > 0 ? `${w.slotsMin}+` : (w.enchants?.length ?? 0) > 0 ? "f" : undefined;
+
+/** The two-sided ticket every trade is drawn as. */
+function Ticket({ leftTitle, rightTitle, left, right, min = 8 }: { leftTitle: React.ReactNode; rightTitle: React.ReactNode; left: React.ReactNode[]; right: React.ReactNode[]; min?: number }) {
+  return (
+    <div className="trade-ticket">
+      <div className="trade-side">
+        <div className="trade-side-title">{leftTitle}</div>
+        <Slots min={min} count={left.length}>{left}</Slots>
+      </div>
+      <div className="trade-arrow" aria-hidden="true">⇄</div>
+      <div className="trade-side">
+        <div className="trade-side-title">{rightTitle}</div>
+        <Slots min={min} count={right.length}>{right}</Slots>
+      </div>
+    </div>
+  );
+}
+
+export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted, maxTray, catalog }: {
   tray: (PoolInstance | null)[];
   onRemove: (index: number) => void;
   onClear: () => void;
   seasonal: boolean;
   onPosted: () => void;
   maxTray: number;
+  catalog: Catalog;
 }) {
   const [section, setSection] = useState<"open" | "mine" | "meetings">("open");
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -33,9 +92,24 @@ export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [want, setWant] = useState<{ itemId: string; qty: string; slotsMin: string; slotsExact: string }[]>([{ itemId: "", qty: "1", slotsMin: "", slotsExact: "" }]);
+  const [want, setWant] = useState<{ itemId: string; name: string; qty: number; slotsMin: number; slotsExact: number | null }[]>([]);
+  const [wantTags, setWantTags] = useState<SearchTag[]>([]);
+  const [wantText, setWantText] = useState("");
   const [server, setServer] = useState(WITHDRAW_SERVERS.includes("USSouth3") ? "USSouth3" : WITHDRAW_SERVERS[0] ?? "USSouth3");
-  const [previews, setPreviews] = useState<Record<number, { ok: boolean; text: string }>>({});
+  const [previews, setPreviews] = useState<Record<number, { ok: boolean; text?: string; picks?: Pick[] }>>({});
+  const [, setTick] = useState(0);
+
+  const nameOf = useMemo(() => new Map(catalog.map((c) => [c.itemId, c.itemName])), [catalog]);
+  const suggestions = useMemo<Suggestions>(() => ({ items: catalog.map((c) => ({ id: c.itemId, name: c.itemName })), enchants: [], effects: [] }), [catalog]);
+
+  // A picked catalog item becomes a want slot; the search box clears for the next one.
+  useEffect(() => {
+    const item = wantTags.find((t) => t.kind === "item");
+    if (!item || item.kind !== "item") return;
+    setWant((w) => (w.some((x) => x.itemId === item.id) ? w.map((x) => (x.itemId === item.id ? { ...x, qty: Math.min(24, x.qty + 1) } : x)) : w.length >= 8 ? w : [...w, { itemId: item.id, name: item.label, qty: 1, slotsMin: 0, slotsExact: null }]));
+    setWantTags([]);
+    setWantText("");
+  }, [wantTags]);
 
   const load = useCallback(async () => {
     try {
@@ -59,7 +133,8 @@ export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted
   useEffect(() => {
     void load();
     const id = setInterval(() => void load(), 15_000);
-    return () => clearInterval(id);
+    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => { clearInterval(id); clearInterval(t); };
   }, [load]);
 
   async function post(body: Record<string, unknown>): Promise<Record<string, unknown> | null> {
@@ -84,13 +159,14 @@ export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted
 
   const items = tray.filter((t): t is PoolInstance => !!t);
   const bots = new Set(items.map((i) => i.botGuid));
-  const canPost = items.length > 0 && bots.size === 1 && want.some((w) => w.itemId) && !!server && !busy;
+  const canPost = items.length > 0 && bots.size === 1 && want.length > 0 && !!server && !busy && !(limits?.frozen);
 
   async function create() {
-    const b = await post({ action: "create", instanceIds: items.map((i) => i.instanceId), want: want.filter((w) => w.itemId).map((w) => ({ itemId: w.itemId.trim(), qty: Number(w.qty) || 1, slotsMin: w.slotsMin, slotsExact: w.slotsExact })), server });
+    const b = await post({ action: "create", instanceIds: items.map((i) => i.instanceId), want: want.map((w) => ({ itemId: w.itemId, qty: w.qty, slotsMin: w.slotsMin || "", slotsExact: w.slotsExact ?? "" })), server });
     if (b) {
-      setNotice(`Offer #${(b.offer as Offer).id} posted. Your bot will meet the taker on ${server}.`);
+      setNotice(`Offer #${(b.offer as Offer).id} posted. Your bot ${items[0].botIgn} will meet the taker on ${server}.`);
       onClear();
+      setWant([]);
       onPosted();
       setSection("mine");
     }
@@ -98,10 +174,12 @@ export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted
   async function preview(o: Offer) {
     const b = await post({ action: "preview", offer: o });
     if (!b) return;
-    setPreviews((p) => ({ ...p, [o.id]: b.ok ? { ok: true, text: `You would give: ${list(b.picks as { itemId: string; name?: string }[])}` } : { ok: false, text: String(b.error) } }));
+    setPreviews((p) => ({ ...p, [o.id]: b.ok ? { ok: true, picks: b.picks as Pick[] } : { ok: false, text: String(b.error) } }));
   }
   async function accept(o: Offer) {
-    if (!confirm(`Accept offer #${o.id}? Your bot meets ${o.botIgn} on ${o.server} and swaps your items for: ${list(o.give)}.`)) return;
+    const pv = previews[o.id];
+    if (!pv?.ok || !pv.picks) return;
+    if (!confirm(`Accept offer #${o.id}?\n\nYour bot ${pv.picks[0].botIgn} meets ${o.botIgn} on ${o.server} and hands over ${pv.picks.map((p) => p.name).join(", ")} for ${o.give.map((g) => g.name).join(", ")}.`)) return;
     const b = await post({ action: "accept", offer: o });
     if (b) {
       setNotice(`Accepted. Meeting #${(b.rendezvous as Rendezvous).id} on ${o.server}.`);
@@ -109,83 +187,121 @@ export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted
     }
   }
 
+  const stateLabel = (r: Rendezvous) => {
+    if (r.state === "done") return { text: "done", cls: "ok" };
+    if (r.state === "meet") return r.localState === "receipt-pending" ? { text: "traded, sending receipt", cls: "warn" } : r.reported.mine ? { text: "traded, waiting for the other side's receipt", cls: "warn" } : { text: `meeting on ${r.server} · ${left(r.deadlineAt)}`, cls: "" };
+    return { text: r.state, cls: r.state === "disputed" ? "bad" : "" };
+  };
+
   return (
-    <div className="trade-panel">
+    <div className="trade-desk">
       {status && !status.linked && <p className="hint" style={{ color: "var(--warn, #d2a24c)" }}>Trades need the hub. Link this node under Control panel → Fleet → Node.</p>}
       {error && <p className="hint" style={{ color: "var(--bad)" }}>{error}</p>}
       {notice && <p className="hint" style={{ color: "var(--good, #5aa86a)" }}>{notice}</p>}
 
-      <div className="trade-compose">
-        <h3 style={{ fontSize: 13, margin: "0 0 6px" }}>You give <span className="muted" style={{ color: "var(--muted)", fontWeight: 400 }}>({items.length}/{maxTray}, click items in the {seasonal ? "seasonal" : "non-seasonal"} pool)</span></h3>
-        {items.length === 0 ? (
-          <p className="hint">Nothing picked yet.</p>
-        ) : (
-          <ul className="trade-tray">
-            {items.map((it, i) => (
-              <li key={it.instanceId}>
-                {it.sprite && <img src={it.sprite} alt="" className="pool-tile-sprite" style={{ width: 20, height: 20 }} />}
-                <span>{it.itemName}{it.enchantments.length ? ` (${it.enchantments.length})` : ""}</span>
-                <span className="muted" style={{ color: "var(--muted)", fontSize: 11 }}>{it.botIgn}</span>
-                <button className="nav-link" onClick={() => onRemove(tray.indexOf(it))}>×</button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {bots.size > 1 && <p className="hint" style={{ color: "var(--bad)" }}>All items of one offer must sit on the same account. Remove the ones from another bot.</p>}
-        <h3 style={{ fontSize: 13, margin: "10px 0 6px" }}>You want</h3>
-        {want.map((w, i) => (
-          <div key={i} style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", marginBottom: 4 }}>
-            <input value={w.itemId} placeholder="item id (e.g. pdef)" style={{ width: 120 }} onChange={(e) => setWant((ws) => ws.map((x, j) => (j === i ? { ...x, itemId: e.target.value } : x)))} />
-            <input value={w.qty} type="number" min={1} max={24} style={{ width: 50 }} title="quantity" onChange={(e) => setWant((ws) => ws.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))} />
-            <input value={w.slotsMin} placeholder="min ench" style={{ width: 66 }} onChange={(e) => setWant((ws) => ws.map((x, j) => (j === i ? { ...x, slotsMin: e.target.value } : x)))} />
-            <input value={w.slotsExact} placeholder="exact" style={{ width: 52 }} onChange={(e) => setWant((ws) => ws.map((x, j) => (j === i ? { ...x, slotsExact: e.target.value } : x)))} />
-            {want.length > 1 && <button className="nav-link" onClick={() => setWant((ws) => ws.filter((_, j) => j !== i))}>×</button>}
-          </div>
-        ))}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
-          <button className="nav-link" disabled={want.length >= 8} onClick={() => setWant((ws) => [...ws, { itemId: "", qty: "1", slotsMin: "", slotsExact: "" }])}>+ line</button>
-          <label style={{ fontSize: 12 }}>meet on <select value={server} onChange={(e) => setServer(e.target.value)}>{WITHDRAW_SERVERS.map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
-          {items.length > 0 && <button className="nav-link" onClick={onClear}>clear</button>}
-          <button className="tx-submit" disabled={!canPost} onClick={() => void create()}>Post offer</button>
+      {/* ---- composer ---- */}
+      <section className="trade-compose">
+        <Ticket
+          min={12}
+          leftTitle={<>You give <span className="muted">{items.length}/{maxTray}{items.length ? ` · from ${items[0].botIgn}` : ` · click items in the ${seasonal ? "seasonal" : "non-seasonal"} pool`}</span></>}
+          rightTitle={<>You want <span className="muted">{want.reduce((n, w) => n + w.qty, 0) || "pick from the catalog below"}</span></>}
+          left={items.map((it) => <Slot key={it.instanceId} name={it.itemName} sprite={it.sprite} count={it.enchantments.length} title={`${it.itemName}${it.enchantments.length ? ` · ${it.enchantments.map((e) => e.name ?? e.id).join(", ")}` : ""} · on ${it.botIgn}`} onRemove={() => onRemove(tray.indexOf(it))} dim={bots.size > 1 && it.botGuid !== items[0].botGuid} />)}
+          right={want.map((w) => <Slot key={w.itemId} name={w.name} qty={w.qty} filter={filterBadge(w)} title={`${w.qty}× ${w.name}${w.slotsExact !== null ? ` with exactly ${w.slotsExact} enchantments` : w.slotsMin ? ` with ${w.slotsMin}+ enchantments` : ""}`} onRemove={() => setWant((ws) => ws.filter((x) => x.itemId !== w.itemId))} />)}
+        />
+        {bots.size > 1 && <p className="hint" style={{ color: "var(--bad)" }}>One offer trades from one account. The dimmed items sit on another bot; remove them or start from that bot.</p>}
+        <div className="trade-want-picker">
+          <TagSearch tags={wantTags} onTagsChange={setWantTags} text={wantText} onTextChange={setWantText} suggestions={wantText.length >= 2 ? suggestions : NO_SUGGEST} placeholder="Add a wanted item by name…" />
         </div>
-        {limits && <p className="hint" style={{ marginTop: 6 }}>{limits.frozen ? "This node is frozen after a disputed swap." : `${limits.maxOpenOffers} open offer(s), ${limits.maxItemsPerSide} items per side · ${limits.completedSwaps} completed`}</p>}
-      </div>
+        {want.length > 0 && (
+          <table className="trade-want-table">
+            <tbody>
+              {want.map((w) => (
+                <tr key={w.itemId}>
+                  <td><ItemSprite name={w.name} size={18} /> {w.name}</td>
+                  <td><label>qty <input type="number" min={1} max={24} value={w.qty} onChange={(e) => setWant((ws) => ws.map((x) => (x.itemId === w.itemId ? { ...x, qty: Math.max(1, Math.min(24, Number(e.target.value) || 1)) } : x)))} /></label></td>
+                  <td><label>min ench <input type="number" min={0} max={8} value={w.slotsMin} onChange={(e) => setWant((ws) => ws.map((x) => (x.itemId === w.itemId ? { ...x, slotsMin: Math.max(0, Number(e.target.value) || 0) } : x)))} /></label></td>
+                  <td><label>exact <input type="number" min={0} max={8} value={w.slotsExact ?? ""} placeholder="any" onChange={(e) => setWant((ws) => ws.map((x) => (x.itemId === w.itemId ? { ...x, slotsExact: e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0) } : x)))} /></label></td>
+                  <td><button className="nav-link" type="button" onClick={() => setWant((ws) => ws.filter((x) => x.itemId !== w.itemId))}>remove</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div className="trade-compose-foot">
+          <label>meet on <select value={server} onChange={(e) => setServer(e.target.value)}>{WITHDRAW_SERVERS.map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
+          {(items.length > 0 || want.length > 0) && <button className="nav-link" type="button" onClick={() => { onClear(); setWant([]); }}>clear</button>}
+          <button className="tx-submit" disabled={!canPost} onClick={() => void create()}>Post offer</button>
+          {limits && <span className="hint">{limits.frozen ? "frozen after a disputed swap" : `${limits.maxOpenOffers} open · ${limits.maxItemsPerSide} per side · ${limits.completedSwaps} done`}</span>}
+        </div>
+      </section>
 
-      <div className="pool-tabs" style={{ marginTop: 14 }}>
+      {/* ---- lists ---- */}
+      <div className="pool-tabs" style={{ marginTop: 16 }}>
         {(["open", "mine", "meetings"] as const).map((s) => (
-          <button key={s} className={"nav-link" + (section === s ? " active" : "")} onClick={() => setSection(s)}>{s === "open" ? "Open offers" : s === "mine" ? "My offers" : "Meetings"}</button>
+          <button key={s} className={"nav-link" + (section === s ? " active" : "")} onClick={() => setSection(s)}>
+            {s === "open" ? "Open offers" : s === "mine" ? "My offers" : "Meetings"}{s === "meetings" && status?.rendezvous.some((r) => r.state === "meet") ? <span className="tab-badge">{status.rendezvous.filter((r) => r.state === "meet").length}</span> : null}
+          </button>
         ))}
         <button className="nav-link" style={{ marginLeft: "auto" }} disabled={busy} onClick={() => void load()}>refresh</button>
       </div>
 
       {section !== "meetings" && (offers.length === 0 ? <p className="hint">{section === "open" ? "No open offers right now." : "You have no offers."}</p> : (
-        <div style={{ display: "grid", gap: 8 }}>
-          {offers.map((o) => (
-            <div key={o.id} className="trade-offer">
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>#{o.id} · {o.mine ? "yours" : o.poster} · {o.seasonal ? "seasonal" : "non-seasonal"} · {o.server} · {o.status}</div>
-              <div><b>Gives</b> {list(o.give)}</div>
-              <div><b>Wants</b> {list(o.want)}</div>
-              {!o.mine && o.status === "open" && (
-                <div style={{ marginTop: 4, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <button className="nav-link" disabled={busy} onClick={() => void preview(o)}>what would I give?</button>
-                  {previews[o.id] && <span style={{ fontSize: 12, color: previews[o.id].ok ? "var(--good, #5aa86a)" : "var(--bad)" }}>{previews[o.id].text}</span>}
-                  {previews[o.id]?.ok && <button className="nav-link" style={{ color: "var(--accent-hot)" }} disabled={busy} onClick={() => void accept(o)}>accept</button>}
-                </div>
-              )}
-              {o.mine && o.status === "open" && <button className="nav-link" disabled={busy} onClick={() => void post({ action: "cancel", offerId: o.id }).then(() => load())}>cancel</button>}
-            </div>
-          ))}
+        <div className="trade-cards">
+          {offers.map((o) => {
+            const pv = previews[o.id];
+            return (
+              <article key={o.id} className={"trade-card" + (o.mine ? " mine" : "")}>
+                <header className="trade-card-head">
+                  <b>#{o.id}</b>
+                  <span>{o.mine ? "your offer" : o.poster}</span>
+                  <span className="muted">· {o.botIgn} · {o.seasonal ? "seasonal" : "non-seasonal"} · meets on {o.server} · {ago(o.createdAt)}{o.status !== "open" ? ` · ${o.status}` : ""}</span>
+                </header>
+                <Ticket
+                  leftTitle={o.mine ? "You give" : `${o.poster} gives`}
+                  rightTitle={o.mine ? "You want" : "They want"}
+                  left={o.give.map((g) => <Slot key={g.ref} name={g.name} count={g.count} title={`${g.name}${g.count ? ` · ${g.count} enchantment${g.count === 1 ? "" : "s"}` : ""}`} />)}
+                  right={o.want.map((w, i) => <Slot key={i} name={w.name} qty={w.qty} filter={filterBadge(w)} title={`${w.qty}× ${w.name}${w.slotsExact !== null ? ` with exactly ${w.slotsExact} enchantments` : w.slotsMin ? ` with ${w.slotsMin}+ enchantments` : ""}${(w.enchants?.length ?? 0) ? " · enchantment filter" : ""}`} />)}
+                />
+                {!o.mine && o.status === "open" && (
+                  <footer className="trade-card-foot">
+                    {!pv && <button className="nav-link" disabled={busy} onClick={() => void preview(o)}>what would I give?</button>}
+                    {pv && !pv.ok && <span className="hint" style={{ color: "var(--bad)" }}>{pv.text}</span>}
+                    {pv?.ok && pv.picks && (
+                      <>
+                        <span className="hint">You would hand over from {pv.picks[0].botIgn}:</span>
+                        <span className="trade-slots inline">{pv.picks.map((p) => <Slot key={p.instanceId} name={p.name} count={p.enchantIds.length} title={p.name} />)}</span>
+                        <button className="tx-submit" disabled={busy} onClick={() => void accept(o)}>Accept</button>
+                      </>
+                    )}
+                  </footer>
+                )}
+                {o.mine && o.status === "open" && <footer className="trade-card-foot"><button className="nav-link" disabled={busy} onClick={() => void post({ action: "cancel", offerId: o.id }).then(() => load())}>cancel offer</button></footer>}
+              </article>
+            );
+          })}
         </div>
       ))}
-      {section === "meetings" && status && (status.rendezvous.length === 0 ? <p className="hint">No meetings. Polled {when(status.lastPollAt)}.</p> : (
-        <div style={{ display: "grid", gap: 8 }}>
-          {status.rendezvous.map((r) => (
-            <div key={r.id} className="trade-offer">
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>meeting #{r.id} · offer #{r.offerId} · {r.server} · {r.state}{r.localState ? ` · ${r.localState}` : ""} · until {when(r.deadlineAt)}</div>
-              <div>{r.me.botIgn} ({r.me.role}) ↔ {r.partner.botIgn} ({r.partner.poster})</div>
-              <div><b>I give</b> {list(r.me.gives)} · <b>I get</b> {list(r.me.gets)}</div>
-            </div>
-          ))}
+
+      {section === "meetings" && status && (status.rendezvous.length === 0 ? <p className="hint">No meetings. Hub polled {status.lastPollAt ? ago(status.lastPollAt) : "never"}.</p> : (
+        <div className="trade-cards">
+          {status.rendezvous.map((r) => {
+            const st = stateLabel(r);
+            return (
+              <article key={r.id} className="trade-card">
+                <header className="trade-card-head">
+                  <b>meeting #{r.id}</b>
+                  <span className="muted">· offer #{r.offerId} · {r.server}{r.requestId !== null ? ` · job #${r.requestId}` : ""}</span>
+                  <span className={"trade-state " + st.cls}>{st.text}</span>
+                </header>
+                <Ticket
+                  leftTitle={<>{r.me.botIgn} <span className="muted">(you, {r.me.role === "give" ? "invites" : "accepts first"})</span> gives</>}
+                  rightTitle={<>{r.partner.botIgn} <span className="muted">({r.partner.poster})</span> gives</>}
+                  left={r.me.gives.map((g) => <Slot key={g.ref} name={g.name ?? nameOf.get(g.itemId) ?? g.itemId} count={g.count} />)}
+                  right={r.me.gets.map((g, i) => <Slot key={i} name={nameOf.get(g.itemId) ?? g.itemId} qty={g.qty} />)}
+                />
+              </article>
+            );
+          })}
         </div>
       ))}
     </div>

@@ -132,12 +132,53 @@ header.site {
   image-rendering: pixelated;
 }
 
-/* Trades bookmark (components/TradePanel.tsx). */
-.trade-tray { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.trade-tray li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.trade-tray li .nav-link { margin-left: auto; }
-.trade-offer { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
-.trade-compose input, .trade-compose select { font-size: 12px; padding: 4px 6px; }
+/* Trades bookmark (components/TradePanel.tsx). The right column becomes
+   the trade desk: the pool grid on the left is only the picker. */
+:root[data-view="trades"] .layout {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+}
+:root[data-view="trades"] {
+  --accent: #8fd18f;
+  --accent-hot: #b6e6b6;
+}
+.layout { transition: grid-template-columns 220ms ease; }
+.trade-desk { display: flex; flex-direction: column; gap: 10px; }
+.trade-desk .muted { color: var(--muted); font-weight: 400; }
+.trade-compose { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--panel-2, rgba(255,255,255,0.02)); }
+.trade-ticket { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: start; }
+.trade-side-title { font-size: 12px; font-weight: 600; margin-bottom: 6px; letter-spacing: 0.3px; }
+.trade-arrow { align-self: center; font-size: 22px; color: var(--muted); padding-top: 16px; }
+.trade-slots { display: flex; flex-wrap: wrap; gap: 4px; }
+.trade-slots.inline { display: inline-flex; vertical-align: middle; margin: 0 6px; }
+.trade-slot { position: relative; width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.35); display: inline-flex; align-items: center; justify-content: center; }
+.trade-slot.empty { border-style: dashed; opacity: 0.35; }
+.trade-slot.dim { opacity: 0.4; }
+.trade-slot-img { width: 36px; height: 36px; image-rendering: pixelated; display: block; }
+.trade-slot-fallback { font-size: 10px; color: var(--muted); }
+.trade-badge { position: absolute; font-size: 10px; line-height: 1; padding: 2px 4px; border-radius: 4px; background: #111; border: 1px solid var(--border); color: var(--text); }
+.trade-badge.ench { right: -4px; top: -4px; color: #5aa6ff; border-color: #5aa6ff; }
+.trade-badge.qty { right: -4px; bottom: -4px; color: var(--accent-hot); border-color: var(--accent); }
+.trade-badge.filter { left: -4px; bottom: -4px; color: var(--muted); }
+.trade-slot-x { position: absolute; left: -6px; top: -6px; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); background: #111; color: var(--text); font-size: 11px; line-height: 1; padding: 0; cursor: pointer; opacity: 0; }
+.trade-slot:hover .trade-slot-x { opacity: 1; }
+.trade-want-picker { margin-top: 10px; }
+.trade-want-table { width: 100%; font-size: 12px; margin-top: 6px; border-collapse: collapse; }
+.trade-want-table td { padding: 3px 6px 3px 0; }
+.trade-want-table input { width: 52px; font-size: 12px; padding: 2px 4px; }
+.trade-compose-foot { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.trade-compose-foot select { font-size: 12px; padding: 4px 6px; }
+.trade-cards { display: grid; gap: 10px; }
+.trade-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.trade-card.mine { border-color: var(--accent); }
+.trade-card-head { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; font-size: 13px; margin-bottom: 8px; }
+.trade-card-foot { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.trade-state { margin-left: auto; font-size: 12px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--muted); }
+.trade-state.ok { color: var(--good, #5aa86a); border-color: var(--good, #5aa86a); }
+.trade-state.warn { color: var(--warn, #d2a24c); border-color: var(--warn, #d2a24c); }
+.trade-state.bad { color: var(--bad); border-color: var(--bad); }
+@media (max-width: 900px) {
+  :root[data-view="trades"] .layout { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* The control panel's category row: real tabs, not a muted subtitle. */
 .panel-categories {

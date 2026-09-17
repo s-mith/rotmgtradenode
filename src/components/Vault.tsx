@@ -1348,6 +1348,12 @@ export default function Vault() {
       </div>
 
       <aside style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {tradeMode && (
+          <div className="panel trade-panel-wrap">
+            <h2>Trade desk</h2>
+            <TradePanel tray={trayInstances} onRemove={removeFromTrayAt} onClear={clearTray} seasonal={ctxSeasonal} onPosted={reload} maxTray={MAX_TRADE_TRAY} catalog={catalog} />
+          </div>
+        )}
         <div className="panel">
           <h2>
             {sessionIgn ? (
@@ -1373,12 +1379,7 @@ export default function Vault() {
               <li>A wish is checked the moment you make it and on every pool change after. Older wishes are served first, across all players.</li>
             </ul>
           </div>
-        ) : tradeMode ? (
-          <div className="panel">
-            <h2>Offer</h2>
-            <TradePanel tray={trayInstances} onRemove={removeFromTrayAt} onClear={clearTray} seasonal={ctxSeasonal} onPosted={reload} maxTray={MAX_TRADE_TRAY} />
-          </div>
-        ) : (
+        ) : tradeMode ? null : (
           <div className="panel">
             <h2>Transact</h2>
             <TxForm
