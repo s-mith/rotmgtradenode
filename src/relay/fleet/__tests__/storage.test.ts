@@ -44,7 +44,7 @@ function input(over: Partial<PlanInput> = {}): PlanInput {
     ...over,
   };
 }
-const move = (m: Partial<Move> & { kind: Move["kind"]; itemId: string }): Move => ({ id: "m", queuedAt: 0, ...m });
+const move = (m: Partial<Move> & { kind: Move["kind"]; itemId: string }): Move => ({ id: "m", queuedAt: 0, objectType: toObjType(m.itemId)!, name: m.itemId, ...m });
 
 describe("planMove", () => {
   it("banks from the tracked slot into the vault's first free slot", () => {
@@ -77,6 +77,14 @@ describe("planMove", () => {
     const narrow = input({ tradeSlots: 16 });
     for (let i = 4; i < 20; i++) narrow.inv[i] = PDEF;
     expect(planMove(move({ kind: "rackOut", itemId: "pdef", slot: 1 }), narrow)).toMatchObject({ ok: false, error: expect.stringContaining("no free slot") });
+  });
+  it("banks an untracked item by its character slot", () => {
+    const st = input();
+    st.inv[10] = SOULBOUND;
+    const m: Move = { id: "u", kind: "bank", itemId: null, objectType: SOULBOUND, name: "#2730", slot: 10, queuedAt: 0 };
+    expect(planMove(m, st)).toMatchObject({ ok: true, from: { slotId: 10, objectType: SOULBOUND }, to: { objectId: 587, slotId: 1 } });
+    st.inv[10] = -1;
+    expect(planMove(m, st)).toMatchObject({ ok: false, error: expect.stringContaining("not on the character") });
   });
   it("checks the container slot still holds the item, and only tradeable items leave the gift and spoils chests", () => {
     expect(planMove(move({ kind: "unbank", itemId: "pdef", slot: 0 }), input())).toMatchObject({ ok: false, error: expect.stringContaining("no longer holds") });

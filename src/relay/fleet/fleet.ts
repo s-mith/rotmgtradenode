@@ -125,7 +125,10 @@ export class Fleet {
       auditProxy: auditProxiesFromFile(process.env.BACKPACK_AUDIT_PROXIES_FILE, this.log),
       vaultBots: () => this.dispatcher?.vaultBotGuids() ?? new Set<string>(),
     });
-    this.storage = new StorageService({ sd: sweepDeps, store: StorageStore.at(this.dataDir), holds: this.dispatcher?.maintenanceHolds ?? new Set<string>() });
+    this.storage = new StorageService({
+      sd: sweepDeps, store: StorageStore.at(this.dataDir), holds: this.dispatcher?.maintenanceHolds ?? new Set<string>(),
+      release: (acc) => this.dispatcher?.releaseForMaintenance(acc) ?? true,
+    });
     this.seasonWatch = new SeasonWatch({ store: backpackStore, pool: this.pool, clients: this.clients, log: this.log });
     this.serverUsage = new ServerUsageWatch({ clients: this.clients, api: opts.api ?? null, log: this.log, servers: this.servers });
     this.buildGate = new BuildGate({ versions: this.versions, deps: this.deps, pool: this.pool, settings: this.nodeSettings, log: this.log });

@@ -589,7 +589,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
   }
 
   private onMapInfo(pkt: Packet<"MAPINFO">): void {
-    this.log(`connected to ${this.server} ${pkt.name}`);
+    this.log(`connected to ${this.server} ${pkt.name}${this.needsNewChar ? "" : ` as character #${this.currentCharId}`}`);
     this.mapName = pkt.name;
     this.nextPos = [];
     this.world.reset();

@@ -1870,7 +1870,8 @@ export class Dispatcher {
     // tick after a sweep) and sorted the whole roster with a per-compare
     // inventory sum.
     const candidates = this.offline()
-      .filter((a) => !a.inUse && !this.vaultBots.has(a.botGuid) && this.deps.gate.lockoutRemainingMs(a.guid) <= 0)
+      // A held account is somebody else's for now (a maintenance trip about to log it in).
+      .filter((a) => !a.inUse && !this.isHeld(a.guid) && !this.vaultBots.has(a.botGuid) && this.deps.gate.lockoutRemainingMs(a.guid) <= 0)
       .map((a) => [a, this.tracker.heldCount(a.botGuid)] as const)
       .sort((x, y) => x[1] - y[1]);
     for (const [acc] of candidates) {
@@ -2029,6 +2030,20 @@ export class Dispatcher {
       if (owned) caps[g] = Math.max(0, caps[g] - owned);
     }
     return { inventories, caps };
+  }
+  /**
+   * Lend an account to a maintenance routine (the storage chore): an idle
+   * bot at the login desk is disconnected so the routine can log it in
+   * itself; a bot in a trade or on an assignment is refused. The caller
+   * holds the guid in maintenanceHolds first, so the supervisor does not
+   * wake it back up meanwhile.
+   */
+  releaseForMaintenance(acc: BotAccount): boolean {
+    if (!acc.client?.active) return true;
+    if (acc.assignedRequestId !== null || acc.inUse || !(this.sessionFor(acc)?.isIdle() ?? true)) return false;
+    this.log(`${acc.alias} lent to maintenance — disconnecting from the desk`);
+    this.disconnectAccount(acc, false);
+    return true;
   }
   private readyToTrade(acc: BotAccount): boolean {
     const c = acc.client;

@@ -40,6 +40,15 @@ backpack chore), `src/client/pages/dev/settings/StorageTab.tsx`.
   still has that character, else the first listed, as the game does. A change
   takes effect at the account's next login.
 
+## Borrowing the desk bot
+
+A one-account node keeps its bot online at the login desk. The service
+holds the guid (`maintenanceHolds`, which the desk now respects), asks the
+dispatcher to let go (`releaseForMaintenance`: an idle bot is disconnected,
+one in a trade is refused), waits out the gate's 20 s post-session cooldown
+(up to 90 s; a real lockout is not waited for), then logs in for the trip.
+The desk takes the bot back once the trip ends.
+
 ## The trip (`runStorageTrip`)
 
 1. Wait for the Nexus, read `char/list` (the character list for the tab).
@@ -52,7 +61,9 @@ backpack chore), `src/client/pages/dev/settings/StorageTab.tsx`.
    hold the item, to the first free trade slot). Walk near the container,
    send the `INVSWAP`, wait for the matching `INVRESULT`, move the mirror
    along. A refused or unanswered swap leaves the move queued with its error.
-4. Snapshot the character for the tracker and log out.
+4. Snapshot the character for the tracker and log out. Items on the
+   character that the catalog does not know are recorded as `untracked`
+   (they take slots the tracker never counted) and can be banked by slot.
 
 ## State (`storage_state.json` in the data dir)
 
@@ -68,6 +79,23 @@ character list, the queued moves, the last run.
 `POST /storage/run/cancel`, `POST /accounts/char` (`guid`, `charId`).
 The console reaches them through `/api/dev/storage` and
 `/api/dev/accounts {action:"set-char"}`.
+
+## Characters
+
+Switching the login character switches which inventory the node tracks
+for that account: the next login snapshots the other character, and the
+pool shows its items. Items of the character left behind are not lost —
+they come back into the tracker at the next login with it — but their
+instance ids are reassigned then, so switch when nothing is queued against
+that account.
+
+## Verified live (2026-09-17, node A / Furrygay)
+
+Refresh (5 characters, 2 chests, 7 potions, 108 gifts read), bank of a
+tracked and of two untracked items, unbank, potion out of and back into
+the rack, a tradeable gift pulled, identity kept across bank/unbank, and a
+login as another character followed by the reset. Each move was answered
+by its `INVRESULT` within the pace of the player's own client.
 
 ## Not done yet
 

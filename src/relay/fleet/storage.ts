@@ -31,17 +31,26 @@ const TO_CONTAINER: Record<MoveKind, boolean> = { bank: true, unbank: false, rac
 export interface Move {
   id: string;
   kind: MoveKind;
-  /** Catalog id of the item, for the log and a check that the slot still holds it. */
-  itemId: string;
-  /** Character -> container: the tracked instance that goes. */
+  /** Catalog id of the item when the node trades it; untracked items on the character have none. */
+  itemId: string | null;
+  /** The in-game type, for the swap and a check that the slot still holds it. */
+  objectType: number;
+  name: string;
+  /** Character -> container: the tracked instance that goes, or (untracked) the character slot. */
   instanceId?: string;
-  /** Container -> character: the container slot as last seen. */
+  /** Container -> character: the container slot as last seen. Character -> container without an instance: the character slot. */
   slot?: number;
   queuedAt: number;
   /** Why the last run could not do it; the move stays queued for the operator to see. */
   error?: string;
 }
 export type MoveInput = { kind: MoveKind; instanceId?: string; slot?: number };
+/** An item the character carries that the node does not trade: it still takes a slot, and can be put away. */
+export interface UntrackedSlot {
+  slot: number;
+  objectType: number;
+  name: string;
+}
 
 export interface ContainerSnapshot {
   objectId: number;
@@ -58,6 +67,8 @@ export interface AccountStorageState {
   botGuid: string;
   lastVisitAt: number | null;
   containers: Containers | null;
+  /** Non-catalog items on the character at the last visit (the tracker only knows catalog items). */
+  untracked?: UntrackedSlot[];
   chars: CharDetail[] | null;
   charsAt: number | null;
   moves: Move[];
@@ -89,7 +100,8 @@ export class StorageStore {
     try {
       if (fs.existsSync(file)) {
         const raw = JSON.parse(fs.readFileSync(file, "utf8")) as { accounts?: Record<string, AccountStorageState> };
-        for (const [g, st] of Object.entries(raw.accounts ?? {})) this.accounts.set(g, { ...st, moves: Array.isArray(st.moves) ? st.moves : [] });
+        // Moves from before a move carried its type and name are dropped; they are cheap to queue again.
+        for (const [g, st] of Object.entries(raw.accounts ?? {})) this.accounts.set(g, { ...st, moves: Array.isArray(st.moves) ? st.moves.filter((m) => Number.isInteger(m.objectType) && typeof m.name === "string") : [] });
       }
     } catch (e) {
       console.log(`storage: failed to load ${file}: ${String(e)}`);
@@ -155,22 +167,22 @@ export function planMove(move: Move, st: PlanInput): Plan {
   const kind = MOVE_CONTAINER[move.kind];
   const cont = st.containers[kind];
   if (cont.objectId < 0) return { ok: false, error: `the ${CONTAINER_LABEL[kind]} was not announced by the vault` };
-  const type = toObjType(move.itemId);
-  if (type === undefined) return { ok: false, error: `${move.itemId} is not an item the node knows` };
+  const type = move.objectType;
   if (TO_CONTAINER[move.kind]) {
-    if (move.kind === "rackIn" && !isPotion(move.itemId)) return { ok: false, error: "only potions go in the potion rack" };
+    if (move.kind === "rackIn" && !(move.itemId && isPotion(move.itemId))) return { ok: false, error: "only potions go in the potion rack" };
     let slot = -1;
     const tracked = move.instanceId ? Object.entries(st.tracked).find(([, i]) => i.instanceId === move.instanceId) : undefined;
     if (tracked && st.inv[Number(tracked[0])] === type) slot = Number(tracked[0]);
+    else if (!move.instanceId && move.slot !== undefined && st.inv[move.slot] === type) slot = move.slot;
     else for (let i = 4; i < 4 + st.tradeSlots; i++) if (st.inv[i] === type) { slot = i; break; }
-    if (slot < 0) return { ok: false, error: `${ITEM_BY_ID.get(move.itemId)?.name ?? move.itemId} is not on the character` };
+    if (slot < 0) return { ok: false, error: `${move.name} is not on the character` };
     const free = cont.slots.indexOf(-1);
     if (free < 0) return { ok: false, error: `the ${CONTAINER_LABEL[kind]} is full` };
     return { ok: true, container: kind, objectType: type, from: { objectId: st.playerObjectId, slotId: slot, objectType: type }, to: { objectId: cont.objectId, slotId: free, objectType: -1 } };
   }
   const slot = move.slot ?? -1;
   if (slot < 0 || slot >= cont.slots.length) return { ok: false, error: `slot ${slot} is beyond the ${CONTAINER_LABEL[kind]}` };
-  if (cont.slots[slot] !== type) return { ok: false, error: `${CONTAINER_LABEL[kind]} slot ${slot} no longer holds ${ITEM_BY_ID.get(move.itemId)?.name ?? move.itemId}` };
+  if (cont.slots[slot] !== type) return { ok: false, error: `${CONTAINER_LABEL[kind]} slot ${slot} no longer holds ${move.name}` };
   if ((move.kind === "giftOut" || move.kind === "spoilsOut") && !isPoolItem(type)) return { ok: false, error: "not an item the pool trades" };
   let free = -1;
   for (let i = 4; i < 4 + st.tradeSlots; i++) if (st.inv[i] === -1) { free = i; break; }
@@ -212,6 +224,14 @@ export interface StorageTripResult {
   view: VaultView | null;
   outcomes: MoveOutcome[];
   chars: CharDetail[] | null;
+  /** Items on the character the node does not trade, as of the end of the trip. */
+  untracked: UntrackedSlot[];
+}
+/** Character slots holding something the catalog does not know. */
+export function untrackedSlots(inv: number[], tradeSlots: number): UntrackedSlot[] {
+  const out: UntrackedSlot[] = [];
+  for (let i = 4; i < 4 + tradeSlots; i++) if (inv[i] > 0 && toCatalogId(inv[i]) === undefined) out.push({ slot: i, objectType: inv[i], name: nameOfType(inv[i]).name });
+  return out;
 }
 export interface StorageTripOptions {
   moves: Move[];
@@ -230,7 +250,7 @@ export interface StorageTripOptions {
  */
 export async function runStorageTrip(client: GameClient, o: StorageTripOptions): Promise<StorageTripResult> {
   const T = { ...STORAGE_TIMEOUTS, ...o.timeouts };
-  const res: StorageTripResult = { ok: false, error: null, summary: "", view: null, outcomes: [], chars: null };
+  const res: StorageTripResult = { ok: false, error: null, summary: "", view: null, outcomes: [], chars: null, untracked: [] };
   const steps: string[] = [];
   const step = (label: string) => o.onStep?.(label);
   try {
@@ -258,7 +278,7 @@ export async function runStorageTrip(client: GameClient, o: StorageTripOptions):
     let n = 0;
     for (const move of o.moves) {
       n++;
-      const label = `${move.kind} ${ITEM_BY_ID.get(move.itemId)?.name ?? move.itemId}`;
+      const label = `${move.kind} ${move.name}`;
       step(`move ${n}/${o.moves.length}: ${label}`);
       const plan = planMove(move, { playerObjectId: client.objectId, inv, tradeSlots: client.playerData.tradeSlots, containers, tracked: o.tracked });
       if (!plan.ok) {
@@ -290,6 +310,9 @@ export async function runStorageTrip(client: GameClient, o: StorageTripOptions):
       await sleep(T.swapPaceMs);
     }
     res.view = { ...view, vault: { ...view.vault, slots: containers.vault.slots }, potion: { ...view.potion, slots: containers.rack.slots }, gift: { ...view.gift, slots: containers.gift.slots }, spoils: { ...view.spoils, slots: containers.spoils.slots } };
+    res.untracked = untrackedSlots(inv, client.playerData.tradeSlots);
+    const extra = res.untracked.length;
+    if (extra) steps.push(`${extra} item(s) on the character the node does not trade`);
     res.ok = true;
     step("done, logging out");
   } catch (e) {
@@ -325,8 +348,13 @@ export interface StorageServiceOptions {
   store: StorageStore;
   /** Guids the dispatcher must leave alone while a trip drives them. */
   holds: Set<string>;
+  /** Ask the dispatcher to let go of an idle online bot (it disconnects it); false when the bot is busy. */
+  release?: (acc: BotAccount) => boolean;
   now?: () => number;
 }
+/** How long a trip waits for a lent bot to go offline, and for its login cooldown to pass. */
+const RELEASE_WAIT_MS = 15_000;
+const LOCKOUT_WAIT_MS = 90_000;
 
 export interface CharRow extends CharDetail {
   className: string;
@@ -365,6 +393,8 @@ export interface SlotRow {
 }
 export interface AccountDetail extends AccountSummary {
   character: { slot: number; instanceId: string; itemId: string; name: string; enchantments: number[]; potion: boolean }[];
+  /** On the character but not traded by the node; they take slots and can be put away. */
+  untracked: UntrackedSlot[];
   vault: SlotRow[];
   rack: SlotRow[];
   gift: SlotRow[];
@@ -401,7 +431,7 @@ export class StorageService {
     const used = (s: number[]) => s.filter((t) => t > 0).length;
     const tradeable = (s: number[]) => s.filter((t) => t > 0 && isPoolItem(t)).length;
     return {
-      character: { held: tracker.heldCount(acc.botGuid), capacity: tracker.capacityFor(acc.botGuid) },
+      character: { held: tracker.heldCount(acc.botGuid) + (st.untracked?.length ?? 0), capacity: tracker.capacityFor(acc.botGuid) },
       vault: { used: c ? used(c.vault.slots) : 0, slots: c ? c.vault.slots.length : 0 },
       rack: { used: c ? used(c.rack.slots) : 0, slots: c ? c.rack.slots.length : 0 },
       gift: { items: c ? used(c.gift.slots) : 0, tradeable: c ? tradeable(c.gift.slots) : 0 },
@@ -439,7 +469,7 @@ export class StorageService {
       return out;
     };
     const character = Object.entries(this.o.sd.tracker.instancesFor(acc.botGuid)).map(([slot, i]) => ({ slot: Number(slot), instanceId: i.instanceId, itemId: i.itemId, name: ITEM_BY_ID.get(i.itemId)?.name ?? i.itemId, enchantments: i.enchantments, potion: isPotion(i.itemId) })).sort((a, b) => a.slot - b.slot);
-    return { ...this.summary(acc), character, vault: rows(st.containers?.vault), rack: rows(st.containers?.rack), gift: rows(st.containers?.gift), spoils: rows(st.containers?.spoils) };
+    return { ...this.summary(acc), character, untracked: st.untracked ?? [], vault: rows(st.containers?.vault), rack: rows(st.containers?.rack), gift: rows(st.containers?.gift), spoils: rows(st.containers?.spoils) };
   }
 
   /** Queue moves for an account. Each is checked against what the node knows now; the trip checks again against the live vault. */
@@ -453,11 +483,23 @@ export class StorageService {
       if (!(a.kind in MOVE_CONTAINER)) return { ok: false, error: `unknown move ${String(a.kind)}` };
       const kind = MOVE_CONTAINER[a.kind];
       if (TO_CONTAINER[a.kind]) {
+        if (a.instanceId === undefined && a.slot !== undefined) {
+          // An untracked item, by the slot the last visit saw it in.
+          const u = (st.untracked ?? []).find((x) => x.slot === Number(a.slot));
+          if (!u) return { ok: false, error: "nothing untracked known in that slot; refresh first" };
+          if (a.kind === "rackIn") return { ok: false, error: "only potions go in the potion rack" };
+          if (st.moves.some((m) => m.instanceId === undefined && m.slot === u.slot && TO_CONTAINER[m.kind])) return { ok: false, error: `${u.name} is already queued` };
+          out.push({ id: randomUUID().slice(0, 8), kind: a.kind, itemId: null, objectType: u.objectType, name: u.name, slot: u.slot, queuedAt: this.now() });
+          continue;
+        }
         const inst = Object.values(tracked).find((i) => i.instanceId === a.instanceId);
         if (!inst) return { ok: false, error: "that item is not on this account's character" };
-        if (st.moves.some((m) => m.instanceId === inst.instanceId)) return { ok: false, error: `${ITEM_BY_ID.get(inst.itemId)?.name ?? inst.itemId} is already queued` };
+        const type = toObjType(inst.itemId);
+        if (type === undefined) return { ok: false, error: `${inst.itemId} is not an item the node knows` };
+        const name = ITEM_BY_ID.get(inst.itemId)?.name ?? inst.itemId;
+        if (st.moves.some((m) => m.instanceId === inst.instanceId)) return { ok: false, error: `${name} is already queued` };
         if (a.kind === "rackIn" && !isPotion(inst.itemId)) return { ok: false, error: "only potions go in the potion rack" };
-        out.push({ id: randomUUID().slice(0, 8), kind: a.kind, itemId: inst.itemId, instanceId: inst.instanceId, queuedAt: this.now() });
+        out.push({ id: randomUUID().slice(0, 8), kind: a.kind, itemId: inst.itemId, objectType: type, name, instanceId: inst.instanceId, queuedAt: this.now() });
       } else {
         const c = st.containers?.[kind];
         const slot = Number(a.slot);
@@ -466,7 +508,7 @@ export class StorageService {
         if (!n.itemId) return { ok: false, error: `${n.name} is not an item the node trades` };
         if ((a.kind === "giftOut" || a.kind === "spoilsOut") && !n.tradeable) return { ok: false, error: `${n.name} is not tradeable` };
         if (st.moves.some((m) => m.kind === a.kind && m.slot === slot)) return { ok: false, error: `${n.name} is already queued` };
-        out.push({ id: randomUUID().slice(0, 8), kind: a.kind, itemId: n.itemId, slot, queuedAt: this.now() });
+        out.push({ id: randomUUID().slice(0, 8), kind: a.kind, itemId: n.itemId, objectType: c.slots[slot], name: n.name, slot, queuedAt: this.now() });
       }
     }
     st.moves.push(...out);
@@ -530,16 +572,44 @@ export class StorageService {
   private async one(acc: BotAccount, refresh: boolean): Promise<"ok" | "failed" | "skipped"> {
     const { sd, store, holds } = this.o;
     const st = store.for(acc);
-    if ((acc.client && acc.client.active) || acc.assignedRequestId !== null || acc.inUse) {
-      st.lastError = "online or busy";
-      return "skipped";
-    }
-    if (sd.deps.gate.lockoutRemainingMs(acc.guid) > 0 || sd.deps.gate.pausedRemainingMs() > 0) {
-      st.lastError = "login-locked";
+    if (acc.assignedRequestId !== null || acc.inUse) {
+      st.lastError = "busy with a trade";
       return "skipped";
     }
     const moves = refresh ? [] : [...st.moves];
     holds.add(acc.guid);
+    const giveBack = (why: string): "skipped" => {
+      holds.delete(acc.guid);
+      this.setActivity(acc.guid, null);
+      st.lastError = why;
+      return "skipped";
+    };
+    // A bot idling at the login desk is borrowed: the dispatcher lets go of
+    // it and it logs back in for the trip, once the gate's cooldown after the
+    // closed session (or a short rate limit) has passed. A real lockout is
+    // not waited out. The hold keeps the desk from waking it back meanwhile.
+    for (let attempt = 1; ; attempt++) {
+      // A login in progress (the fleet's client map holds the guid before the client is active) is left to finish first.
+      if (!(acc.client && acc.client.active) && sd.deps.clients.has(acc.guid)) {
+        this.setActivity(acc.guid, "storage: waiting for a login in progress");
+        const settle = this.now() + RELEASE_WAIT_MS * 2;
+        while (!(acc.client && acc.client.active) && sd.deps.clients.has(acc.guid) && this.now() < settle) await sleep(250);
+        if (!(acc.client && acc.client.active) && sd.deps.clients.has(acc.guid)) return giveBack("a login is in progress");
+      }
+      if (acc.client && acc.client.active) {
+        this.setActivity(acc.guid, "storage: waiting for the desk to let go");
+        if (!(this.o.release?.(acc) ?? false)) return giveBack("online and busy");
+        const until = this.now() + RELEASE_WAIT_MS;
+        while (acc.client && acc.client.active && this.now() < until) await sleep(250);
+        if (acc.client && acc.client.active) return giveBack("the desk did not let go");
+      }
+      this.setActivity(acc.guid, "storage: waiting for the login cooldown");
+      const lockUntil = this.now() + LOCKOUT_WAIT_MS;
+      while ((sd.deps.gate.lockoutRemainingMs(acc.guid) > 0 || sd.deps.gate.pausedRemainingMs() > 0) && this.now() < lockUntil && !this.cancelled) await sleep(500);
+      if (sd.deps.gate.lockoutRemainingMs(acc.guid) > 0 || sd.deps.gate.pausedRemainingMs() > 0) return giveBack("login-locked");
+      if (!(acc.client && acc.client.active)) break;
+      if (attempt >= 2) return giveBack("the desk kept taking the account back");
+    }
     this.setActivity(acc.guid, "storage: logging in");
     let client: GameClient;
     try {
@@ -548,7 +618,8 @@ export class StorageService {
       holds.delete(acc.guid);
       this.setActivity(acc.guid, null);
       const verdict = e instanceof BringUpRefused ? e.verdict : "failed";
-      st.lastError = `bring-up ${verdict}`;
+      st.lastError = `bring-up ${verdict}: ${(e as Error).message}`;
+      this.log(`storage: ${acc.alias}: ${st.lastError}`);
       return verdict === "failed" ? "failed" : "skipped";
     }
     try {
@@ -559,17 +630,24 @@ export class StorageService {
         st.chars = r.chars;
         st.charsAt = this.now();
       }
-      if (r.view) this.applyView(st, r.view);
+      // What was placed where, as of before this trip: an item taken back out is looked up there.
+      const before = st.containers;
+      if (r.view) {
+        this.applyView(st, r.view);
+        st.untracked = r.untracked;
+      }
       for (const oc of r.outcomes) {
-        const c = st.containers?.[MOVE_CONTAINER[oc.move.kind]];
+        const kind = MOVE_CONTAINER[oc.move.kind];
+        const c = st.containers?.[kind];
         if (oc.ok && c && oc.slot !== null) {
           if (TO_CONTAINER[oc.move.kind]) {
             const inst = Object.values(tracked).find((i) => i.instanceId === oc.move.instanceId);
             if (inst) c.placed[oc.slot] = inst;
           } else {
-            const placed = c.placed[oc.slot];
+            const placed = before?.[kind]?.placed[oc.slot];
             delete c.placed[oc.slot];
-            sd.tracker.expectArrival(acc.botGuid, placed ?? { instanceId: randomUUID().replace(/-/g, ""), itemId: oc.move.itemId, enchantments: [], capturedAt: this.now() / 1000 });
+            if (placed) sd.tracker.expectArrival(acc.botGuid, placed);
+            else if (oc.move.itemId) sd.tracker.expectArrival(acc.botGuid, { instanceId: randomUUID().replace(/-/g, ""), itemId: oc.move.itemId, enchantments: [], capturedAt: this.now() / 1000 });
           }
           st.moves = st.moves.filter((m) => m.id !== oc.move.id);
           this.run.moved++;

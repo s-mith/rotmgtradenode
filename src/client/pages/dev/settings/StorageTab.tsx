@@ -7,12 +7,12 @@ import { ItemSprite } from "@/components/ItemSprite";
 // the Vault, does the moves and reads everything back. Nothing runs by
 // itself. The same tab picks which character an account logs in with.
 
-type Move = { id: string; kind: string; itemId: string; instanceId?: string; slot?: number; queuedAt: number; error?: string };
+type Move = { id: string; kind: string; itemId: string | null; objectType: number; name: string; instanceId?: string; slot?: number; queuedAt: number; error?: string };
 type CharRow = { id: number; objectType: number; className: string; level: number; seasonal: boolean; dead: boolean; backpackSlots: number; hasBackpack: boolean };
 type Counts = { character: { held: number; capacity: number }; vault: { used: number; slots: number }; rack: { used: number; slots: number }; gift: { items: number; tradeable: number }; spoils: { items: number; tradeable: number } };
 type Summary = { alias: string; guid: string; botGuid: string; ign: string; seasonal: boolean; suspended: boolean; busy: boolean; lastVisitAt: number | null; charsAt: number | null; chars: CharRow[] | null; preferredCharId: number | null; moves: Move[]; lastRun: { at: number; ok: boolean; error: string | null; summary: string } | null; lastError: string | null; counts: Counts };
 type SlotRow = { slot: number; objectType: number; itemId: string | null; name: string; tradeable: boolean; placedInstanceId: string | null };
-type Detail = Summary & { character: { slot: number; instanceId: string; itemId: string; name: string; enchantments: number[]; potion: boolean }[]; vault: SlotRow[]; rack: SlotRow[]; gift: SlotRow[]; spoils: SlotRow[] };
+type Detail = Summary & { character: { slot: number; instanceId: string; itemId: string; name: string; enchantments: number[]; potion: boolean }[]; untracked: { slot: number; objectType: number; name: string }[]; vault: SlotRow[]; rack: SlotRow[]; gift: SlotRow[]; spoils: SlotRow[] };
 type Run = { running: boolean; startedAt: number | null; finishedAt: number | null; total: number; done: number; ok: number; failed: number; skipped: number; current: string[]; stoppedReason: string | null; lastErrors: { alias: string; error: string }[]; moved: number };
 
 const POLL_MS = 4000;
@@ -160,7 +160,7 @@ export default function StorageTab({ password }: { password: string }) {
                     <ul className="storage-list">
                       {d.moves.map((m) => (
                         <li key={m.id}>
-                          <span className="storage-item"><ItemSprite name={d.character.find((x) => x.instanceId === m.instanceId)?.name ?? nameFor(d, m)} size={18} /> {nameFor(d, m)}</span>
+                          <span className="storage-item"><ItemSprite name={m.name} size={18} /> {m.name}</span>
                           <span className="muted"> {MOVE_LABEL[m.kind] ?? m.kind}{m.slot !== undefined ? ` (slot ${m.slot})` : ""}{m.error ? ` · last run: ${m.error}` : ""}</span>
                           <button className="nav-link" disabled={busy} onClick={() => void post({ action: "unqueue", botGuid: d.botGuid, ids: [m.id] })}>remove</button>
                         </li>
@@ -208,6 +208,23 @@ export default function StorageTab({ password }: { password: string }) {
                     </ul>
                   )}
                 </div>
+                {d.untracked.length > 0 && (
+                  <div>
+                    <b>Also on the character</b> <span className="muted">{d.untracked.length} item(s) the node does not trade; they take slots</span>
+                    <ul className="storage-list">
+                      {d.untracked.map((u) => {
+                        const queued = d.moves.some((m) => m.instanceId === undefined && m.slot === u.slot && m.kind === "bank");
+                        return (
+                          <li key={u.slot} className="muted">
+                            <span className="storage-item"><ItemSprite name={u.name} size={18} /> {u.name}</span>
+                            <span> · slot {u.slot}</span>
+                            <button className="nav-link" disabled={busy || queued} onClick={() => queue(d.botGuid, { kind: "bank", slot: u.slot })}>{queued ? "queued" : "put in vault"}</button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
                 <div><b>Vault chests</b> <span className="muted">{d.counts.vault.used}/{d.counts.vault.slots} slots</span>{rows(d.vault, "unbank", d, "take out")}</div>
                 <div><b>Potion rack</b> <span className="muted">{d.counts.rack.used}/{d.counts.rack.slots}</span>{rows(d.rack, "rackOut", d, "take out")}</div>
                 <div><b>Gift chest</b> <span className="muted">{d.counts.gift.items} items, {d.counts.gift.tradeable} tradeable</span>{rows(d.gift, "giftOut", d, "take")}</div>
@@ -220,10 +237,4 @@ export default function StorageTab({ password }: { password: string }) {
       })}
     </section>
   );
-}
-
-function nameFor(d: Detail, m: Move): string {
-  if (m.instanceId) return d.character.find((x) => x.instanceId === m.instanceId)?.name ?? m.itemId;
-  const list = m.kind === "unbank" ? d.vault : m.kind === "rackOut" ? d.rack : m.kind === "giftOut" ? d.gift : d.spoils;
-  return list.find((r) => r.slot === m.slot)?.name ?? m.itemId;
 }
