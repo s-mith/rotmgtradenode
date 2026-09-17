@@ -129,3 +129,41 @@ Rules the hub enforces: a request needs an unpaused grant; `withdraw` needs
 role ≥ withdraw-own (co-owner and withdraw-any may also withdraw the
 owner's pool items, which the node checks); `offer-*` needs `trade`;
 `deposit` count ≤ the half's free slots as last published.
+
+## Phase 4: commons (v1 additions)
+
+No points, no currency: contributed items are free to take, bounded by a
+per-node daily cap the hub operator sets. Items stay on the contributor's
+bots; a withdraw is a one-way meeting (the contributor's bot gives, the
+withdrawer's bot receives, nothing comes back), and it counts only when both
+nodes' receipts agree. Types are in `src/shared/hubWire.ts`
+(`CommonsItemWire`, `CommonsListingWire`, `CommonsWithdrawRequest`,
+`CommonsStatusWire`; `RendezvousWire.kind` is `"commons"` for these, with
+`offerId` null and `commons: { nodeId, ref }` set).
+
+Node-signed:
+
+| Method | Path | Body → reply |
+| --- | --- | --- |
+| POST | `/api/v1/commons/publish` | `PublishCommonsRequest` → `{ ok, listed }` replaces the node's listing |
+| GET | `/api/v1/commons?seasonal=0|1` | → `{ items: CommonsListingWire[], status: CommonsStatusWire }` items of nodes seen within 3 minutes, newest first |
+| GET | `/api/v1/commons/mine` | → `{ items: CommonsItemWire[], status }` |
+| POST | `/api/v1/commons/withdraw` | `CommonsWithdrawRequest` → `{ rendezvous: RendezvousWire }` (404 not listed, 409 contributor offline / own item / cap reached / node frozen) |
+
+Rules the hub enforces:
+
+- The contributor is the **giver** (invites, offers the item, expects nothing
+  back); the withdrawer is the **taker** (accepts first). `me.gives` is
+  empty on the taker side; `me.gets` is the item.
+- Taking an item unlists it at once; a failed, aborted or expired meeting
+  lists it again, and does not count against the cap. `done` counts.
+- Receipts match when the giver's `gave` equals the taker's `got` and the
+  taker's `gave` is empty. Mismatch → `disputed`, both nodes frozen, as for
+  swaps.
+- `dailyCap` defaults to 8 and is set on the admin page. A node's own items
+  cannot be withdrawn by itself.
+- A contributor who moves an item away simply stops listing it on the next
+  publish; nothing is owed.
+
+Website: `GET /commons` lists what is available (read-only, needs a
+session).

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { fragmentWithdraw } from "../fragmentWithdraw";
 import { parseDeclaredItems, parseDepositRequest } from "../validation";
 import { planPotionFill, planPotionWithdraw } from "../potionPlan";
-import { epochIndex, pointsAt, roundPoints, NEW_RULES_AT, ENCHANT_RULES_AT, MASK_RULES_AT } from "../leaderboard";
 
 const IDS = { normal: "patk", greater: "gpatk" };
 
@@ -77,22 +76,3 @@ describe("planPotionWithdraw", () => {
   });
 });
 
-describe("epoch scoring", () => {
-  it("buckets by cutoff", () => {
-    expect(epochIndex(NEW_RULES_AT - 1)).toBe(0);
-    expect(epochIndex(NEW_RULES_AT)).toBe(1);
-    expect(epochIndex(ENCHANT_RULES_AT)).toBe(2);
-    expect(epochIndex(MASK_RULES_AT + 1)).toBe(4);
-  });
-  it("prices potions and specials per epoch, with the enchant multiplier from epoch 3", () => {
-    expect(pointsAt("patk", 0)).toBe(0.25);
-    expect(pointsAt("patk", NEW_RULES_AT)).toBe(0.15);
-    expect(pointsAt("sep", NEW_RULES_AT)).toBe(3);
-    expect(pointsAt("ubatk", NEW_RULES_AT, 1)).toBe(1); // no multiplier in epoch 2
-    expect(pointsAt("ubatk", ENCHANT_RULES_AT, 1)).toBe(1.25);
-    expect(pointsAt("superior_mask_of_anubis", MASK_RULES_AT)).toBe(3);
-  });
-  it("rounds on a ten-thousandths grid", () => {
-    expect(roundPoints(0.1 + 0.2)).toBe(0.3);
-  });
-});

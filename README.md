@@ -27,6 +27,11 @@ This is the successor to the RotMG Communism pool. The design lives in
   The hub schedules a meeting on one server, both bots swap in the game's
   trade window, and the hub records the swap only when both nodes' receipts
   agree. Control panel → Economy → Offers.
+- **The commons** (needs the hub). Put pool items in the commons and anyone
+  on the hub can take them, free, a few per node per day (the hub operator
+  sets the cap). Items stay on your accounts until someone asks; then your
+  bot hands one over in the trade window and nothing comes back. Vault page
+  → Commons.
 - **Shared vaults** (needs the hub). Give a hub user a personal vault on
   your node: a slot quota per half, a role, and optionally the right to
   trade with those items. They deposit, withdraw and trade from the hub

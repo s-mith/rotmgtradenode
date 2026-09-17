@@ -43,6 +43,7 @@ installWishlistScanner();
 let fleet: { stop(): void; proxies: import("@/relay/fleet/proxyPool").ProxyPool; nodeSettings: import("@/node/settings").NodeSettingsStore } | null = null;
 let swapsRef: { stop(): void } | null = null;
 let guestsRef: { stop(): void } | null = null;
+let commonsRef: { stop(): void } | null = null;
 if (process.env.RELAY_EMBEDDED === "1") {
   const [{ Fleet }, { createControlPlane, poolPayload }, { registerEmbeddedRelay, registerEmbeddedPool }, { LocalSiteApi }, { notifyPoolChanged }] = await Promise.all([
     import("@/relay/fleet/fleet"),
@@ -70,6 +71,12 @@ if (process.env.RELAY_EMBEDDED === "1") {
   registerEmbeddedGuests(guestsSvc);
   guestsSvc.start();
   guestsRef = guestsSvc;
+  // The commons (design doc §6.3): free hand-overs, listed on the hub.
+  const [{ CommonsCoordinator }, { registerEmbeddedCommons }] = await Promise.all([import("@/node/commons"), import("@/lib/devauth")]);
+  const commonsSvc = new CommonsCoordinator({ db: getDb, hub: f.hub, swaps, pool: () => poolPayload(f), log: (l) => console.log(l) });
+  registerEmbeddedCommons(commonsSvc);
+  commonsSvc.start();
+  commonsRef = commonsSvc;
 }
 
 // Optional: the onboarding service (tutorial walks for owner-added
@@ -106,6 +113,7 @@ function shutdown(signal: string) {
   shuttingDown = true;
   console.log(`[server] ${signal} received, shutting down`);
   stopScheduler();
+  commonsRef?.stop();
   swapsRef?.stop();
   guestsRef?.stop();
   fleet?.stop();

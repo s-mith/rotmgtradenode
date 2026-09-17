@@ -128,7 +128,6 @@ export function claimWithdraw(db: Database.Database, botGuid: string, inventory:
   const inv = new Map<string, number>();
   for (const it of inventory) if (ITEM_BY_ID.has(it.itemId) && Number.isInteger(it.qty) && it.qty > 0) inv.set(it.itemId, (inv.get(it.itemId) ?? 0) + it.qty);
   const held = new Set(heldInstances);
-  if (!inv.size && !held.size) return null;
   let out: Assignment | null = null;
   let groupId: string | null = null;
   db.transaction(() => {
@@ -148,6 +147,8 @@ export function claimWithdraw(db: Database.Database, botGuid: string, inventory:
         continue;
       }
       let needed: string[] | null = null;
+      // A swap row pinned to a bot (a receive-only side has no items to match on) is that bot's alone.
+      if (cand.swap_json && cand.target_bot_guid && cand.target_bot_guid !== botGuid) continue;
       if (cand.instance_ids_json !== null) {
         if (cand.target_bot_guid !== botGuid) continue;
         try {
@@ -403,12 +404,15 @@ function parseSwap(raw: string | null): SwapSpec | null {
  * same window. The dispatcher routes it like a per-instance withdraw.
  */
 export function createSwapJob(db: Database.Database, job: { server: string; botGuid: string; partnerIgn: string; seasonal: boolean; give: ItemQty[]; giveInstanceIds: string[]; swap: SwapSpec }): number {
-  if (!job.give.length || !job.giveInstanceIds.length) throw new QueueError("a swap side must give at least one item");
+  // A commons hand-over's receiving side gives nothing: an empty-items row
+  // pinned to the receiving bot, which only waits and accepts.
+  const receiveOnly = !job.give.length && job.swap.role === "take" && job.swap.gets.length > 0;
+  if (!receiveOnly && (!job.give.length || !job.giveInstanceIds.length)) throw new QueueError("a swap side must give at least one item");
   if (!job.partnerIgn) throw new QueueError("partner IGN required");
   const now = Date.now();
   const r = db.prepare(`INSERT INTO withdraw_requests (ign, ign_lower, server, items_json, status, target_bot_guid, instance_ids_json, seasonal, vault_user_id, created_at, updated_at, swap_json)
     VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`)
-    .run(job.partnerIgn, job.partnerIgn.toLowerCase(), job.server, JSON.stringify(job.give), job.botGuid, JSON.stringify(job.giveInstanceIds), job.seasonal ? 1 : 0, job.swap.vaultUserId ?? null, now, now, JSON.stringify(job.swap));
+    .run(job.partnerIgn, job.partnerIgn.toLowerCase(), job.server, JSON.stringify(job.give), job.botGuid, receiveOnly ? null : JSON.stringify(job.giveInstanceIds), job.seasonal ? 1 : 0, job.swap.vaultUserId ?? null, now, now, JSON.stringify(job.swap));
   const id = Number(r.lastInsertRowid);
   recordEvent(db, "withdraw", id, "swap-queued", job.botGuid, { rendezvousId: job.swap.rendezvousId, role: job.swap.role });
   return id;

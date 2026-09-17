@@ -17,7 +17,7 @@ import { useEffect, useRef } from "react";
 const DEBOUNCE_MS = 250;
 
 export function useLiveUpdates(handlers: {
-  /** A ledger row landed — Recent Activity and the leaderboard are stale. */
+  /** A ledger row landed — Recent Activity is stale. */
   onTx?: () => void;
   /** The fleet's inventory changed — the pool grid is stale. */
   onPool?: () => void;

@@ -66,7 +66,7 @@ describe("SwapCoordinator", () => {
 
   it("previews the plainest fit for someone else's offer, accepts, and queues the swap row from the rendezvous", async () => {
     const rv: RendezvousWire = {
-      id: 9, offerId: 5, server: "USEast", seasonal: true, state: "meet", createdAt: 1, deadlineAt: Date.now() + 3_600_000,
+      id: 9, kind: "swap", offerId: 5, server: "USEast", seasonal: true, state: "meet", createdAt: 1, deadlineAt: Date.now() + 3_600_000,
       me: { role: "take", botIgn: "MyBot", gives: [{ ref: "r1", itemId: "pdef", enchants: [], count: 0 }], gets: [{ itemId: "patk", qty: 1 }] },
       partner: { botIgn: "TheirBot", poster: "Them" }, reported: { mine: false, partner: false },
     };
@@ -105,7 +105,7 @@ describe("SwapCoordinator", () => {
 
   it("a meeting past its deadline with no trade is aborted from the node", async () => {
     let now = 1000;
-    const rv: RendezvousWire = { id: 4, offerId: 8, server: "USEast", seasonal: true, state: "meet", createdAt: 1, deadlineAt: 5000, me: { role: "give", botIgn: "MyBot", gives: [{ ref: "r1", itemId: "patk", enchants: [], count: 0 }], gets: [{ itemId: "pdef", qty: 1 }] }, partner: { botIgn: "TheirBot", poster: "Them" }, reported: { mine: false, partner: false } };
+    const rv: RendezvousWire = { id: 4, kind: "swap", offerId: 8, server: "USEast", seasonal: true, state: "meet", createdAt: 1, deadlineAt: 5000, me: { role: "give", botIgn: "MyBot", gives: [{ ref: "r1", itemId: "patk", enchants: [], count: 0 }], gets: [{ itemId: "pdef", qty: 1 }] }, partner: { botIgn: "TheirBot", poster: "Them" }, reported: { mine: false, partner: false } };
     const { hub, calls } = fakeHub({ onCall: (m, p) => (m === "GET" && p === "/api/v1/rendezvous/mine" ? { rendezvous: [rv] } : m === "POST" && p === "/api/v1/offers" ? { offer: { id: 8, status: "open" } } : m === "POST" && p === "/api/v1/rendezvous/4/abort" ? { ok: true, state: "aborted" } : undefined) });
     const c = new SwapCoordinator({ db: () => db, hub, pool, log: () => {}, now: () => now });
     await c.createOffer({ instanceIds: ["i-patk"], want: [{ itemId: "pdef", qty: 1, slotsMin: 0, slotsExact: null, enchants: [] }], server: "USEast" });
@@ -120,7 +120,7 @@ describe("SwapCoordinator", () => {
 
   it("a rendezvous the hub aborted cancels the local row", async () => {
     let state: RendezvousWire["state"] = "meet";
-    const rv = (): RendezvousWire => ({ id: 3, offerId: 8, server: "USEast", seasonal: true, state, createdAt: 1, deadlineAt: Date.now() + 3_600_000, me: { role: "give", botIgn: "MyBot", gives: [{ ref: "r1", itemId: "patk", enchants: [], count: 0 }], gets: [{ itemId: "pdef", qty: 1 }] }, partner: { botIgn: "TheirBot", poster: "Them" }, reported: { mine: false, partner: false } });
+    const rv = (): RendezvousWire => ({ id: 3, kind: "swap", offerId: 8, server: "USEast", seasonal: true, state, createdAt: 1, deadlineAt: Date.now() + 3_600_000, me: { role: "give", botIgn: "MyBot", gives: [{ ref: "r1", itemId: "patk", enchants: [], count: 0 }], gets: [{ itemId: "pdef", qty: 1 }] }, partner: { botIgn: "TheirBot", poster: "Them" }, reported: { mine: false, partner: false } });
     const { hub } = fakeHub({ onCall: (m, p) => (m === "GET" && p === "/api/v1/rendezvous/mine" ? { rendezvous: [rv()] } : m === "POST" && p === "/api/v1/offers" ? { offer: { id: 8, status: "open" } } : undefined) });
     const c = new SwapCoordinator({ db: () => db, hub, pool, log: () => {} });
     await c.createOffer({ instanceIds: ["i-patk"], want: [{ itemId: "pdef", qty: 1, slotsMin: 0, slotsExact: null, enchants: [] }], server: "USEast" });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PoolInstance } from "@/lib/poolWire";
 import { WITHDRAW_SERVERS } from "@/lib/servers";
 import { ItemSprite } from "./ItemSprite";
+import { Slot, Ticket, ago, left } from "./TradeBits";
 import { TagSearch, type SearchTag, type Suggestions } from "./TagSearch";
 
 // Trades (design doc §6.2) as a bookmark on the vault page. Every trade is
@@ -14,67 +15,15 @@ type OfferItem = { ref: string; itemId: string; name: string; enchants: number[]
 type WantLine = { itemId: string; name: string; qty: number; slotsMin: number; slotsExact: number | null; enchants: unknown[] };
 export type Offer = { id: number; poster: string; mine: boolean; botIgn: string; seasonal: boolean; server: string; give: OfferItem[]; want: WantLine[]; status: string; createdAt: number; expiresAt: number };
 type Limits = { maxOpenOffers: number; maxItemsPerSide: number; completedSwaps: number; frozen: boolean } | null;
-type Rendezvous = { id: number; offerId: number; server: string; state: string; deadlineAt: number; me: { role: string; botIgn: string; gives: OfferItem[]; gets: { itemId: string; qty: number }[] }; partner: { botIgn: string; poster: string }; reported: { mine: boolean; partner: boolean }; requestId: number | null; localState: string | null };
+type Rendezvous = { id: number; kind: "swap" | "commons"; offerId: number | null; server: string; state: string; deadlineAt: number; me: { role: string; botIgn: string; gives: OfferItem[]; gets: { itemId: string; qty: number }[] }; partner: { botIgn: string; poster: string }; reported: { mine: boolean; partner: boolean }; requestId: number | null; localState: string | null };
 type Status = { linked: boolean; lastPollAt: number | null; lastError: string | null; rendezvous: Rendezvous[] };
 type Pick = { instanceId: string; itemId: string; name: string; enchantIds: number[]; botIgn: string };
 type Catalog = { itemId: string; itemName: string }[];
 
 const HEADERS = { "Content-Type": "application/json" };
 const NO_SUGGEST: Suggestions = { items: [], enchants: [], effects: [] };
-const ago = (ms: number) => {
-  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
-  return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)}m ago` : s < 86400 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`;
-};
-const left = (ms: number) => {
-  const s = Math.round((ms - Date.now()) / 1000);
-  if (s <= 0) return "expired";
-  return s < 3600 ? `${Math.ceil(s / 60)} min left` : `${Math.round(s / 3600)} h left`;
-};
-
-/** One item slot: a sprite with optional badges. `sprite` is a data URL from the pool; otherwise the atlas by name. */
-function Slot({ name, sprite, count, qty, filter, title, onRemove, dim }: { name?: string; sprite?: string | null; count?: number; qty?: number; filter?: string; title?: string; onRemove?: () => void; dim?: boolean }) {
-  if (!name) return <span className="trade-slot empty" />;
-  return (
-    <span className={"trade-slot" + (dim ? " dim" : "")} title={title ?? name}>
-      {sprite ? <img src={sprite} alt="" className="trade-slot-img" /> : <ItemSprite name={name} className="trade-slot-img" fallbackClassName="trade-slot-fallback" />}
-      {count ? <span className="trade-badge ench">{count}</span> : null}
-      {qty && qty > 1 ? <span className="trade-badge qty">×{qty}</span> : null}
-      {filter ? <span className="trade-badge filter">{filter}</span> : null}
-      {onRemove && <button className="trade-slot-x" type="button" onClick={onRemove} aria-label={`remove ${name}`}>×</button>}
-    </span>
-  );
-}
-
-/** A row of slots, padded to `min` empties so both sides of a ticket line up. */
-function Slots({ children, min = 8, count }: { children: React.ReactNode[]; min?: number; count: number }) {
-  const pad = Math.max(0, min - count);
-  return (
-    <div className="trade-slots">
-      {children}
-      {Array.from({ length: pad }, (_, i) => <Slot key={`e${i}`} />)}
-    </div>
-  );
-}
-
 const filterBadge = (w: { slotsMin: number; slotsExact: number | null; enchants?: unknown[] }) =>
   w.slotsExact !== null ? `=${w.slotsExact}` : w.slotsMin > 0 ? `${w.slotsMin}+` : (w.enchants?.length ?? 0) > 0 ? "f" : undefined;
-
-/** The two-sided ticket every trade is drawn as. */
-function Ticket({ leftTitle, rightTitle, left, right, min = 8 }: { leftTitle: React.ReactNode; rightTitle: React.ReactNode; left: React.ReactNode[]; right: React.ReactNode[]; min?: number }) {
-  return (
-    <div className="trade-ticket">
-      <div className="trade-side">
-        <div className="trade-side-title">{leftTitle}</div>
-        <Slots min={min} count={left.length}>{left}</Slots>
-      </div>
-      <div className="trade-arrow" aria-hidden="true">⇄</div>
-      <div className="trade-side">
-        <div className="trade-side-title">{rightTitle}</div>
-        <Slots min={min} count={right.length}>{right}</Slots>
-      </div>
-    </div>
-  );
-}
 
 export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted, maxTray, catalog }: {
   tray: (PoolInstance | null)[];
@@ -290,10 +239,11 @@ export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted
               <article key={r.id} className="trade-card">
                 <header className="trade-card-head">
                   <b>meeting #{r.id}</b>
-                  <span className="muted">· offer #{r.offerId} · {r.server}{r.requestId !== null ? ` · job #${r.requestId}` : ""}</span>
+                  <span className="muted">· {r.kind === "commons" ? "commons hand-over" : `offer #${r.offerId}`} · {r.server}{r.requestId !== null ? ` · job #${r.requestId}` : ""}</span>
                   <span className={"trade-state " + st.cls}>{st.text}</span>
                 </header>
                 <Ticket
+                  arrow={r.kind === "commons" ? (r.me.role === "give" ? "→" : "←") : "⇄"}
                   leftTitle={<>{r.me.botIgn} <span className="muted">(you, {r.me.role === "give" ? "invites" : "accepts first"})</span> gives</>}
                   rightTitle={<>{r.partner.botIgn} <span className="muted">({r.partner.poster})</span> gives</>}
                   left={r.me.gives.map((g) => <Slot key={g.ref} name={g.name ?? nameOf.get(g.itemId) ?? g.itemId} count={g.count} />)}

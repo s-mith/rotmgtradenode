@@ -9,6 +9,7 @@ import { applyPoolWire, emptyPoolState, instancesFromState, type PoolInstance, t
 import LoginPanel from "./LoginPanel";
 import WishlistPanel from "./WishlistPanel";
 import TradePanel from "./TradePanel";
+import CommonsPanel from "./CommonsPanel";
 import OpenRequests from "./OpenRequests";
 import PlayerName from "./PlayerName";
 import { ItemSprite } from "./ItemSprite";
@@ -302,6 +303,8 @@ export type Tab = "deposit" | "withdraw" | "potions" | "claim" | "donate";
 export type { PoolInstance, Rarity };
 
 export type PoolKind = "seasonal" | "nonseasonal" | "myvault" | "wishlist";
+/** What the right column is for while a pool tab is open: withdrawing, offering, or contributing. */
+type Desk = "none" | "trades" | "commons";
 
 // GET /api/vault: the logged-in account's personal storage.
 export type VaultItemView = {
@@ -379,9 +382,6 @@ type CatalogEntry = {
   // by-itemId lookup, per-instance filtering in the withdraw grid.
   category: string;
   subtype: string | null;
-  // Leaderboard points one unenchanted unit earns when deposited, under
-  // the current pricing epoch (server-computed).
-  points: number;
 };
 
 // Sort orders offered above the grid. "default" keeps the server order
@@ -390,12 +390,11 @@ type CatalogEntry = {
 // bonuses included on the withdraw grid).
 const STAT_SORTS = ["ATT", "DEF", "SPD", "DEX", "VIT", "WIS", "HP", "MP"] as const;
 type StatSort = (typeof STAT_SORTS)[number];
-type SortKey = "feed" | "qty" | "points" | "rarity" | `stat:${StatSort}`;
+type SortKey = "feed" | "qty" | "rarity" | `stat:${StatSort}`;
 
 const SORT_LABELS: Record<Exclude<SortKey, `stat:${StatSort}`>, string> = {
   feed: "Feed Power",
   qty: "Quantity",
-  points: "Points",
   rarity: "Slots",
 };
 const STAT_SORT_LABELS: Record<StatSort, string> = {
@@ -440,7 +439,7 @@ export default function Vault() {
   const [poolErr, setPoolErr] = useState<string | null>(null);
   // Two refresh signals, because they cost very different amounts.
   // poolKey refetches /api/pool — the whole fleet's inventory, ~300ms.
-  // feedKey only repaints Recent Activity and the leaderboard. A trade
+  // feedKey only repaints Recent Activity. A trade
   // changes both; saving a name effect changes only the names in the feeds,
   // and must not re-download the pool to recolour one row.
   const [poolKey, setPoolKey] = useState(0);
@@ -458,9 +457,11 @@ export default function Vault() {
   // non-seasonal vault, each on its own bot.
   const [vaultHalf, setVaultHalf] = useState<VaultHalfKind>("seasonal");
   const vaultHalfTouched = useRef(false);
-  // Trades: the pool grid stays as the picker, the tray feeds an offer instead of a withdraw.
-  const [tradeMode, setTradeMode] = useState(false);
-  const view: "pool" | "vault" | "wishlist" | "trades" = pool === "myvault" ? "vault" : pool === "wishlist" ? "wishlist" : tradeMode ? "trades" : "pool";
+  // Trades and the commons: the pool grid stays as the picker, the tray feeds
+  // an offer or a contribution instead of a withdraw.
+  const [desk, setDesk] = useState<Desk>("none");
+  const tradeMode = desk !== "none";
+  const view: "pool" | "vault" | "wishlist" | "trades" | "commons" = pool === "myvault" ? "vault" : pool === "wishlist" ? "wishlist" : desk === "trades" ? "trades" : desk === "commons" ? "commons" : "pool";
   const maxTray = tradeMode ? MAX_TRADE_TRAY : MAX_TRAY;
   const [tray, setTray] = useState<string[]>([]);
   const [query, setQuery] = useState("");
@@ -606,7 +607,7 @@ export default function Vault() {
 
   // Live updates: the same two signals the local user's own trade bumps, but
   // driven by everyone else's activity via /api/live. A trade anywhere repaints
-  // Recent Activity and the leaderboard; a change in the fleet's inventory
+  // Recent Activity; a change in the fleet's inventory
   // repaints the grid. The pool refetch is answered from the server's shared
   // snapshot, so this stays cheap no matter how many people have the page open.
   useLiveUpdates({ onTx: reloadFeeds, onPool: reloadPool });
@@ -742,10 +743,10 @@ export default function Vault() {
     };
   }, [view]);
 
-  const switchPool = useCallback((next: PoolKind, trades = false) => {
+  const switchPool = useCallback((next: PoolKind, nextDesk: Desk = "none") => {
     setPool(next);
     if (next !== "myvault" && next !== "wishlist") setLastPoolKind(next);
-    setTradeMode(trades && next !== "myvault" && next !== "wishlist");
+    setDesk(next === "myvault" || next === "wishlist" ? "none" : nextDesk);
     setTray([]);
     // Claim and potions belong to the pool tabs, donate to My vault; land on
     // withdraw when the current tab has no meaning where we're going.
@@ -797,7 +798,7 @@ export default function Vault() {
       const prevSet = new Set(prev);
       let candidates = stackInstances.filter((i) => !prevSet.has(i.instanceId));
       if (candidates.length === 0) return prev;
-      if (tradeMode && prev.length) {
+      if (desk === "trades" && prev.length) {
         // One offer trades from one account: prefer a copy on the bot already in the tray.
         const bot = instances.find((i) => i.instanceId === prev[0])?.botGuid;
         const same = candidates.filter((i) => i.botGuid === bot);
@@ -815,7 +816,7 @@ export default function Vault() {
             candidates[0];
       return [...prev, match.instanceId];
     });
-  }, [instances, maxTray, tradeMode]);
+  }, [instances, maxTray, desk]);
 
   const removeFromTrayAt = useCallback((index: number) => {
     setTray((prev) => prev.filter((_, i) => i !== index));
@@ -823,13 +824,6 @@ export default function Vault() {
 
   const clearTray = useCallback(() => setTray([]), []);
 
-  // itemId → deposit points, for the "points" sort in the withdraw grid
-  // (stacks carry no points field of their own).
-  const catalogPoints = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const c of catalog) m.set(c.itemId, c.points ?? 0);
-    return m;
-  }, [catalog]);
   // itemId → category, for the consumable rail in the withdraw grid.
   const catalogCategory = useMemo(() => {
     const m = new Map<string, string>();
@@ -952,9 +946,6 @@ export default function Vault() {
       );
     } else if (sort === "qty") {
       list.sort((a, b) => b.instances.length - a.instances.length);
-    } else if (sort === "points") {
-      const pts = (s: Stack) => catalogPoints.get(s.rep.itemId) ?? 0;
-      list.sort((a, b) => pts(b) - pts(a));
     } else if (sort === "rarity") {
       list.sort((a, b) => RARITY_RANK[b.rep.rarity] - RARITY_RANK[a.rep.rarity]);
     } else if (statSortOf(sort)) {
@@ -963,7 +954,7 @@ export default function Vault() {
       list.sort((a, b) => total(b) - total(a) || a.rep.itemName.localeCompare(b.rep.itemName));
     }
     return list;
-  }, [filtered, sort, catalogPoints, stackByType]);
+  }, [filtered, sort, stackByType]);
 
   // Deposit mode shows aggregate stock (one tile per CATALOG item with ×N
   // count). Seeded from the full catalog so items the pool accepts but is
@@ -977,7 +968,6 @@ export default function Vault() {
     sprite: string | null;
     rarity: Rarity;
     count: number;
-    points: number; // deposit value of one unenchanted unit, current epoch
     bots: string[]; // distinct bot IGNs holding any of this stack
   };
   const filteredAggregate = useMemo<AggregateTile[]>(() => {
@@ -1001,7 +991,6 @@ export default function Vault() {
         itemId: c.itemId,
         itemName: c.itemName,
         sprite: c.sprite,
-        points: c.points ?? 1,
         // Empty stock has no enchant tier — default rarity. Filled in below
         // if instances actually exist (the existing-stock rarity rule was
         // per-physical-item, so an aggregate doesn't have a single rarity;
@@ -1033,8 +1022,6 @@ export default function Vault() {
       );
     } else if (sort === "qty") {
       list.sort((a, b) => b.count - a.count || a.itemName.localeCompare(b.itemName));
-    } else if (sort === "points") {
-      list.sort((a, b) => b.points - a.points || a.itemName.localeCompare(b.itemName));
     } else if (statSortOf(sort)) {
       const which = statSortOf(sort)!;
       list.sort((a, b) => statTotal(b.itemName, [], which) - statTotal(a.itemName, [], which) || a.itemName.localeCompare(b.itemName));
@@ -1063,7 +1050,7 @@ export default function Vault() {
           <button
             type="button"
             className={"bookmark" + (view === "pool" ? " active" : "")}
-            onClick={() => switchPool(lastPoolKind, false)}
+            onClick={() => switchPool(lastPoolKind, "none")}
           >
             The Pool
           </button>
@@ -1086,14 +1073,21 @@ export default function Vault() {
           <button
             type="button"
             className={"bookmark" + (view === "trades" ? " active" : "")}
-            onClick={() => switchPool(lastPoolKind, true)}
+            onClick={() => switchPool(lastPoolKind, "trades")}
           >
             Trades <span className="bookmark-tag">beta</span>
+          </button>
+          <button
+            type="button"
+            className={"bookmark" + (view === "commons" ? " active" : "")}
+            onClick={() => switchPool(lastPoolKind, "commons")}
+          >
+            Commons <span className="bookmark-tag">beta</span>
           </button>
         </nav>
         <section className="panel pool-panel bookmarked">
         <div className="pool-head">
-          <h2>{pool === "myvault" ? "My Vault" : pool === "wishlist" ? "My Wishlist" : tradeMode ? "Trades" : "The Pool"}</h2>
+          <h2>{pool === "myvault" ? "My Vault" : pool === "wishlist" ? "My Wishlist" : desk === "trades" ? "Trades" : desk === "commons" ? "Commons" : "The Pool"}</h2>
           <span className="pool-count">
             {pool === "wishlist"
                 ? ""
@@ -1108,17 +1102,17 @@ export default function Vault() {
                   : `${poolInstances.length} item${poolInstances.length === 1 ? "" : "s"}`}
           </span>
         </div>
-        {(view === "pool" || view === "trades") && (
+        {(view === "pool" || view === "trades" || view === "commons") && (
           <div className="pool-tabs">
             <button
               className={"nav-link" + (pool === "seasonal" ? " active" : "")}
-              onClick={() => switchPool("seasonal", tradeMode)}
+              onClick={() => switchPool("seasonal", desk)}
             >
               Seasonal
             </button>
             <button
               className={"nav-link" + (pool === "nonseasonal" ? " active" : "")}
-              onClick={() => switchPool("nonseasonal", tradeMode)}
+              onClick={() => switchPool("nonseasonal", desk)}
             >
               Non-seasonal
             </button>
@@ -1348,18 +1342,22 @@ export default function Vault() {
       </div>
 
       <aside style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {tradeMode && (
+        {desk === "trades" && (
           <div className="panel trade-panel-wrap">
             <h2>Trade desk</h2>
             <TradePanel tray={trayInstances} onRemove={removeFromTrayAt} onClear={clearTray} seasonal={ctxSeasonal} onPosted={reload} maxTray={MAX_TRADE_TRAY} catalog={catalog} />
           </div>
         )}
+        {desk === "commons" && (
+          <div className="panel trade-panel-wrap">
+            <h2>Commons</h2>
+            <CommonsPanel tray={trayInstances} onRemove={removeFromTrayAt} onClear={clearTray} seasonal={ctxSeasonal} onChanged={reload} maxTray={MAX_TRADE_TRAY} />
+          </div>
+        )}
         <div className="panel">
           <h2>
             {sessionIgn ? (
-              <a className="profile-name-link" href={`/u/${encodeURIComponent(sessionIgn)}`}>
-                <PlayerName ign={sessionIgn} />
-              </a>
+              <PlayerName ign={sessionIgn} />
             ) : (
               "Login"
             )}
@@ -1856,16 +1854,15 @@ function FitBadge({
 }
 
 // Legend tile pinned to the deposit grid's first slot: labels the badge
-// positions instead of showing an item, so the number in each corner of
-// the real tiles explains itself.
+// position instead of showing an item, so the number in the corner of the
+// real tiles explains itself.
 function ExampleTile() {
   return (
     <div
       className="pool-tile aggregate-tile example-tile"
-      title={"How to read these tiles: top-left is the leaderboard points one deposit earns (enchanted copies earn more), bottom-right is how many are in the pool."}
-      aria-label="Legend: top-left shows points earned per deposit, bottom-right shows quantity in pool"
+      title={"How to read these tiles: bottom-right is how many are in the pool."}
+      aria-label="Legend: bottom-right shows quantity in pool"
     >
-      <FitBadge className="points-badge" corner="tl">points</FitBadge>
       <span className="example-tile-label">Example</span>
       <FitBadge className="aggregate-count" corner="br">quantity</FitBadge>
     </div>
@@ -1886,7 +1883,6 @@ const AggregateTile = memo(function AggregateTile({
     sprite: string | null;
     rarity: Rarity;
     count: number;
-    points: number;
     bots: string[];
   };
 }) {
@@ -1899,16 +1895,15 @@ const AggregateTile = memo(function AggregateTile({
       ? `${agg.itemName} ×0 (accepted, but pool is out)`
       : `${agg.itemName} ×${agg.count}` +
         (agg.bots.length > 0 ? `\nheld by ${agg.bots.join(", ")}` : "")) +
-    `\nworth ${agg.points} pt${agg.points === 1 ? "" : "s"} deposited (enchanted copies earn more)`;
+    "";
   return (
     <div
       className={
         "pool-tile rarity-" + agg.rarity + " aggregate-tile" + (empty ? " aggregate-empty" : "")
       }
       title={title}
-      aria-label={`${agg.itemName} ×${agg.count}, worth ${agg.points} point${agg.points === 1 ? "" : "s"}`}
+      aria-label={`${agg.itemName} ×${agg.count}`}
     >
-      <FitBadge className="points-badge" corner="tl">{agg.points}</FitBadge>
       <ItemSprite name={agg.itemName} />
       <FitBadge className="aggregate-count" corner="br">×{agg.count}</FitBadge>
     </div>

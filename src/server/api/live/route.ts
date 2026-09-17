@@ -4,7 +4,7 @@ import { listenerCount, subscribe, type LiveEvent } from "@/lib/liveBus";
 // GET /api/live — Server-Sent Events stream telling browsers when to refetch.
 //
 // Deliberately carries no data, only "something changed": `tx` for a new
-// ledger row (Recent Activity + leaderboard) and `pool` for a change in the
+// ledger row (Recent Activity) and `pool` for a change in the
 // fleet's inventory (the grid). The client refetches the endpoint it already
 // knows how to call, so there's exactly one shape of pool/activity payload in
 // the codebase instead of one for load and another for updates. A pool

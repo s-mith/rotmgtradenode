@@ -8,8 +8,6 @@
 // against it) and for callers that want the list in-process.
 import { CATALOG, ITEM_BY_ID } from "./catalog";
 import { enchantName } from "./enchants";
-import { pointsAt } from "./leaderboard";
-import { pricingSnapshot } from "./itemPricing";
 import type { PyrelayPool } from "./devauth";
 import { rarityFor, type Rarity } from "./poolWire";
 
@@ -28,25 +26,14 @@ export type PoolInstance = {
   rarity: Rarity;
 };
 
-/** Deposit-grid catalog projection, shared by the live and mock paths.
- *
- * This IS the list of what the pool accepts, so delisted items are dropped
- * here (see lib/itemPricing.ts) — the deposit grid is built from it, and an
- * item the operator has stopped taking should not be advertised.
- *
- * It deliberately does not touch projectInstances below: a delisted item
- * already sitting on a bot stays in the pool view and stays withdrawable.
- * Hiding it there would strand it, since nothing else can take it off the bot.
- */
+/** Deposit-grid catalog projection: every item the pool accepts. */
 export function projectCatalog() {
-  const { delisted } = pricingSnapshot();
-  return CATALOG.filter((c) => !delisted.has(c.id)).map((c) => ({
+  return CATALOG.map((c) => ({
     itemId: c.id,
     itemName: c.name,
     sprite: null,
     category: c.category,
     subtype: c.subtype ?? null,
-    points: pointsAt(c.id, Date.now(), 0),
   }));
 }
 

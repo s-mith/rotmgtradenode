@@ -29,44 +29,9 @@ export default function LoginPanel({
   const [copied, setCopied] = useState(false);
   const [igns, setIgns] = useState<Linked[]>([]);
   const [accountBusy, setAccountBusy] = useState(false);
-  const [stats, setStats] = useState<{
-    points: number;
-    deposited: number;
-    withdrawn: number;
-    rank: number | null;
-    totalPlayers: number;
-  } | null>(null);
-
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Once logged in, pull the player's totals for the card. A comrade with no
-  // ledger yet 404s — treat that as all-zeros rather than an error.
-  useEffect(() => {
-    if (!ign) {
-      setStats(null);
-      return;
-    }
-    let cancelled = false;
-    fetch(`/api/profile?ign=${encodeURIComponent(ign)}`)
-      .then((r) => (r.ok ? r.json() : { points: 0, deposited: 0, withdrawn: 0, rank: null, totalPlayers: 0 }))
-      .then((d) => {
-        if (cancelled) return;
-        setStats({
-          points: Number(d.points ?? 0),
-          deposited: Number(d.deposited ?? 0),
-          withdrawn: Number(d.withdrawn ?? 0),
-          rank: d.rank == null ? null : Number(d.rank),
-          totalPlayers: Number(d.totalPlayers ?? 0),
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setStats({ points: 0, deposited: 0, withdrawn: 0, rank: null, totalPlayers: 0 });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [ign]);
 
   // The account's linked characters, whenever the acting character changes.
   useEffect(() => {
@@ -211,43 +176,8 @@ export default function LoginPanel({
   );
 
   if (ign) {
-    // Points can be fractional (e.g. 75.5); deposit/withdraw counts are whole.
-    const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
     return (
       <div className="login">
-        <div className="login-stats">
-          <div className="login-stat">
-            <span className="login-stat-val">
-              {stats ? (
-                stats.rank != null ? (
-                  <>
-                    #{stats.rank}
-                    <span className="login-stat-rank-sep">/</span>
-                    <span className="login-stat-rank-total">{stats.totalPlayers}</span>
-                  </>
-                ) : (
-                  "—"
-                )
-              ) : (
-                "…"
-              )}
-            </span>
-            <span className="login-stat-label">rank</span>
-          </div>
-          <div className="login-stat">
-            <span className="login-stat-val">{stats ? fmt(stats.points) : "…"}</span>
-            <span className="login-stat-label">points</span>
-          </div>
-          <div className="login-stat">
-            <span className="login-stat-val">{stats ? fmt(stats.deposited) : "…"}</span>
-            <span className="login-stat-label">deposits</span>
-          </div>
-          <div className="login-stat">
-            <span className="login-stat-val">{stats ? fmt(stats.withdrawn) : "…"}</span>
-            <span className="login-stat-label">withdraws</span>
-          </div>
-        </div>
-
         {/* Every character on this account. The session acts as one of them at
             a time; switching re-mints the cookie for that name, no new /tell. */}
         <div className="login-chars">

@@ -38,7 +38,6 @@ export interface WireCatalogEntry {
   sprite: string | null;
   category: string;
   subtype: string | null;
-  points: number;
 }
 
 export interface PoolWireFull {

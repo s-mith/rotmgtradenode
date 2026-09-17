@@ -606,8 +606,8 @@ export default function TxForm({
             {tab === "claim"
               ? vaultUnallocated
                 ? `You have no vault slots allocated to the ${seasonal ? "seasonal" : "non-seasonal"} pool. Open My Vault and give its ${seasonal ? "Seasonal" : "Non-seasonal"} tab some slots first.`
-                : `Click items in the pool to add them. Claiming moves them into your ${seasonal ? "seasonal" : "non-seasonal"} vault instantly and costs the same points as withdrawing them${vault ? ` (${Math.max(0, vault.slots - vault.used)} slot${vault.slots - vault.used === 1 ? "" : "s"} free)` : ""}.`
-              : "Click items in your vault to add them. Donating gives them to the pool instantly and earns the same points as depositing them."}
+                : `Click items in the pool to add them. Claiming moves them into your ${seasonal ? "seasonal" : "non-seasonal"} vault instantly${vault ? ` (${Math.max(0, vault.slots - vault.used)} slot${vault.slots - vault.used === 1 ? "" : "s"} free)` : ""}.`
+              : "Click items in your vault to add them. Donating gives them back to the pool instantly."}
           </p>
         </>
       )}
@@ -681,7 +681,7 @@ export default function TxForm({
       )}
       {tab === "withdraw" && mode === "vault" && (
         <p className="hint">
-          Click items in your vault to add them; your bot brings them to the chosen server. No points change hands.
+          Click items in your vault to add them; your bot brings them to the chosen server.
         </p>
       )}
 

@@ -10,7 +10,7 @@ import type { PyrelayPool } from "../lib/devauth";
 import { ITEM_BY_ID } from "../lib/catalog";
 import * as queue from "../lib/queue";
 import { pickForLines, shortfall, wantFromWire, wantToWire, type HeldItem, type WantLine, MAX_GIVE_ITEMS } from "../lib/offers";
-import { ownedInstanceIds, vaultCount, vaultHalf, vaultItems, wishCount } from "../lib/vault";
+import { ownedInstanceIds, reservedInstanceIds, vaultCount, vaultHalf, vaultItems, wishCount } from "../lib/vault";
 
 /** Phase 4b: a guest of this node acting through the hub; their items are their personal vault here. */
 export interface ForUser {
@@ -32,6 +32,20 @@ export interface SwapsOptions {
   now?: () => number;
 }
 
+/**
+ * How a commons meeting (design doc §6.3) maps onto this node: the giver's
+ * item is one of its contributed instances; the taker's side is the bot it
+ * chose to receive with. Registered by the commons coordinator.
+ */
+export interface CommonsResolver {
+  /** Giver: the instance id behind a contributed ref, if still contributed and held. */
+  giveInstance(ref: string): string | null;
+  /** Taker: the bot this node picked to receive with when it asked for the item. */
+  receivingBot(rendezvousId: number): string | null;
+  /** Everything contributed: not for offers. */
+  contributedIds(): Set<string>;
+}
+
 /** What this node remembers about an offer it posted or accepted: which of its instances back the refs. */
 interface LocalOffer {
   offerId: number;
@@ -50,6 +64,7 @@ export class SwapCoordinator {
   private lastError: string | null = null;
   private rendezvous: RendezvousWire[] = [];
   private readonly now: () => number;
+  private commons: CommonsResolver | null = null;
   constructor(private readonly o: SwapsOptions) {
     this.now = o.now ?? Date.now;
     o.db().exec(`
@@ -64,7 +79,7 @@ export class SwapCoordinator {
       );
       CREATE TABLE IF NOT EXISTS swap_rendezvous (
         rendezvous_id INTEGER PRIMARY KEY,
-        offer_id INTEGER NOT NULL,
+        offer_id INTEGER,
         request_id INTEGER,
         state TEXT NOT NULL,
         created_at INTEGER NOT NULL,
@@ -73,6 +88,14 @@ export class SwapCoordinator {
     `);
     const cols = (o.db().prepare("PRAGMA table_info(swap_offers)").all() as { name: string }[]).map((c) => c.name);
     if (!cols.includes("local_user_id")) o.db().exec("ALTER TABLE swap_offers ADD COLUMN local_user_id INTEGER");
+    // Commons meetings have no offer: an older table declared offer_id NOT NULL.
+    const rvCols = o.db().prepare("PRAGMA table_info(swap_rendezvous)").all() as { name: string; notnull: number }[];
+    if (rvCols.find((c) => c.name === "offer_id")?.notnull) {
+      o.db().exec(`
+        CREATE TABLE swap_rendezvous_new (rendezvous_id INTEGER PRIMARY KEY, offer_id INTEGER, request_id INTEGER, state TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+        INSERT INTO swap_rendezvous_new SELECT rendezvous_id, offer_id, request_id, state, created_at, updated_at FROM swap_rendezvous;
+        DROP TABLE swap_rendezvous; ALTER TABLE swap_rendezvous_new RENAME TO swap_rendezvous;`);
+    }
   }
 
   // --- what this node holds ------------------------------------------------------
@@ -86,6 +109,7 @@ export class SwapCoordinator {
     const pool = this.o.pool();
     if (!pool) return [];
     const reserved = this.reservedRefs();
+    for (const id of this.commons?.contributedIds() ?? []) reserved.add(id);
     const owned = ownedInstanceIds(this.o.db());
     const mine = localUserId === null ? null : new Set(vaultItems(this.o.db(), localUserId).map((r) => r.instanceId));
     const out: (HeldItem & { botGuid: string; botIgn: string; seasonal: boolean; name: string })[] = [];
@@ -227,16 +251,20 @@ export class SwapCoordinator {
 
   // --- rendezvous ------------------------------------------------------------------
 
+  setCommonsResolver(r: CommonsResolver | null): void {
+    this.commons = r;
+  }
+
   /** A rendezvous the hub scheduled: queue my side as a swap row once. */
-  private async adopt(rv: RendezvousWire): Promise<void> {
+  async adopt(rv: RendezvousWire): Promise<void> {
     const db = this.o.db();
     const known = db.prepare("SELECT request_id, state FROM swap_rendezvous WHERE rendezvous_id = ?").get(rv.id) as { request_id: number | null; state: string } | undefined;
     if (rv.state !== "meet") {
       if (known && known.state !== rv.state) {
         db.prepare("UPDATE swap_rendezvous SET state = ?, updated_at = ? WHERE rendezvous_id = ?").run(rv.state, this.now(), rv.id);
         if (known.request_id !== null && (rv.state === "aborted" || rv.state === "failed" || rv.state === "disputed")) queue.cancelSwapJob(db, known.request_id, `hub says ${rv.state}`);
-        const local = this.localOffer(rv.offerId);
-        if (local) this.setLocalStatus(rv.offerId, rv.state === "done" ? "done" : local.side === "poster" && rv.state !== "disputed" ? "open" : rv.state);
+        const local = rv.offerId === null ? undefined : this.localOffer(rv.offerId);
+        if (local && rv.offerId !== null) this.setLocalStatus(rv.offerId, rv.state === "done" ? "done" : local.side === "poster" && rv.state !== "disputed" ? "open" : rv.state);
       }
       return;
     }
@@ -254,27 +282,52 @@ export class SwapCoordinator {
       }
       return;
     }
-    const local = this.localOffer(rv.offerId);
-    if (!local) {
-      this.o.log(`swaps: rendezvous #${rv.id} refers to offer #${rv.offerId} this node has no record of; ignoring`);
-      return;
+    const abort = async (reason: string) => {
+      this.o.log(`swaps: rendezvous #${rv.id}: ${reason}; aborting`);
+      await this.o.hub.signed("POST", `/api/v1/rendezvous/${rv.id}/abort`, { reason });
+    };
+    // What this side hands over and from which bot, by kind.
+    let giveIds: string[];
+    let fallbackBot: string | null;
+    let vaultUserId: number | null = null;
+    if (rv.kind === "commons") {
+      if (!this.commons) return abort("commons not running on this node");
+      if (rv.me.role === "give") {
+        giveIds = rv.me.gives.map((g) => this.commons!.giveInstance(g.ref)).filter((id): id is string => !!id);
+        if (giveIds.length !== rv.me.gives.length) return abort("the contributed item is no longer here");
+        fallbackBot = null;
+      } else {
+        giveIds = [];
+        fallbackBot = this.commons.receivingBot(rv.id);
+        if (!fallbackBot) return abort("no receiving bot recorded for this hand-over");
+      }
+    } else {
+      const local = rv.offerId === null ? undefined : this.localOffer(rv.offerId);
+      if (!local) {
+        this.o.log(`swaps: rendezvous #${rv.id} refers to offer #${rv.offerId} this node has no record of; ignoring`);
+        return;
+      }
+      giveIds = rv.me.gives.map((g) => local.refs[g.ref]).filter((id): id is string => !!id);
+      if (giveIds.length !== rv.me.gives.length) return abort("items no longer known to the node");
+      fallbackBot = local.botGuid;
+      vaultUserId = local.localUserId;
     }
-    const giveIds = rv.me.gives.map((g) => local.refs[g.ref]).filter((id): id is string => !!id);
-    if (giveIds.length !== rv.me.gives.length) {
-      this.o.log(`swaps: rendezvous #${rv.id}: a ref is unknown locally; aborting`);
-      await this.o.hub.signed("POST", `/api/v1/rendezvous/${rv.id}/abort`, { reason: "items no longer known to the node" });
-      return;
+    // An item already promised elsewhere (an owner withdraw, another meeting) cannot be handed over twice.
+    if (giveIds.length) {
+      const reserved = reservedInstanceIds(db);
+      if (giveIds.some((id) => reserved.has(id))) return abort("an item is already reserved by another request");
     }
-    // The holder now: an item may have moved bots since the offer was posted.
+    // The holder now: an item may have moved bots since it was offered.
     const pool = this.o.pool();
     const holders = new Set<string>();
-    if (pool) for (const [g, slots] of Object.entries(pool.instances ?? {})) for (const info of Object.values(slots)) if (giveIds.includes(info.instanceId)) holders.add(g);
-    const botGuid = holders.size === 1 ? [...holders][0] : local.botGuid;
-    if (holders.size !== 1) this.o.log(`swaps: rendezvous #${rv.id}: items on ${holders.size} bots; using the offer's account`);
+    if (pool && giveIds.length) for (const [g, slots] of Object.entries(pool.instances ?? {})) for (const info of Object.values(slots)) if (giveIds.includes(info.instanceId)) holders.add(g);
+    const botGuid = holders.size === 1 ? [...holders][0] : fallbackBot;
+    if (!botGuid) return abort("the items are not on one bot");
+    if (giveIds.length && holders.size !== 1) this.o.log(`swaps: rendezvous #${rv.id}: items on ${holders.size} bots; using the offer's account`);
     const give = collapse(rv.me.gives.map((g) => g.itemId));
-    const requestId = queue.createSwapJob(db, { server: rv.server, botGuid, partnerIgn: rv.partner.botIgn, seasonal: rv.seasonal, give, giveInstanceIds: giveIds, swap: { rendezvousId: rv.id, role: rv.me.role, gets: rv.me.gets, vaultUserId: local.localUserId } });
+    const requestId = queue.createSwapJob(db, { server: rv.server, botGuid, partnerIgn: rv.partner.botIgn, seasonal: rv.seasonal, give, giveInstanceIds: giveIds, swap: { rendezvousId: rv.id, role: rv.me.role, gets: rv.me.gets, vaultUserId } });
     db.prepare("INSERT INTO swap_rendezvous (rendezvous_id, offer_id, request_id, state, created_at, updated_at) VALUES (?, ?, ?, 'meet', ?, ?)").run(rv.id, rv.offerId, requestId, this.now(), this.now());
-    this.o.log(`swaps: rendezvous #${rv.id} queued as swap #${requestId}: ${rv.me.role} with ${rv.partner.botIgn} on ${rv.server}`);
+    this.o.log(`swaps: ${rv.kind === "commons" ? "hand-over" : "rendezvous"} #${rv.id} queued as swap #${requestId}: ${rv.me.role} with ${rv.partner.botIgn} on ${rv.server}`);
   }
 
   /** The fleet finished (or failed) a swap row: send the receipt. */
@@ -295,8 +348,10 @@ export class SwapCoordinator {
     this.o.log(`swaps: receipt for rendezvous #${swap.rendezvousId} sent (${result.ok ? "ok" : result.error}); hub says ${r.data.state}`);
   }
   private refsFor(rendezvousId: number, instanceIds: string[]): string[] {
-    const row = this.o.db().prepare("SELECT offer_id FROM swap_rendezvous WHERE rendezvous_id = ?").get(rendezvousId) as { offer_id: number } | undefined;
-    const local = row ? this.localOffer(row.offer_id) : undefined;
+    const row = this.o.db().prepare("SELECT offer_id FROM swap_rendezvous WHERE rendezvous_id = ?").get(rendezvousId) as { offer_id: number | null } | undefined;
+    // Commons hand-overs use the instance id as the ref.
+    if (row && row.offer_id === null) return instanceIds;
+    const local = row?.offer_id != null ? this.localOffer(row.offer_id) : undefined;
     if (!local) return [];
     const byId = new Map(Object.entries(local.refs).map(([ref, id]) => [id, ref]));
     return instanceIds.map((id) => byId.get(id)).filter((r): r is string => !!r);

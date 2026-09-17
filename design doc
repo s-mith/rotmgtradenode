@@ -30,8 +30,9 @@ Goals
 Non-goals (for now)
   - no bots on the hub of any kind: no reserve accounts, no escrow, no /tell
     listener, no tutorial walkers, and no Realm traffic at all
-  - no market: no currency, no fractional decas, no credit ledger. Cross-node
-    trades are item for item only
+  - no market and no points: no currency, no fractional decas, no credit or
+    contribution ledger. Cross-node trades are item for item; the commons is
+    free and capped
   - no raids, realm hunting, leaderboard, skin redeeming, or the dev API on the
     node
 
@@ -97,7 +98,7 @@ Any future feature that breaks one of these needs its own risk write-up first.
   - open source. A website + API. No bots, no items, no credentials, no
     money, no Realm traffic. Every secret it uses is env, not code
   - holds: hub user accounts, node registry (public key, bot IGNs, version,
-    last seen), offers, commons listings, points ledger, trade receipts,
+    last seen), offers, commons listings, trade receipts,
     vault-share grants
   - ban telemetry store (section 8)
   - hosting: a small site anywhere (Railway or a Vultr VPS)
@@ -124,7 +125,7 @@ Any future feature that breaks one of these needs its own risk write-up first.
     - logging in unlocks: posting and accepting offers, commons opt-in and
       withdraws, granting other hub users vault space on my node and using
       the space granted to me (6.5), and hub-side status (which of my nodes
-      are online, open offers, points)
+      are online, open offers, commons items)
     - logging out or losing the hub does not touch local state. Open offers
       and commons listings for that node are hidden on the hub while the node
       is offline and resume when it reconnects. Locked items stay locked
@@ -156,7 +157,7 @@ Hub database
   - vault shares: grants (owner node, guest user, IGN, slots per half, role,
     trade yes/no) and, for shared vaults only, each guest's published vault
     contents and the guest request queue
-  - points ledger, receipts
+  - trade receipts
   - opt-in ban telemetry: per node, per account hash: suspended-at, last
     seen, last activity kind, node version, Realm build
   - current Realm build + protocol ids, for the node pre-login check
@@ -199,19 +200,24 @@ enchant record, never by instance id.
   - trade limits: a new node may have 1 open offer and small windows; limits
     grow with matching receipts
 
-6.3 Commons (federated)
-  - a node opts in some slots; contributed items stay on the contributor's bots
-  - the hub lists each item with live availability (contributor node online or
-    not). Offline contributions are hidden, not deleted
-  - withdraw = a one-sided rendezvous: contributor's bot gives, withdrawer's bot
-    receives, same receipt protocol as 6.2
-  - points are granted to the contributor ONLY when a withdraw completes with
-    matching receipts. Points on deposit would be free to farm since the owner
-    keeps physical control
-  - withdrawing costs points as in the old pool; rules and rates copied from
-    rotmgcommunism's ledger
-  - a contributor who pulls items back out of band simply stops being listed;
-    no clawback in v1
+6.3 Commons (federated, no points)
+  - a node opts in some of its items; contributed items stay on the
+    contributor's bots and stay the contributor's until they are taken
+  - the hub lists each item with live availability (contributor node seen
+    within the last few minutes or not). Offline contributions are hidden,
+    not deleted
+  - anyone linked can take a listed item, free. There is no points system:
+    contributions earn nothing and withdrawals cost nothing. What bounds it
+    is a per-node daily cap the hub operator sets (default 8 hand-overs per
+    rolling day), and that a node cannot take its own items
+  - withdraw = a one-sided meeting: the contributor's bot gives, the
+    withdrawer's bot receives, nothing comes back. Same receipt protocol as
+    6.2: the hub records it only when the giver's "gave" equals the taker's
+    "got" and the taker gave nothing. Taking an item unlists it at once; a
+    failed, aborted or expired meeting lists it again and does not count
+    against the cap
+  - a contributor who pulls items back out of band simply stops listing them
+    on the next publish; nothing is owed
 
 6.4 Account supply
   - outside this document. The node's only part is a future pickup client
@@ -252,8 +258,7 @@ enchant record, never by instance id.
   - the hub turns the request into an assignment (guest IGN, server, items,
     vault user) and the owner's node pulls it like any other: its bot goes to
     the server and trades with that IGN only. Same machinery as the old site's
-    personal-vault deposit/withdraw and as a commons withdraw (6.3), with no
-    points
+    personal-vault deposit/withdraw and as a commons withdraw (6.3)
   - guest trading (trade = yes): the guest posts and accepts offers on the
     hub exactly like a node owner, but the offer is tagged "on behalf of"
     the guest's hub account and may give only items from the guest's own
@@ -347,7 +352,7 @@ Opt-in ban telemetry
   2. Hub v0: hub user accounts, log in from the client, node linking, node
      registry, version feed, current-build endpoint, ban telemetry intake
   3. P2P swaps: offers, rendezvous, receipts, attestations, trade limits
-  4. Commons: opt-in slots, availability, points on delivery
+  4. Commons: opt-in items, availability, free capped hand-overs
   4b. Shared vaults: grants with slot quotas, published per-guest contents,
       guest deposit/withdraw via the hub, then guest offers (on-behalf-of
       tag on 6.2, room checks against the guest's slots)

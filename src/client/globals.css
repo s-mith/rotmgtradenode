@@ -134,13 +134,25 @@ header.site {
 
 /* Trades bookmark (components/TradePanel.tsx). The right column becomes
    the trade desk: the pool grid on the left is only the picker. */
-:root[data-view="trades"] .layout {
+:root[data-view="trades"] .layout,
+:root[data-view="commons"] .layout {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
 }
 :root[data-view="trades"] {
   --accent: #8fd18f;
   --accent-hot: #b6e6b6;
 }
+:root[data-view="commons"] {
+  --accent: #d9b95c;
+  --accent-hot: #f0d27a;
+}
+/* Commons bookmark (components/CommonsPanel.tsx): one card per listed item. */
+.commons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.commons-card { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.commons-card.mine { border-color: var(--accent); }
+.commons-card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.commons-card-body .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.commons-card .tx-submit { padding: 4px 10px; font-size: 12px; }
 .layout { transition: grid-template-columns 220ms ease; }
 .trade-desk { display: flex; flex-direction: column; gap: 10px; }
 .trade-desk .muted { color: var(--muted); font-weight: 400; }
@@ -177,7 +189,7 @@ header.site {
 .trade-state.warn { color: var(--warn, #d2a24c); border-color: var(--warn, #d2a24c); }
 .trade-state.bad { color: var(--bad); border-color: var(--bad); }
 @media (max-width: 900px) {
-  :root[data-view="trades"] .layout { grid-template-columns: minmax(0, 1fr); }
+  :root[data-view="trades"] .layout, :root[data-view="commons"] .layout { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* The control panel's category row: real tabs, not a muted subtitle. */
@@ -383,14 +395,6 @@ header.site .discord-link:hover {
   letter-spacing: 1px;
 }
 
-/* Logged-in IGN heading links to the player's own profile. Inherits the
-   heading colour; only the hover underline marks it as clickable. */
-.profile-name-link {
-  color: inherit;
-}
-.profile-name-link:hover {
-  text-decoration: underline;
-}
 
 /* --- Pool grid (per-instance, 8 wide, scrollable) -------------------- */
 
@@ -1748,98 +1752,17 @@ ul.tx-feed li:last-child {
 .blog-body a { color: var(--accent); }
 .blog-body a:hover { color: var(--accent-hot); }
 
-/* Leaderboard tab buttons stand in for the panel heading, so they get the
-   h2 treatment (uppercase, heading size) on top of the pool-tab base. */
-.board-tabs .nav-link {
-  text-transform: uppercase;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-.board-tabs .nav-link.active { color: var(--accent); }
-
-/* ---- Comrade profile ---------------------------------------------------- */
-.ign-link { color: inherit; }
-.ign-link:hover { color: var(--accent-hot); text-decoration: underline; }
-
-.board-lookup { margin-bottom: 10px; }
-.board-lookup input {
-  width: 100%; padding: 7px 10px; font: inherit; font-size: 13px;
-  background: var(--panel-2); color: var(--text);
-  border: 1px solid var(--border); border-radius: 6px;
-}
-.board-lookup input:focus { outline: none; border-color: var(--accent); }
-
-.profile-head .profile-id { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.profile-head .profile-id h2 { margin: 0; }
-.profile-points { font-weight: 700; font-size: 16px; }
-.profile-rank { color: var(--muted); font-size: 12px; }
-.profile-stats {
-  display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px;
-  color: var(--muted); font-size: 13px;
-}
-.profile-stats strong { color: var(--text); }
-.profile-sig-sprite {
-  width: 18px; height: 18px; vertical-align: -4px; margin: 0 3px;
-  image-rendering: pixelated;
-}
 .profile-feed-main { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .profile-feed-sprite { width: 18px; height: 18px; image-rendering: pixelated; flex-shrink: 0; }
-.profile-feed-pts { color: var(--muted); font-size: 11px; }
 .profile-feed { max-height: 480px; overflow-y: auto; }
-
-/* Contribution calendar: columns are weeks, Sunday-first. Green = net
-   giver that day, red = net taker; intensity by |net points|. */
-.cal-wrap { overflow-x: auto; padding-bottom: 4px; }
-.cal-months {
-  display: grid; grid-template-columns: repeat(53, 12px); gap: 3px;
-  font-size: 9px; color: var(--muted); margin-bottom: 4px;
-}
-.cal-months span { overflow: visible; white-space: nowrap; }
-.cal { display: flex; gap: 3px; }
-.cal-week { display: flex; flex-direction: column; gap: 3px; }
-.cal-day {
-  width: 12px; height: 12px; border-radius: 2px;
-  background: var(--panel-2); border: 1px solid var(--border);
-  box-sizing: border-box; display: inline-block;
-}
-.cal-day.out { visibility: hidden; }
-.cal-day.give-1 { background: #1d4029; border-color: #295c3a; }
-.cal-day.give-2 { background: #2a6b41; border-color: #2a6b41; }
-.cal-day.give-3 { background: #39955a; border-color: #39955a; }
-.cal-day.give-4 { background: #4fd27d; border-color: #4fd27d; }
-.cal-day.take-1 { background: #4a2323; border-color: #663030; }
-.cal-day.take-2 { background: #713333; border-color: #713333; }
-.cal-day.take-3 { background: #a34444; border-color: #a34444; }
-.cal-day.take-4 { background: #e05c5c; border-color: #e05c5c; }
-.cal-legend {
-  display: flex; align-items: center; gap: 4px; margin-top: 8px;
-  font-size: 10px; color: var(--muted);
-}
 
 .profile-feed-ench {
   font-size: 10px; color: #b483ff; border: 1px solid #b483ff44;
   border-radius: 4px; padding: 0 4px; white-space: nowrap;
 }
 
-/* Deposit-grid point value, pinned to the tile top. Amber like the rest of
-   the "value" accents; dark backing so it reads over bright sprites. */
-.points-badge {
-  position: absolute;
-  top: 3px;
-  left: 4px;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1.3;
-  color: var(--accent-hot);
-  background: rgba(14, 15, 19, 0.75);
-  border-radius: 4px;
-  padding: 0 3px;
-  pointer-events: none;
-}
-
 /* Legend tile in the deposit grid''s first slot — labels the badge
-   positions ("points" top-left, "quantity" bottom-right) around a plain
+   position ("quantity" bottom-right) around a plain
    Example wordmark instead of a sprite. */
 .example-tile { border-style: dashed; }
 .example-tile .example-tile-label {
@@ -1848,7 +1771,6 @@ ul.tx-feed li:last-child {
   color: var(--muted);
   letter-spacing: 0.5px;
 }
-.example-tile .points-badge,
 .example-tile .aggregate-count {
   font-size: 8px;
   text-transform: uppercase;
@@ -1860,7 +1782,6 @@ ul.tx-feed li:last-child {
    overflow — transforms dodge Chrome's minimum-font-size floor, which made
    plain font-size shrinking silently render too big. nowrap keeps the
    measurement one-line; no clip/ellipsis, the scale IS the fit. */
-.points-badge,
 .aggregate-count {
   white-space: nowrap;
 }

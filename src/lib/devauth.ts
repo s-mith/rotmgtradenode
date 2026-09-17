@@ -490,6 +490,18 @@ export function registerEmbeddedGuests(g: EmbeddedGuests | undefined): void {
 export function guests(): EmbeddedGuests | null {
   return globalThis.__embedded_guests__ ?? null;
 }
+// The commons (src/node/commons.ts).
+type EmbeddedCommons = import("@/node/commons").CommonsCoordinator;
+declare global {
+  // eslint-disable-next-line no-var
+  var __embedded_commons__: EmbeddedCommons | undefined;
+}
+export function registerEmbeddedCommons(c: EmbeddedCommons | undefined): void {
+  globalThis.__embedded_commons__ = c;
+}
+export function commons(): EmbeddedCommons | null {
+  return globalThis.__embedded_commons__ ?? null;
+}
 
 export const accountgen = {
   /** Pass the browser's `w` cursor string straight through. */

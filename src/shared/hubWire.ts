@@ -181,10 +181,17 @@ export interface AcceptOfferRequest {
 
 export type RendezvousState = "meet" | "done" | "failed" | "aborted" | "disputed";
 
-/** One side's view of a scheduled swap. The hub tells each node only what it needs. */
+/** What a meeting is for: a two-way swap from an offer (§6.2) or a one-way commons hand-over (§6.3). */
+export type RendezvousKind = "swap" | "commons";
+
+/** One side's view of a scheduled meeting. The hub tells each node only what it needs. */
 export interface RendezvousWire {
   id: number;
-  offerId: number;
+  kind: RendezvousKind;
+  /** The offer behind a swap; null for a commons hand-over. */
+  offerId: number | null;
+  /** Commons: the contributor's node and the item's ref there. */
+  commons?: { nodeId: string; ref: string } | null;
   server: string;
   seasonal: boolean;
   state: RendezvousState;
@@ -304,4 +311,49 @@ export interface GuestRequestResult {
   /** deposit / withdraw: the node's queue row id. offer-*: the hub offer id. */
   requestId?: number;
   offerId?: number;
+}
+
+// --- phase 4: commons (design doc §6.3, no points) --------------------------------
+
+/** One contributed item as a node publishes it. `ref` is the node's handle (its instance id). */
+export interface CommonsItemWire {
+  ref: string;
+  itemId: string;
+  name: string;
+  enchants: number[] | null;
+  count: number;
+  seasonal: boolean;
+  /** The bot holding it; the hand-over comes from this name. */
+  botIgn: string;
+}
+
+export interface PublishCommonsRequest {
+  items: CommonsItemWire[];
+  at: number;
+}
+
+/** A listed item as browsers see it. */
+export interface CommonsListingWire extends CommonsItemWire {
+  nodeId: string;
+  contributor: string;
+  /** True on the caller's own node. */
+  mine: boolean;
+  listedAt: number;
+}
+
+export interface CommonsWithdrawRequest {
+  nodeId: string;
+  ref: string;
+  /** Where the withdrawer's bot will meet the contributor's. */
+  server: string;
+  /** The withdrawer's receiving bot (must have room). */
+  botIgn: string;
+}
+
+export interface CommonsStatusWire {
+  /** Hand-overs one node may take per rolling 24 h (hub setting). */
+  dailyCap: number;
+  usedToday: number;
+  /** Items this node has listed, as the hub holds them. */
+  listed: number;
 }
