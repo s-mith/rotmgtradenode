@@ -29,3 +29,6 @@ data/session_secret
 data/node.json
 data/onboarding/
 release/
+
+# per-node live data directories (accounts, keys, proxies, trackers): never commit
+data-*/
