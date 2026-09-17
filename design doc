@@ -93,6 +93,13 @@ Any future feature that breaks one of these needs its own risk write-up first.
     default
   - roster: the owner's own alt accounts, added by hand or delivered by the
     separate account service (a pickup client, not built)
+  - account storage (docs/relay/STORAGE.md): each account's vault chests,
+    potion rack, Gift Chest and seasonal spoils chest are cold storage the
+    owner moves items into and out of from the console; a run walks the
+    account into the Vault and does the moves as INVSWAPs. Items in storage
+    are not in the pool until taken out. The owner also picks which
+    character an account logs in with. Characters trade with 8, 16 or 24
+    slots (the upgraded backpack has 16)
 
 4.2 Hub (rotmgtradehub)
   - open source. A website + API. No bots, no items, no credentials, no

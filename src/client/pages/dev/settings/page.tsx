@@ -3,6 +3,7 @@ import InventoriesTab from "./InventoriesTab";
 import DepositsTab from "./DepositsTab";
 import AccountsTab from "./AccountsTab";
 import BackpacksTab from "./BackpacksTab";
+import StorageTab from "./StorageTab";
 import ServerControlTab from "./ServerControlTab";
 import TutorialsTab from "./TutorialsTab";
 import FeaturesTab from "./FeaturesTab";
@@ -27,6 +28,7 @@ type DevTab =
   | "inventories"
   | "accounts"
   | "backpacks"
+  | "storage"
   | "deposits"
   | "offers"
   | "shares"
@@ -47,6 +49,7 @@ const CATEGORIES: { id: DevCategory; label: string; tabs: { id: DevTab; label: s
       { id: "inventories", label: "Inventories" },
       { id: "accounts", label: "Accounts" },
       { id: "backpacks", label: "Backpacks" },
+      { id: "storage", label: "Storage" },
       { id: "tutorials", label: "Tutorials" },
       { id: "servercontrols", label: "Server controls" },
     ],
@@ -234,6 +237,7 @@ export default function DevSettingsPage() {
           {tab === "inventories" && <InventoriesTab password={password} />}
           {tab === "accounts" && <AccountsTab password={password} />}
           {tab === "backpacks" && <BackpacksTab password={password} />}
+          {tab === "storage" && <StorageTab password={password} />}
           {tab === "offers" && <OffersTab password={password} />}
           {tab === "shares" && <SharesTab password={password} />}
           {tab === "deposits" && <DepositsTab password={password} />}

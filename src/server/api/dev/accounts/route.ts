@@ -14,8 +14,14 @@ import { accountgen, checkDevPassword, pyrelay } from "@/lib/devauth";
 export async function POST(req: Request) {
   const auth = checkDevPassword(req);
   if (!auth.ok) return json({ error: auth.error }, { status: auth.status });
-  const body = (await req.json().catch(() => null)) as { action?: string; guids?: string[]; email?: string; password?: string; seasonal?: boolean; tutorialDone?: boolean; alias?: string } | null;
+  const body = (await req.json().catch(() => null)) as { action?: string; guids?: string[]; guid?: string; charId?: unknown; email?: string; password?: string; seasonal?: boolean; tutorialDone?: boolean; alias?: string } | null;
   if (!body || typeof body !== "object") return json({ error: "Bad JSON" }, { status: 400 });
+  if (body.action === "set-char") {
+    const charId = body.charId === null || body.charId === undefined || body.charId === "" ? null : Number(body.charId);
+    const r = await pyrelay.setPreferredChar(String(body.guid ?? ""), charId);
+    if (!r.ok) return json({ error: r.error }, { status: r.status });
+    return json(r.data);
+  }
   if (body.action === "retry-suspended") {
     const r = await pyrelay.retrySuspended(Array.isArray(body.guids) ? body.guids.map(String) : undefined);
     if (!r.ok) return json({ error: r.error }, { status: r.status });

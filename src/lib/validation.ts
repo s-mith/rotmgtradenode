@@ -90,9 +90,10 @@ export function parseDepositRequest(body: {
   } else if (body.itemCount !== undefined && body.itemCount !== null) {
     const n = Number(body.itemCount);
     if (!Number.isInteger(n) || n < 1 || n > 64) return err("Item count must be 1-64");
-    slots = n <= 8 ? 8 : 16;
+    slots = n <= 8 ? 8 : n <= 16 ? 16 : 24;
   } else {
-    slots = (declaredTotal ?? 0) > 8 ? 16 : 8;
+    const t = declaredTotal ?? 0;
+    slots = t > 16 ? 24 : t > 8 ? 16 : 8;
   }
   return { ok: true, ign: i.ign, ignLower: i.ignLower, server: s.server, slots, vault: body.vault === true, ...(declared.items ? { items: declared.items } : {}) };
 }

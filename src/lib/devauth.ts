@@ -307,6 +307,10 @@ export const pyrelay = {
   // Roster intake and node status (design doc §8), see src/relay/controlPlane.ts.
   addRosterAccount: (acc: { email: string; password: string; seasonal: boolean; alias?: string }) =>
     callPyrelay<{ ok: true; account: { alias: string; guid: string; botGuid: string; seasonal: boolean | null } }>("/accounts", { method: "POST", body: JSON.stringify(acc) }),
+  // Account storage (docs/relay/STORAGE.md): the fleet's /storage routes. `path` is relative to /storage.
+  storageGet: <T = unknown>(path: string) => callPyrelay<T>(`/storage${path}`),
+  storagePost: <T = unknown>(path: string, body: unknown = {}) => callPyrelay<T>(`/storage${path}`, { method: "POST", body: JSON.stringify(body) }),
+  setPreferredChar: (guid: string, charId: number | null) => callPyrelay<{ ok: true; guid: string; botGuid: string; charId: number | null }>("/accounts/char", { method: "POST", body: JSON.stringify({ guid, charId }) }),
   retrySuspended: (guids?: string[]) => callPyrelay<{ ok: true; cleared: number; results: { alias: string; guid: string; botGuid: string; verdict: string; detail: string }[] }>("/accounts/retry-suspended", { method: "POST", body: JSON.stringify({ guids }) }),
   nodeStatus: () => callPyrelay<NodeStatus>("/node"),
   buildCanary: (server?: string) => callPyrelay<{ ok: boolean; canary: unknown; build: NodeStatus["build"] }>("/node/build/canary", { method: "POST", body: JSON.stringify({ server }) }),

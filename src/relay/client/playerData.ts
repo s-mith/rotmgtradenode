@@ -3,7 +3,7 @@ import { Stat } from "../protocol/stats";
 import { decodeEnchantStat } from "../protocol/enchants";
 import type { ObjectData, StatData, WorldPos } from "../protocol/data";
 
-export const INV_SLOTS = 20; // 4 equipment + 8 main + 8 backpack
+export const INV_SLOTS = 28; // 4 equipment + 8 main + up to 16 backpack (stats 131-146)
 
 export class PlayerData {
   name = "";
@@ -33,6 +33,10 @@ export class PlayerData {
   backpackStat: boolean | null = null;
   /** Sticky: an item was seen in a backpack slot, which only a backpack has. */
   private backpackItemSeen = false;
+  /** Sticky: an item was seen in backpack slots 8-15, which only the 16-slot backpack has. */
+  private wideBackpackSeen = false;
+  /** char/list BackpackSlots (0, 8 or 16) when the client read it; null before. */
+  knownBackpackSlots: number | null = null;
 
   /**
    * Whether this character has a backpack. Realm's evidence is messy: stat
@@ -43,6 +47,20 @@ export class PlayerData {
    */
   get hasBackpack(): boolean {
     return this.backpackStat === true || this.backpackItemSeen;
+  }
+  /**
+   * Backpack slots this character trades with: 16 once an item was seen past
+   * the eighth (or char/list said 16), else 8 with a backpack, else 0. The
+   * 16-slot backpack is the upgraded one (live 2026-09-17: stat 144, backpack
+   * slot 13, in use on a character).
+   */
+  get backpackSlots(): number {
+    if (this.wideBackpackSeen || this.knownBackpackSlots === 16) return 16;
+    return this.hasBackpack ? 8 : 0;
+  }
+  /** Trade slots: the 8 main ones plus the backpack's. */
+  get tradeSlots(): number {
+    return 8 + this.backpackSlots;
   }
 
   applyObject(obj: ObjectData): void {
@@ -59,9 +77,13 @@ export class PlayerData {
         this.inv[t - Stat.INVENTORY0] = s.statValue;
         continue;
       }
-      if (t >= Stat.BACKPACK0 && t <= Stat.BACKPACK7) {
-        this.inv[t - Stat.BACKPACK0 + 12] = s.statValue;
-        if (s.statValue !== -1) this.backpackItemSeen = true;
+      if (t >= Stat.BACKPACK0 && t <= Stat.BACKPACK15) {
+        const i = t - Stat.BACKPACK0;
+        this.inv[12 + i] = s.statValue;
+        if (s.statValue !== -1) {
+          this.backpackItemSeen = true;
+          if (i >= 8) this.wideBackpackSeen = true;
+        }
         continue;
       }
       switch (t) {
@@ -99,7 +121,7 @@ export class PlayerData {
   }
 
   freeSlots(): number {
-    const cap = this.hasBackpack ? 16 : 8;
+    const cap = this.tradeSlots;
     let used = 0;
     for (let i = 4; i < 4 + cap; i++) if (this.inv[i] !== -1) used++;
     return cap - used;

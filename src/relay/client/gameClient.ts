@@ -27,6 +27,12 @@ export const QUEUE_SILENCE_MS = 20_000;
 const WATCHDOG_SILENCE_MS = 2_500;
 const WATCHDOG_TICK_MS = 500;
 
+/** The character to LOAD: the preferred one when the account still has it, else the first listed (what the game client does). */
+export function pickCharId(preferred: number | null | undefined, charIds: number[]): number {
+  if (preferred != null && charIds.includes(preferred)) return preferred;
+  return charIds[0];
+}
+
 export interface AccountConfig {
   guid: string;
   password?: string;
@@ -40,6 +46,8 @@ export interface AccountConfig {
   port?: number;
   /** Object/ground/weapon tables; enables combat, looting and dodging. */
   resources?: RealmResources;
+  /** The character to log in with when the account has it (docs/relay/STORAGE.md); otherwise the first one. */
+  charId?: number;
   /**
    * Tutorial mode (the account walker): a fresh character is created on the
    * given pool, not-yet-TDone accounts are routed to the tutorial map, and
@@ -156,8 +164,11 @@ export class GameClient extends EventEmitter<GameClientEvents> {
   private lastQueueTime = -1;
   helloCount = 0;
 
+  /** From the config: the character to log in with when the account has it. */
+  readonly preferredCharId: number | null;
   constructor(cfg: AccountConfig) {
     super();
+    this.preferredCharId = cfg.charId ?? null;
     this.guid = cfg.guid;
     this.alias = cfg.alias || cfg.guid;
     this.proxy = cfg.proxy;
@@ -220,8 +231,9 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     this.charSeasonal = c.seasonal;
     this.charHasBackpack = c.hasBackpack;
     if (c.hasBackpack !== null) this.knownBackpack = c.hasBackpack;
+    this.playerData.knownBackpackSlots = c.backpackSlots;
     if (c.charIds.length > 0) {
-      this.currentCharId = c.charIds[0];
+      this.currentCharId = pickCharId(this.preferredCharId, c.charIds);
       this.needsNewChar = false;
     } else {
       this.currentCharId = c.nextCharId;
@@ -244,8 +256,9 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     if (!chars.ok) return chars;
     const c = chars.value;
     this.charSeasonal = c.seasonal;
+    this.playerData.knownBackpackSlots = c.backpackSlots;
     if (c.charIds.length > 0) {
-      this.currentCharId = c.charIds[0];
+      this.currentCharId = pickCharId(this.preferredCharId, c.charIds);
     } else {
       this.currentCharId = c.nextCharId;
       this.needsNewChar = true;

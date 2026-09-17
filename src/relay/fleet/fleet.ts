@@ -15,6 +15,7 @@ import { HttpSiteApi, type SiteApi } from "./siteApi";
 import { LoginCodes, PoolSettings, TradeHold, WhisperQueue } from "./stores";
 import { startupSweep } from "./sweeps";
 import { auditProxiesFromFile, BackpackService, BackpackStore } from "./backpacks";
+import { StorageService, StorageStore } from "./storage";
 import { SeasonWatch } from "./seasonWatch";
 import { ServerUsageWatch } from "./serverUsageWatch";
 import { WakeScheduler } from "./wakes";
@@ -66,6 +67,8 @@ export class Fleet {
   readonly dispatcher: Dispatcher | null;
   /** Backpack audit + chore (docs/relay/BACKPACKS.md). */
   readonly backpacks: BackpackService;
+  /** Account storage: vault chests, potion rack, gift and spoils chests (docs/relay/STORAGE.md). */
+  readonly storage: StorageService;
   /** Follows Realm's season clock; marks every account non-seasonal when a season ends. */
   readonly seasonWatch: SeasonWatch;
   /** Follows Realm's per-server load and reports it to the site, which gates trades on it. */
@@ -122,6 +125,7 @@ export class Fleet {
       auditProxy: auditProxiesFromFile(process.env.BACKPACK_AUDIT_PROXIES_FILE, this.log),
       vaultBots: () => this.dispatcher?.vaultBotGuids() ?? new Set<string>(),
     });
+    this.storage = new StorageService({ sd: sweepDeps, store: StorageStore.at(this.dataDir), holds: this.dispatcher?.maintenanceHolds ?? new Set<string>() });
     this.seasonWatch = new SeasonWatch({ store: backpackStore, pool: this.pool, clients: this.clients, log: this.log });
     this.serverUsage = new ServerUsageWatch({ clients: this.clients, api: opts.api ?? null, log: this.log, servers: this.servers });
     this.buildGate = new BuildGate({ versions: this.versions, deps: this.deps, pool: this.pool, settings: this.nodeSettings, log: this.log });
@@ -206,6 +210,7 @@ export class Fleet {
   stop(): void {
     if (this.proxyRefresh) clearInterval(this.proxyRefresh);
     this.proxyRefresh = null;
+    this.storage.flush();
     this.seasonWatch.stop();
     this.serverUsage.stop();
     this.telemetry.stop();

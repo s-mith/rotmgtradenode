@@ -127,7 +127,7 @@ describe("deposit lifecycle", () => {
     const id3 = insertDeposit("Third");
     botOnline("botguid-cccccccc", { freeSlots: 16 });
     q.claimDeposit(db, "botguid-cccccccc", 16);
-    expect(() => q.fulfillDeposit(db, "botguid-cccccccc", id3, [{ itemId: "ubatk", qty: 17 }])).toThrow(/at most 16/);
+    expect(() => q.fulfillDeposit(db, "botguid-cccccccc", id3, [{ itemId: "ubatk", qty: 25 }])).toThrow(/at most 24/);
   });
   it("flags the pool as full after the trade only when the whole fleet is out of room", () => {
     const id = insertDeposit("Someone", "USSouth3", 1, 1);
@@ -173,7 +173,7 @@ describe("deposit lifecycle", () => {
     botOnline();
     q.claimDeposit(db, BOT, 8);
     expect(() => q.fulfillDeposit(db, "other", id, [{ itemId: "ubatk", qty: 1 }])).toThrow(/different bot/);
-    expect(() => q.fulfillDeposit(db, BOT, id, [{ itemId: "ubatk", qty: 9 }, { itemId: "patk", qty: 8 }])).toThrow(/at most 16/);
+    expect(() => q.fulfillDeposit(db, BOT, id, [{ itemId: "ubatk", qty: 13 }, { itemId: "patk", qty: 12 }])).toThrow(/at most 24/);
     expect(() => q.fulfillDeposit(db, BOT, id, [{ itemId: "ubatk", qty: 2 }], [{ itemId: "ubatk", enchants: 0 }])).toThrow(/reconcile/);
     expect(() => q.fulfillDeposit(db, BOT, 999, [{ itemId: "ubatk", qty: 1 }])).toThrow(/not found/);
   });

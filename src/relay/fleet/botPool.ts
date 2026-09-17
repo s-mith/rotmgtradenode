@@ -32,6 +32,8 @@ export interface AccountInfo {
   /** Legacy: accounts flagged for the retired capitalism site are skipped on load. */
   economy?: string;
   suspended?: boolean;
+  /** The character this account logs in with, when it still exists (docs/relay/STORAGE.md); unset = the first one. */
+  charId?: number;
 }
 
 export type AssignmentKind = "deposit" | "withdraw" | "consolidate_give" | "consolidate_take";
@@ -228,6 +230,21 @@ export class BotPool {
     });
     console.log(`BotPool: ${acc.alias} un-retired by the owner`);
     return acc;
+  }
+
+  /** Which character the account logs in with from now on; null goes back to the first listed. Takes effect at the next login. */
+  setPreferredChar(acc: BotAccount, charId: number | null): void {
+    if ((acc.info.charId ?? null) === charId) return;
+    if (charId === null) delete acc.info.charId;
+    else acc.info.charId = charId;
+    this.revision++;
+    this.patchFile((entries) => {
+      for (const e of entries) if (e.guid === acc.guid) {
+        if (charId === null) delete e.charId;
+        else e.charId = charId;
+      }
+    });
+    console.log(`BotPool: ${acc.alias} logs in with ${charId === null ? "its first character" : `character ${charId}`} from now on`);
   }
 
   setSeasonal(acc: BotAccount, seasonal: boolean): void {

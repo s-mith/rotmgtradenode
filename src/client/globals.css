@@ -193,6 +193,13 @@ header.site {
   :root[data-view="trades"] .layout, :root[data-view="commons"] .layout { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* Storage tab (pages/dev/settings/StorageTab.tsx): one line per item in a container. */
+.storage-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 3px; font-size: 13px; }
+.storage-list li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.storage-list li.muted { opacity: 0.6; }
+.storage-item { display: inline-flex; align-items: center; gap: 6px; }
+.storage-list .nav-link { font-size: 12px; padding: 1px 6px; }
+
 /* The control panel's category row: real tabs, not a muted subtitle. */
 .panel-categories {
   display: flex;

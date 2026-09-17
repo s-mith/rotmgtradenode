@@ -11,7 +11,8 @@ standalone relay. `src/server/main.ts` builds one `Fleet` with a
 `LocalSiteApi` (the site's queue, in memory) and mounts the control plane
 (`controlPlane.ts`) for the operator console.
 
-Policy: `POLICIES.md`. Backpacks: `BACKPACKS.md`.
+Policy: `POLICIES.md`. Backpacks: `BACKPACKS.md`. Account storage (vault
+chests, potion rack, gift and spoils chests, character choice): `STORAGE.md`.
 
 ## Node-specific parts
 

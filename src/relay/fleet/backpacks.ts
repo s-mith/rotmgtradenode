@@ -25,10 +25,10 @@
 // cleanly. Accounts under the chore are held away from the dispatcher.
 import fs from "node:fs";
 import path from "node:path";
-import { findPath, smoothPath } from "../../accountgen/walker/pathfinding";
 import type { GameClient } from "../client/gameClient";
-import type { AnyPacket, Packet } from "../protocol/packets";
+import type { AnyPacket } from "../protocol/packets";
 import type { WorldPos } from "../protocol/data";
+import { captureChatter, dist, enterVault, inWorld, NEXUS_MAP, nextPacket, sleep, VAULT_MAP, VAULT_PORTAL_TYPE, waitFor, walkTo } from "./vaultTrip";
 import {
   BACKPACK_ITEM_TYPE, backpackDays, clientTokenFor, fetchCalendar, getAccessToken, getCharListDetail, getSeasonInfo,
   type Calendar, type CharListDetail, type ClaimType, type SeasonInfo,
@@ -39,16 +39,10 @@ import { bringUp, BringUpRefused, retireSuspended, takeDown } from "./bringUp";
 import { deleteChar } from "../realm/api";
 import { snapshotInventory, sweepAccount, type SweepDeps } from "./sweeps";
 
-/** Realm object types (object.xml). */
-export const VAULT_PORTAL_TYPE = 0x0720;
-export const GIFT_CHEST_TYPE = 0x0744;
+export { VAULT_PORTAL_TYPE, GIFT_CHEST_TYPE, NEXUS_MAP, VAULT_MAP, walkTo } from "./vaultTrip";
 /** Map names as MAPINFO reports them (proxy log, 2026-09-06). */
-export const NEXUS_MAP = "Nexus";
-export const VAULT_MAP = "Vault";
 export const QUEST_ROOM_MAP = "Daily Quest Room";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const dist = (a: WorldPos, b: WorldPos): number => Math.hypot(a.x - b.x, a.y - b.y);
 
 // --- clocks -------------------------------------------------------------------------
 
@@ -93,6 +87,8 @@ export interface AccountBackpackState {
   seasonal: boolean | null;
   dead: boolean | null;
   hasBackpack: boolean | null;
+  /** char/list BackpackSlots: 0, 8 or 16 (the upgraded backpack). */
+  backpackSlots?: number | null;
   maxNumChars: number | null;
   /** Calendar position on the two tracks. */
   nonconCurDay: number | null;
@@ -246,6 +242,7 @@ export function applyCharList(st: AccountBackpackState, cl: CharListDetail, now:
   st.seasonal = c ? c.seasonal : null;
   st.dead = c ? c.dead : null;
   st.hasBackpack = c ? c.hasBackpack : null;
+  st.backpackSlots = c ? c.backpackSlots : null;
   st.maxNumChars = cl.maxNumChars;
   st.lastAuditAt = now;
 }
@@ -342,6 +339,11 @@ export interface PoolPlan {
   picks: { botGuid: string; alias: string; held: number }[];
 }
 export const BACKPACK_SLOTS = 16;
+/** A bot's trade slots as the audit knows them: 8, 16 with a backpack, 24 with the upgraded one. */
+export function capacityOf(st: { hasBackpack: boolean | null; backpackSlots?: number | null }): number {
+  if (!st.hasBackpack) return 8;
+  return (st.backpackSlots ?? 8) > 8 ? 24 : 16;
+}
 
 export interface PlanOptions {
   /** Fallback headroom as a fraction of the stock (0.2 = 20%) when no growth measurement exists. */
@@ -637,7 +639,7 @@ export class BackpackService {
     const caps: Record<string, number> = {};
     for (const acc of this.o.sd.pool.every()) {
       const st = this.o.store.for(acc);
-      if (st.hasBackpack !== null) caps[acc.botGuid] = st.hasBackpack ? 16 : 8;
+      if (st.hasBackpack !== null) caps[acc.botGuid] = capacityOf(st);
     }
     // One bulk write: per-bot notifications over the whole roster OOM'd prod (2026-09-07).
     const n = this.o.sd.tracker.noteCapacities(caps);
@@ -656,7 +658,7 @@ export class BackpackService {
     for (const acc of sd.pool.every()) {
       if (acc.suspended) continue;
       const st = store.for(acc);
-      const cap = st.hasBackpack === true ? BACKPACK_SLOTS : sd.tracker.capacityFor(acc.botGuid);
+      const cap = st.hasBackpack === true ? Math.max(BACKPACK_SLOTS, capacityOf(st)) : sd.tracker.capacityFor(acc.botGuid);
       const busy = !!(acc.client && acc.client.active) || acc.assignedRequestId !== null || acc.inUse;
       out.push({
         acc, st, busy,
@@ -781,7 +783,7 @@ export class BackpackService {
     if (client.charSeasonal !== null) st.seasonal = client.charSeasonal;
     st.charId = client.charId >= 0 ? client.charId : st.charId;
     noteLogin(st, nowMs);
-    if (st.hasBackpack !== null) sd.tracker.noteCapacity(acc.botGuid, st.hasBackpack ? 16 : 8);
+    if (st.hasBackpack !== null) sd.tracker.noteCapacity(acc.botGuid, capacityOf(st));
     const fresh = st.lastAuditAt !== null && nowMs - st.lastAuditAt < 20 * 3_600_000;
     if (!fresh && client.token && !this.calendarInFlight.has(acc.guid)) {
       this.calendarInFlight.add(acc.guid);
@@ -969,7 +971,7 @@ export class BackpackService {
       if (!cl.ok) throw new Error(`char/list ${cl.error.kind}${"body" in cl.error ? ` :: ${String(cl.error.body).slice(0, 160).replace(/\s+/g, " ")}` : "detail" in cl.error ? ` :: ${cl.error.detail}` : ""} via ${t.proxy?.host ?? "direct"}`);
       applyCharList(st, cl.value, now);
       // char/list's BackpackSlots is the one capacity source that needs no game login.
-      if (st.hasBackpack !== null) this.o.sd.tracker.noteCapacity(acc.botGuid, st.hasBackpack ? 16 : 8);
+      if (st.hasBackpack !== null) this.o.sd.tracker.noteCapacity(acc.botGuid, capacityOf(st));
       const cal = await fetchCalendar(t.token, t.proxy);
       if (!cal.ok) throw new Error(`calendar ${cal.error.kind}${"body" in cal.error ? ` :: ${String(cal.error.body).slice(0, 160).replace(/\s+/g, " ")}` : ""}`);
       // Calibration (docs §9.1): did an HTTP-only visit advance the login-day counter?
@@ -1043,7 +1045,7 @@ export class BackpackService {
       const snap = snapshotInventory(client);
       // char/list (the audit) and a confirmed equip outrank a silent stat 79.
       const hasBp = client.hasBackpack || r.equipped || st.hasBackpack === true;
-      sd.tracker.updateFromSlots(acc.botGuid, snap.slots, hasBp ? 16 : 8);
+      sd.tracker.updateFromSlots(acc.botGuid, snap.slots, hasBp ? Math.max(16, snap.capacity) : 8);
       if (client.playerData.name) sd.tracker.recordIgn(acc.botGuid, client.playerData.name);
       st.hasBackpack = hasBp;
       st.held = Object.keys(snap.slots).length;
@@ -1110,137 +1112,6 @@ export interface TripResult {
   claimed: BackpackDayState[];
   banked: number | null;
   equipped: boolean;
-}
-
-/** Poll `pred` until true or the deadline; throws with `what` on timeout. */
-async function waitFor(client: GameClient, pred: () => boolean, ms: number, what: string): Promise<void> {
-  const deadline = Date.now() + ms;
-  while (Date.now() < deadline) {
-    if (!client.active) throw new Error(`client went inactive while waiting for ${what}`);
-    if (pred()) return;
-    await sleep(150);
-  }
-  throw new Error(`timed out after ${ms / 1000}s waiting for ${what}`);
-}
-const inWorld = (client: GameClient, map: string): boolean => client.connected && client.objectId !== -1 && !!client.playerData.name && client.mapName === map;
-
-/** The first `pred` packet within `ms`; arm BEFORE the action that provokes it. */
-function nextPacket<K extends AnyPacket["type"]>(client: GameClient, type: K, ms: number, pred: (p: Extract<AnyPacket, { type: K }>) => boolean = () => true): Promise<Extract<AnyPacket, { type: K }> | null> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      client.off("packet", on);
-      resolve(null);
-    }, ms);
-    const on = (p: AnyPacket) => {
-      if (p.type !== type) return;
-      const q = p as Extract<AnyPacket, { type: K }>;
-      if (!pred(q)) return;
-      clearTimeout(timer);
-      client.off("packet", on);
-      resolve(q);
-    };
-    client.on("packet", on);
-  });
-}
-
-/** Wait for an entity of `type` to be in view; the nearest one. */
-async function findEntity(client: GameClient, type: number, ms: number, what: string): Promise<{ objectId: number; pos: WorldPos }> {
-  let found: { objectId: number; pos: WorldPos } | null = null;
-  await waitFor(client, () => {
-    const me = client.pos;
-    let best: { objectId: number; pos: WorldPos; d: number } | null = null;
-    for (const [oid, ent] of client.world.entities) {
-      if (ent.type !== type) continue;
-      const d = me ? dist(me, ent.pos) : 0;
-      if (!best || d < best.d) best = { objectId: oid, pos: ent.pos, d };
-    }
-    if (best) found = { objectId: best.objectId, pos: best.pos };
-    return !!best;
-  }, ms, what);
-  return found!;
-}
-
-/** Walk for real (the client's own frame loop moves along the path) until within `goalDist`. */
-export async function walkTo(client: GameClient, goal: WorldPos, goalDist: number, ms: number, what: string): Promise<void> {
-  const deadline = Date.now() + ms;
-  let lastPlan = 0;
-  while (Date.now() < deadline) {
-    if (!client.active || !client.connected) throw new Error(`client went inactive while walking to ${what}`);
-    const pos = client.pos;
-    if (pos && dist(pos, goal) <= goalDist) {
-      client.setPath([]);
-      return;
-    }
-    const now = Date.now();
-    if (pos && (now - lastPlan >= 1000 || client.pathLength === 0)) {
-      lastPlan = now;
-      const path = findPath(client.world, pos, goal, goalDist);
-      client.setPath(path ? smoothPath(client.world, pos, path) : [{ ...goal }]);
-    }
-    await sleep(100);
-  }
-  client.setPath([]);
-  throw new Error(`timed out after ${ms / 1000}s walking to ${what}`);
-}
-
-/** Gather one VAULTINFO sequence (lists concatenate until `last`). */
-async function readVault(client: GameClient, ms: number): Promise<{ giftObjectId: number; gift: number[] } | null> {
-  const deadline = Date.now() + ms;
-  let giftObjectId = -1;
-  let gift: number[] = [];
-  for (;;) {
-    const left = deadline - Date.now();
-    if (left <= 0) return null;
-    const p = await nextPacket(client, "VAULTINFO", left);
-    if (!p) return null;
-    const v = p as Packet<"VAULTINFO">;
-    if (v.giftObjectId >= 0) giftObjectId = v.giftObjectId;
-    gift = gift.concat(v.giftContents);
-    if (v.last) return { giftObjectId, gift };
-  }
-}
-
-/** Collect the server's chatter (notifications, claim responses, failures) between arm() and stop(), for the trip log. */
-function captureChatter(client: GameClient): { seen: string[]; stop: () => string[] } {
-  const seen: string[] = [];
-  const on = (p: AnyPacket) => {
-    if (p.type === "NOTIFICATION") seen.push(`NOTIFICATION ${p.message}`);
-    else if (p.type === "CLAIMDAILYLOGINRESPONSE") seen.push(`CLAIMDAILYLOGINRESPONSE ${p.message}`);
-    else if (p.type === "CLAIMREWARDRESULT") seen.push(`CLAIMREWARDRESULT success=${p.success}`);
-    else if (p.type === "FAILURE") seen.push(`FAILURE ${p.errorId} ${p.errorDescription}`);
-    else if (p.type === "TEXT" && p.name === "") seen.push(`TEXT ${p.text}`);
-    // 0 answers an INVSWAP, 1 a USEITEM; unknownBool false is a refusal (proxy giftchest plugin).
-    else if (p.type === "INVRESULT") seen.push(`INVRESULT ok=${p.unknownBool} kind=${p.unknownByte}`);
-  };
-  client.on("packet", on);
-  return { seen, stop: () => { client.off("packet", on); return seen; } };
-}
-
-/**
- * Walk to a Vault Portal in view and go through it, retrying the USEPORTAL
- * (re-walking first) until the Vault's MAPINFO arrives. Resolves with the
- * Gift Chest read from the VAULTINFO sequence.
- */
-async function enterVault(client: GameClient, T: typeof TIMEOUTS, log: (l: string) => void): Promise<{ giftObjectId: number; gift: number[] }> {
-  let last = "";
-  for (let attempt = 1; attempt <= T.portalAttempts; attempt++) {
-    const portal = await findEntity(client, VAULT_PORTAL_TYPE, T.findObjectMs, "the Vault Portal in view");
-    await walkTo(client, portal.pos, 0.8, T.walkMs, "the Vault Portal");
-    await sleep(700); // let the server's copy of us arrive too (the first USEPORTAL right after the walk was ignored, live 2026-09-07)
-    const me = client.pos ?? portal.pos;
-    const vaultInfo = readVault(client, T.portalWaitMs + T.vaultInfoMs);
-    const arrived = nextPacket(client, "MAPINFO", T.portalWaitMs, (p) => p.name === VAULT_MAP);
-    client.send("USEPORTAL", { objectId: portal.objectId });
-    last = `USEPORTAL #${portal.objectId} attempt ${attempt} from (${me.x.toFixed(1)},${me.y.toFixed(1)}), portal at (${portal.pos.x.toFixed(1)},${portal.pos.y.toFixed(1)}), ${dist(me, portal.pos).toFixed(2)} tiles, map ${client.mapName}`;
-    log(last);
-    if (await arrived) {
-      await waitFor(client, () => inWorld(client, VAULT_MAP), T.inWorldMs, "the Vault");
-      const vault = await vaultInfo;
-      if (!vault) throw new Error("no VAULTINFO after entering the vault");
-      return vault;
-    }
-  }
-  throw new Error(`USEPORTAL did not lead to the Vault after ${T.portalAttempts} attempts (${last})`);
 }
 
 /**
@@ -1321,11 +1192,11 @@ export async function runChoreTrip(client: GameClient, o: TripOptions): Promise<
     step("walking to the Vault Portal");
     const vault = await enterVault(client, T, o.log);
     step("reading the Gift Chest");
-    const banked = vault.gift.filter((t) => t === BACKPACK_ITEM_TYPE).length;
+    const banked = vault.gift.slots.filter((t) => t === BACKPACK_ITEM_TYPE).length;
     o.state.banked = banked;
     o.state.lastVaultAt = o.now();
     res.banked = banked;
-    steps.push(`gift chest #${vault.giftObjectId}: ${banked} backpack(s) banked, ${vault.gift.filter((t) => t > 0).length} item(s) total`);
+    steps.push(`gift chest #${vault.gift.objectId}: ${banked} backpack(s) banked, ${vault.gift.slots.filter((t) => t > 0).length} item(s) total`);
 
     // 3. Equip.
     const after = decide(o.state, o.policy, banked);
@@ -1333,11 +1204,11 @@ export async function runChoreTrip(client: GameClient, o: TripOptions): Promise<
       if (!live) steps.push("dry: would use a backpack from the chest");
       else {
         step("using a backpack from the Gift Chest");
-        const chest = client.world.entities.get(vault.giftObjectId);
+        const chest = client.world.entities.get(vault.gift.objectId);
         if (!chest) throw new Error("the Gift Chest VAULTINFO named is not in view");
         await walkTo(client, chest.pos, T.chestReach, T.walkMs, "the Gift Chest");
         await sleep(1000);
-        const slot = vault.gift.indexOf(BACKPACK_ITEM_TYPE);
+        const slot = vault.gift.slots.indexOf(BACKPACK_ITEM_TYPE);
         let confirmed = "";
         let consumed = true;
         let lastFail = "";
@@ -1345,16 +1216,16 @@ export async function runChoreTrip(client: GameClient, o: TripOptions): Promise<
           const me = client.pos ?? chest.pos;
           const chatter = captureChatter(client);
           client.send("USEITEM", {
-            time: client.getTime(), slotObject: { objectId: vault.giftObjectId, slotId: slot, objectType: BACKPACK_ITEM_TYPE },
+            time: client.getTime(), slotObject: { objectId: vault.gift.objectId, slotId: slot, objectType: BACKPACK_ITEM_TYPE },
             pos: { ...me }, useType: 0, unknownInt: 0,
           });
-          o.log(`USEITEM backpack from chest #${vault.giftObjectId} slot ${slot} (attempt ${attempt}), ${dist(me, chest.pos).toFixed(2)} tiles from the chest at (${chest.pos.x.toFixed(1)},${chest.pos.y.toFixed(1)})`);
+          o.log(`USEITEM backpack from chest #${vault.gift.objectId} slot ${slot} (attempt ${attempt}), ${dist(me, chest.pos).toFixed(2)} tiles from the chest at (${chest.pos.x.toFixed(1)},${chest.pos.y.toFixed(1)})`);
           // Success shows as INVRESULT ok=true, stat 79 (not on every account),
           // or the chest's first-page slot no longer holding a backpack; "already used" means
           // the character had one (an earlier attempt landed); INVRESULT
           // ok=false kind=1 is a refusal. char/list lags until the character
           // saves, so it is only the last resort.
-          const chestSlot = () => (slot < 8 ? client.world.entities.get(vault.giftObjectId)?.inv?.[slot] : undefined);
+          const chestSlot = () => (slot < 8 ? client.world.entities.get(vault.gift.objectId)?.inv?.[slot] : undefined);
           const before = chestSlot();
           const deadline = Date.now() + T.useItemMs;
           let refused = false;

@@ -29,12 +29,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function snapshotKey(client: GameClient, hasBp: boolean): string {
   const inv = client.playerData.inv;
-  return JSON.stringify([hasBp, inv.slice(4, 12), inv.slice(12, 20), client.playerData.enchantments]);
+  return JSON.stringify([hasBp, inv.slice(4, 12), inv.slice(12, 28), client.playerData.enchantments]);
 }
 
 export function snapshotInventory(client: GameClient): { slots: Record<number, { itemId: string; enchantments: number[] }>; capacity: number; hasBp: boolean } {
-  const hasBp = client.hasBackpack;
-  const end = hasBp ? 20 : 12;
+  // Trade slots: 8, 16 with a backpack, 24 with the upgraded one (playerData.tradeSlots).
+  const seen = client.playerData.tradeSlots;
+  const tradeSlots = Math.max(Number.isFinite(seen) ? seen : 8, client.hasBackpack ? 16 : 8);
+  const hasBp = tradeSlots > 8;
+  const end = 4 + tradeSlots;
   const slots: Record<number, { itemId: string; enchantments: number[] }> = {};
   const inv = client.playerData.inv;
   for (let i = 4; i < end && i < inv.length; i++) {
@@ -43,7 +46,7 @@ export function snapshotInventory(client: GameClient): { slots: Record<number, {
     if (cid === undefined) continue;
     slots[i] = { itemId: cid, enchantments: [...(client.playerData.enchantments[i] ?? [])] };
   }
-  return { slots, capacity: hasBp ? 16 : 8, hasBp };
+  return { slots, capacity: tradeSlots, hasBp };
 }
 
 /** Log in, wait for in-world, snapshot, log out. */

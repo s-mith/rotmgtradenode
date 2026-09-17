@@ -101,6 +101,7 @@ export async function bringUp(deps: FleetDeps, acc: BotAccount, server: string, 
     server: isServerName(server) ? server : DEFAULT_SERVER,
     proxy,
     buildVersion: deps.buildVersion,
+    ...(acc.info.charId !== undefined ? { charId: acc.info.charId } : {}),
     ...(opts.createSeasonal === undefined ? {} : { tutorial: { seasonal: opts.createSeasonal } }),
   });
   client.on("log", log);

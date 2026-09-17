@@ -198,6 +198,13 @@ export class InventoryTracker {
     if (list.length) this.pendingTransfer.set(toGuid, list);
   }
 
+  /** An instance on its way back to `botGuid` from the account's own storage: the next refresh keeps its id and enchants. */
+  expectArrival(botGuid: string, inst: Instance): void {
+    const list = this.pendingTransfer.get(botGuid) ?? [];
+    list.push({ inst: { ...inst, enchantments: [...inst.enchantments] }, at: Date.now() });
+    this.pendingTransfer.set(botGuid, list);
+  }
+
   /** A move to `toGuid` did not happen: forget the instances promised to it. */
   cancelTransfer(toGuid: string, instanceIds?: string[]): void {
     const notes = this.pendingTransfer.get(toGuid);

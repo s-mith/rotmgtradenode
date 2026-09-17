@@ -116,7 +116,7 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
         assigned: acc.assignedKind, partner: acc.assignedPartnerIgn, inWorld: client.objectId !== -1, queuePos: client.queuePos,
         trade: session?.partnerView() ?? null,
         // Maintenance the backpack service is doing with this bot (chore trip step, daily login); null when it is the dispatcher's.
-        activity: fleet.backpacks.activityOf(acc.guid),
+        activity: fleet.backpacks.activityOf(acc.guid) ?? fleet.storage.activityOf(acc.guid),
       });
     }
     live.sort((a, b) => a.server.localeCompare(b.server) || a.alias.localeCompare(b.alias));
@@ -276,6 +276,44 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     if (!acc) return c.json({ error: "that account is already on the roster" }, 409);
     fleet.log(`roster: added ${acc.alias} (${acc.seasonalOrDefault ? "seasonal" : "non-seasonal"})`);
     return c.json({ ok: true, account: { alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, seasonal: acc.seasonal } });
+  });
+
+  // Account storage (docs/relay/STORAGE.md): what each account's vault holds, the moves queued for it, the runs.
+  app.get("/storage", (c) => c.json({ ok: true, ...fleet.storage.status() }));
+  app.get("/storage/accounts/:botGuid", (c) => {
+    const d = fleet.storage.account(c.req.param("botGuid"));
+    return d ? c.json({ ok: true, account: d }) : c.json({ error: "no such account" }, 404);
+  });
+  app.post("/storage/moves", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { botGuid?: string; add?: unknown; remove?: unknown; clear?: boolean } | null;
+    if (!body || typeof body !== "object" || !body.botGuid) return c.json({ error: "botGuid required" }, 400);
+    if (body.clear) fleet.storage.unqueue(body.botGuid);
+    else if (Array.isArray(body.remove)) fleet.storage.unqueue(body.botGuid, body.remove.map(String));
+    if (Array.isArray(body.add)) {
+      const r = fleet.storage.queue(body.botGuid, body.add as { kind: never; instanceId?: string; slot?: number }[]);
+      if (!r.ok) return c.json({ error: r.error, account: fleet.storage.account(body.botGuid) }, 409);
+    }
+    return c.json({ ok: true, account: fleet.storage.account(body.botGuid) });
+  });
+  app.post("/storage/run", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { guids?: unknown; refresh?: boolean };
+    try {
+      return c.json({ ok: true, run: fleet.storage.startRun({ guids: Array.isArray(body.guids) ? body.guids.map(String) : undefined, refresh: !!body.refresh }) });
+    } catch (e) {
+      return c.json({ error: (e as Error).message, run: fleet.storage.status().run }, 409);
+    }
+  });
+  app.post("/storage/run/cancel", (c) => c.json({ ok: true, stopping: fleet.storage.cancelRun() }));
+  // Which character an account logs in with from now on (null: the first one). Takes effect at its next login.
+  app.post("/accounts/char", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { guid?: string; charId?: unknown } | null;
+    if (!body || typeof body !== "object" || !body.guid) return c.json({ error: "guid required" }, 400);
+    const acc = fleet.pool.every().find((a) => a.guid === body.guid || a.botGuid === body.guid);
+    if (!acc) return c.json({ error: "no such account" }, 404);
+    const charId = body.charId === null || body.charId === undefined || body.charId === "" ? null : Number(body.charId);
+    if (charId !== null && !Number.isInteger(charId)) return c.json({ error: "charId must be a number" }, 400);
+    fleet.pool.setPreferredChar(acc, charId);
+    return c.json({ ok: true, guid: acc.guid, botGuid: acc.botGuid, charId });
   });
 
   // Re-check suspended accounts against Realm (HTTP only) and un-retire the ones it accepts.

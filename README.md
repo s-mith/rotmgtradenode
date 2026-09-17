@@ -16,6 +16,11 @@ This is the successor to the RotMG Communism pool. The design lives in
   roster.
 - **Backpacks.** Claim and equip 16-slot backpacks on the accounts that need
   them (8 + 16 = 24 slots per trade).
+- **Storage.** Each account's vault chests, potion rack, Gift Chest and
+  seasonal spoils chest, from the console (Fleet → Storage): put items away,
+  take them out, pull tradeable gifts and spoils onto the character, and pick
+  which character an account logs in with. A run walks the account into the
+  Vault and moves the items.
 - **Proxies.** Paste your proxy list in the console (Fleet → Proxies). Every
   login goes through one of them, one account per exit IP at a time, and by
   default nothing logs in from your own connection.

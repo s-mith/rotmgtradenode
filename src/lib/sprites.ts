@@ -40,6 +40,19 @@ export function getSpriteMap(): Map<string, string> {
   return map;
 }
 
+let nameByType: Map<number, string> | null = null;
+/** Item name by in-game object type, for everything realm-items.json knows (the vault's containers hold more than the catalog trades). */
+export function realmItemNameByType(objectType: number): string | null {
+  if (!nameByType) {
+    nameByType = new Map();
+    for (const it of readRealmItems()) {
+      const t = Number(it.realmId);
+      if (Number.isInteger(t) && t > 0 && !nameByType.has(t)) nameByType.set(t, it.name);
+    }
+  }
+  return nameByType.get(objectType) ?? null;
+}
+
 export function spriteForItemName(name: string): string | null {
   return getSpriteMap().get(normalize(name)) ?? null;
 }
