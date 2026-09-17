@@ -263,8 +263,14 @@ export class SwapCoordinator {
       if (known && known.state !== rv.state) {
         db.prepare("UPDATE swap_rendezvous SET state = ?, updated_at = ? WHERE rendezvous_id = ?").run(rv.state, this.now(), rv.id);
         if (known.request_id !== null && (rv.state === "aborted" || rv.state === "failed" || rv.state === "disputed")) queue.cancelSwapJob(db, known.request_id, `hub says ${rv.state}`);
-        const local = rv.offerId === null ? undefined : this.localOffer(rv.offerId);
-        if (local && rv.offerId !== null) this.setLocalStatus(rv.offerId, rv.state === "done" ? "done" : local.side === "poster" && rv.state !== "disputed" ? "open" : rv.state);
+      }
+      // The offer behind it follows the meeting's end whichever side's receipt
+      // closed it: the poster's reopens (the hub did that), a taker's row closes
+      // so the items it had promised are free again.
+      const local = rv.offerId === null ? undefined : this.localOffer(rv.offerId);
+      if (local && rv.offerId !== null && (local.status === "open" || local.status === "accepted")) {
+        const next = rv.state === "done" ? "done" : local.side === "poster" && rv.state !== "disputed" ? "open" : rv.state;
+        if (local.status !== next) this.setLocalStatus(rv.offerId, next);
       }
       return;
     }

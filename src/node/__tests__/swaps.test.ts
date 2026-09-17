@@ -133,6 +133,28 @@ describe("SwapCoordinator", () => {
     expect(c.status().localOffers[0].status).toBe("open");
   });
 
+  it("a taker whose meeting failed on its own receipt gets its promised items back", async () => {
+    let state: RendezvousWire["state"] = "meet";
+    const rv = (): RendezvousWire => ({ id: 14, kind: "swap", offerId: 5, server: "USEast", seasonal: true, state, createdAt: 1, deadlineAt: Date.now() + 3_600_000, me: { role: "take", botIgn: "MyBot", gives: [{ ref: "r1", itemId: "pdef", enchants: [], count: 0 }], gets: [{ itemId: "patk", qty: 1 }] }, partner: { botIgn: "TheirBot", poster: "Them" }, reported: { mine: false, partner: false } });
+    const { hub } = fakeHub({ onCall: (m, p) => (m === "POST" && p === "/api/v1/offers/5/accept" ? { rendezvous: rv() } : m === "GET" && p === "/api/v1/rendezvous/mine" ? { rendezvous: [rv()] } : m === "POST" && p === "/api/v1/rendezvous/14/receipt" ? ((state = "failed"), { ok: true, state: "failed" }) : undefined) });
+    const c = new SwapCoordinator({ db: () => db, hub, pool, log: () => {} });
+    const offer = { id: 5, poster: "Them", mine: false, botIgn: "TheirBot", seasonal: true, server: "USEast", give: [{ ref: "x", itemId: "patk", enchants: [], count: 0 }], want: [{ itemId: "pdef", qty: 1, slotsMin: 0, slotsExact: null, enchants: [] }], status: "open" as const, createdAt: 1, expiresAt: 2 };
+    presence.report({ botGuid: BOT, alias: "B", ign: "MyBot", server: "USEast", freeSlots: 5, status: "idle", seasonal: true });
+    await c.acceptOffer(offer);
+    expect(c.held().map((h) => h.instanceId)).not.toContain("i-pdef-plain");
+    const row = q.listPending(db).withdraws[0];
+    c.start();
+    q.claimWithdraw(db, BOT, [{ itemId: "pdef", qty: 1 }], ["i-pdef-plain"]);
+    // This side's receipt is the one that closes the meeting: the hub answers "failed" right here.
+    q.reportSwap(db, BOT, row.id, { ok: false, gave: [], gaveInstanceIds: [], got: [], partnerIgn: "TheirBot", error: "partner left" });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(db.prepare("SELECT state FROM swap_rendezvous WHERE rendezvous_id = 14").get()).toEqual({ state: "failed" });
+    await c.poll();
+    c.stop();
+    expect(c.status().localOffers[0].status).toBe("failed");
+    expect(c.held().map((h) => h.instanceId)).toContain("i-pdef-plain");
+  });
+
   it("a rendezvous the hub aborted cancels the local row", async () => {
     let state: RendezvousWire["state"] = "meet";
     const rv = (): RendezvousWire => ({ id: 3, kind: "swap", offerId: 8, server: "USEast", seasonal: true, state, createdAt: 1, deadlineAt: Date.now() + 3_600_000, me: { role: "give", botIgn: "MyBot", gives: [{ ref: "r1", itemId: "patk", enchants: [], count: 0 }], gets: [{ itemId: "pdef", qty: 1 }] }, partner: { botIgn: "TheirBot", poster: "Them" }, reported: { mine: false, partner: false } });
