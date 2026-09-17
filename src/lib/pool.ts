@@ -7,6 +7,7 @@
 // server-side reference for what the pool shows (tests check the wire form
 // against it) and for callers that want the list in-process.
 import { CATALOG, ITEM_BY_ID } from "./catalog";
+import { acceptsItem, currentItemPolicy } from "./itemPolicy";
 import { enchantName } from "./enchants";
 import type { PyrelayPool } from "./devauth";
 import { rarityFor, type Rarity } from "./poolWire";
@@ -26,14 +27,16 @@ export type PoolInstance = {
   rarity: Rarity;
 };
 
-/** Deposit-grid catalog projection: every item the pool accepts. */
+/** Deposit-grid catalog projection: every tradeable item, flagged with whether this node takes it. */
 export function projectCatalog() {
+  const policy = currentItemPolicy();
   return CATALOG.map((c) => ({
     itemId: c.id,
     itemName: c.name,
     sprite: null,
     category: c.category,
     subtype: c.subtype ?? null,
+    accepted: acceptsItem(policy, c.id),
   }));
 }
 

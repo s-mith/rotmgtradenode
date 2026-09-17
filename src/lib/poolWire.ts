@@ -38,6 +38,8 @@ export interface WireCatalogEntry {
   sprite: string | null;
   category: string;
   subtype: string | null;
+  /** Whether this node takes the item in (Control panel → Trading → Accepted items). */
+  accepted?: boolean;
 }
 
 export interface PoolWireFull {

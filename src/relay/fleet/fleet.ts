@@ -106,6 +106,7 @@ export class Fleet {
       onLogin: (acc, client) => this.backpacks.onLogin(acc, client),
       servers: this.servers,
       requireProxy: () => this.nodeSettings.get().proxies.required,
+      itemPolicy: () => this.nodeSettings.get().items,
       // Read at every bring-up, so a build bump reaches the next HELLO.
       get buildVersion() { return versions.current; },
       refreshBuildVersion: () => versions.refresh(),

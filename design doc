@@ -93,6 +93,11 @@ Any future feature that breaks one of these needs its own risk write-up first.
     default
   - roster: the owner's own alt accounts, added by hand or delivered by the
     separate account service (a pickup client, not built)
+  - accepted items: the catalog is every item the game lets players trade
+    (not Soulbound in equip.xml); each node chooses what its bots take in
+    (rules by category and lowest tier per gear group, per-item pins), kept
+    in its settings and enforced in the trade window and in every site path
+    that takes an item in. What is already in the pool stays withdrawable
   - account storage (docs/relay/STORAGE.md): each account's vault chests,
     potion rack, Gift Chest and seasonal spoils chest are cold storage the
     owner moves items into and out of from the console; a run walks the

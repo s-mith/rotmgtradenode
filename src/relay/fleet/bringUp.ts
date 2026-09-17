@@ -34,6 +34,8 @@ export interface FleetDeps {
   servers?: ServerList;
   /** When true, a login with no proxy to use is refused rather than made from this host's IP. */
   requireProxy?: () => boolean;
+  /** Which catalog items the node takes in (src/lib/itemPolicy.ts); absent = everything tradeable. */
+  itemPolicy?: () => import("../../lib/itemPolicy").ItemPolicy;
 }
 
 export class BringUpRefused extends Error {

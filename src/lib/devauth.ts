@@ -310,6 +310,9 @@ export const pyrelay = {
   // Account storage (docs/relay/STORAGE.md): the fleet's /storage routes. `path` is relative to /storage.
   storageGet: <T = unknown>(path: string) => callPyrelay<T>(`/storage${path}`),
   storagePost: <T = unknown>(path: string, body: unknown = {}) => callPyrelay<T>(`/storage${path}`, { method: "POST", body: JSON.stringify(body) }),
+  // Accepted items (src/lib/itemPolicy.ts): what this node takes in.
+  itemPolicyGet: () => callPyrelay<{ ok: true; policy: import("./itemPolicy").ItemPolicy; accepted: number; total: number; everything: boolean }>("/node/items"),
+  itemPolicySet: (policy: unknown) => callPyrelay<{ ok: true; policy: import("./itemPolicy").ItemPolicy; accepted: number; total: number; everything: boolean }>("/node/items", { method: "POST", body: JSON.stringify({ policy }) }),
   setPreferredChar: (guid: string, charId: number | null) => callPyrelay<{ ok: true; guid: string; botGuid: string; charId: number | null }>("/accounts/char", { method: "POST", body: JSON.stringify({ guid, charId }) }),
   retrySuspended: (guids?: string[]) => callPyrelay<{ ok: true; cleared: number; results: { alias: string; guid: string; botGuid: string; verdict: string; detail: string }[] }>("/accounts/retry-suspended", { method: "POST", body: JSON.stringify({ guids }) }),
   nodeStatus: () => callPyrelay<NodeStatus>("/node"),

@@ -5,6 +5,7 @@
 // picks the plainest of its own items that fit each line.
 import type { WantLineWire } from "@/shared/hubWire";
 import { ITEM_BY_ID } from "./catalog";
+import { nodeTakes } from "./itemPolicy";
 import { matchesRule, parseSlotSpecs, MAX_SLOTS, type SlotSpec } from "./wishlist";
 
 export const MAX_GIVE_ITEMS = 24;
@@ -90,6 +91,7 @@ export function parseWantInput(raw: unknown): { ok: true; want: WantLine[] } | {
     if (!line || typeof line !== "object") return { ok: false, error: "Bad wanted item." };
     const { itemId, qty, slotsMin, slotsExact, enchants } = line as { itemId?: unknown; qty?: unknown; slotsMin?: unknown; slotsExact?: unknown; enchants?: unknown };
     if (typeof itemId !== "string" || !ITEM_BY_ID.has(itemId)) return { ok: false, error: "Pick items the catalog knows." };
+    if (!nodeTakes(itemId)) return { ok: false, error: `${ITEM_BY_ID.get(itemId)!.name} is not taken on this node (Control panel → Trading → Accepted items).` };
     const q = qty === undefined ? 1 : Number(qty);
     if (!Number.isInteger(q) || q < 1 || q > MAX_WANT_ITEMS) return { ok: false, error: `Quantity must be 1-${MAX_WANT_ITEMS}.` };
     total += q;

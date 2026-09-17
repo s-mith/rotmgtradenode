@@ -18,7 +18,7 @@ type Limits = { maxOpenOffers: number; maxItemsPerSide: number; completedSwaps: 
 type Rendezvous = { id: number; kind: "swap" | "commons"; offerId: number | null; server: string; state: string; deadlineAt: number; me: { role: string; botIgn: string; gives: OfferItem[]; gets: { itemId: string; qty: number }[] }; partner: { botIgn: string; poster: string }; reported: { mine: boolean; partner: boolean }; requestId: number | null; localState: string | null };
 type Status = { linked: boolean; lastPollAt: number | null; lastError: string | null; rendezvous: Rendezvous[] };
 type Pick = { instanceId: string; itemId: string; name: string; enchantIds: number[]; botIgn: string };
-type Catalog = { itemId: string; itemName: string }[];
+type Catalog = { itemId: string; itemName: string; accepted?: boolean }[];
 
 const HEADERS = { "Content-Type": "application/json" };
 const NO_SUGGEST: Suggestions = { items: [], enchants: [], effects: [] };
@@ -49,7 +49,8 @@ export default function TradePanel({ tray, onRemove, onClear, seasonal, onPosted
   const [, setTick] = useState(0);
 
   const nameOf = useMemo(() => new Map(catalog.map((c) => [c.itemId, c.itemName])), [catalog]);
-  const suggestions = useMemo<Suggestions>(() => ({ items: catalog.map((c) => ({ id: c.itemId, name: c.itemName })), enchants: [], effects: [] }), [catalog]);
+  // Only what this node takes in can be asked for.
+  const suggestions = useMemo<Suggestions>(() => ({ items: catalog.filter((c) => c.accepted !== false).map((c) => ({ id: c.itemId, name: c.itemName })), enchants: [], effects: [] }), [catalog]);
 
   // A picked catalog item becomes a want slot; the search box clears for the next one.
   useEffect(() => {

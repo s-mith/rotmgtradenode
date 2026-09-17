@@ -2,6 +2,8 @@
 // website's existing pyrelay client keeps working. Mounted in-process by the
 // site (see src/server) or served standalone by src/relay/main.ts.
 import { Hono } from "hono";
+import * as itemPolicyLib from "../lib/itemPolicy";
+import { CATALOG } from "../lib/catalog";
 import { timingSafeEqual } from "node:crypto";
 import { createHash } from "node:crypto";
 import type { Fleet } from "./fleet/fleet";
@@ -86,6 +88,8 @@ export function poolPayload(fleet: Fleet): PoolPayload {
   payloadMemo.set(fleet, { key, payload });
   return payload;
 }
+
+const CATALOG_SIZE = CATALOG.length;
 
 export function createControlPlane(fleet: Fleet, auth: () => string | undefined = () => process.env.PYRELAY_AUTH): Hono {
   const app = new Hono();
@@ -348,6 +352,21 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
   app.post("/node/build/trust", (c) => {
     fleet.buildGate.trust();
     return c.json({ ok: true, build: fleet.buildGate.status() });
+  });
+  // Which catalog items this node takes in (src/lib/itemPolicy.ts).
+  app.get("/node/items", (c) => {
+    const { acceptedIds, acceptsEverything } = itemPolicyLib;
+    const policy = fleet.nodeSettings.get().items;
+    return c.json({ ok: true, policy, accepted: acceptedIds(policy).size, total: CATALOG_SIZE, everything: acceptsEverything(policy) });
+  });
+  app.post("/node/items", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { policy?: unknown } | null;
+    if (!body || typeof body !== "object" || !body.policy) return c.json({ error: "policy required" }, 400);
+    const policy = itemPolicyLib.normalizeItemPolicy(body.policy);
+    fleet.nodeSettings.update((s) => { s.items = policy; });
+    const n = itemPolicyLib.acceptedIds(policy).size;
+    fleet.log(`items: the node now takes ${n} of ${CATALOG_SIZE} catalog items`);
+    return c.json({ ok: true, policy, accepted: n, total: CATALOG_SIZE, everything: itemPolicyLib.acceptsEverything(policy) });
   });
   app.post("/node/telemetry", async (c) => {
     const body = (await c.req.json().catch(() => null)) as { enabled?: boolean; hubUrl?: string } | null;

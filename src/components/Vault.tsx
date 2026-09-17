@@ -382,6 +382,8 @@ type CatalogEntry = {
   // by-itemId lookup, per-instance filtering in the withdraw grid.
   category: string;
   subtype: string | null;
+  /** Whether this node takes the item in (absent on an older server: assume yes). */
+  accepted?: boolean;
 };
 
 // Sort orders offered above the grid. "default" keeps the server order
@@ -875,6 +877,7 @@ export default function Vault() {
     const items = new Map<string, string>();
     if (tab === "deposit") {
       for (const c of catalog) {
+        if (c.accepted === false) continue;
         if (itemTagIds.has(c.itemId)) continue;
         if (classFilter && !itemUsableByClass(c.itemName, classFilter)) continue;
         if (slotFilter && !itemInSlot(c.itemName, slotFilter)) continue;
@@ -977,6 +980,8 @@ export default function Vault() {
     const q = query.trim().toLowerCase();
     const itemTagIds = new Set(tags.filter((t) => t.kind === "item").map((t) => (t as { id: string }).id));
     const catalogVisible = catalog.filter((c) => {
+      // Items the node does not take are not on offer for a deposit; what is already in the pool still shows in withdraw mode.
+      if (tab === "deposit" && c.accepted === false) return false;
       if (itemTagIds.size > 0 && !itemTagIds.has(c.itemId)) return false;
       if (classFilter && !itemUsableByClass(c.itemName, classFilter)) return false;
       if (slotFilter && !itemInSlot(c.itemName, slotFilter)) return false;

@@ -8,6 +8,7 @@ import type { AcceptOfferRequest, CreateOfferRequest, NodeLimitsWire, OfferItemW
 import type { HubClient } from "./hub";
 import type { PyrelayPool } from "../lib/devauth";
 import { ITEM_BY_ID } from "../lib/catalog";
+import { nodeTakes } from "../lib/itemPolicy";
 import * as queue from "../lib/queue";
 import { pickForLines, shortfall, wantFromWire, wantToWire, type HeldItem, type WantLine, MAX_GIVE_ITEMS } from "../lib/offers";
 import { ownedInstanceIds, reservedInstanceIds, vaultCount, vaultHalf, vaultItems, wishCount } from "../lib/vault";
@@ -208,6 +209,9 @@ export class SwapCoordinator {
 
   /** What I would hand over for `offer`, or why I can't. `forUser`: from a guest's vault. */
   preview(offer: OfferWire, forUser?: ForUser): { ok: true; picks: (HeldItem & { botGuid: string; botIgn: string; name: string })[] } | { ok: false; error: string } {
+    // What would come in has to be something this node takes.
+    const refused = offer.give.find((g) => !nodeTakes(g.itemId));
+    if (refused) return { ok: false, error: `${ITEM_BY_ID.get(refused.itemId)?.name ?? refused.itemId} is not taken on this node.` };
     const want = wantFromWire(offer.want);
     const mine = this.held(offer.seasonal, forUser?.localUserId ?? null);
     const picks = pickForLines(want, mine);

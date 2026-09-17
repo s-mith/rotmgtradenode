@@ -11,6 +11,7 @@ import type { HubClient } from "./hub";
 import type { CommonsResolver, SwapCoordinator, SwapsResult } from "./swaps";
 import type { PyrelayPool } from "../lib/devauth";
 import { ITEM_BY_ID } from "../lib/catalog";
+import { nodeTakes } from "../lib/itemPolicy";
 import { SLOTS_PER_BOT } from "../lib/capacity";
 import { ownedInstanceIds, reservedInstanceIds, sharedVaultBots, vaultBotGuids } from "../lib/vault";
 
@@ -239,6 +240,7 @@ export class CommonsCoordinator implements CommonsResolver {
   async withdraw(input: { nodeId: string; ref: string; itemId: string; seasonal: boolean; server: string }): Promise<SwapsResult<{ rendezvous: RendezvousWire; botIgn: string }>> {
     if (!this.o.hub.linked) return { ok: false, status: 503, error: "Link this node to the hub first (Fleet → Node)." };
     if (!ITEM_BY_ID.has(input.itemId)) return { ok: false, status: 400, error: "Unknown item." };
+    if (!nodeTakes(input.itemId)) return { ok: false, status: 409, error: `${ITEM_BY_ID.get(input.itemId)?.name} is not taken on this node.` };
     const bot = this.receivingBot(input.seasonal);
     if (!bot) return { ok: false, status: 409, error: `No ${input.seasonal ? "seasonal" : "non-seasonal"} account of yours has a free slot and a known name.` };
     const req: CommonsWithdrawRequest = { nodeId: input.nodeId, ref: input.ref, server: input.server, botIgn: bot.ign };

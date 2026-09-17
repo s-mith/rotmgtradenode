@@ -321,3 +321,14 @@ user's wishes for the rest of the scan.
 embedded fleet on every inventory change, and by claims and donates) is
 debounced to one scan per 1.5 s burst, and a 30 s interval backstops a relay
 reached over HTTP. No relay fetch happens while no rule is enabled.
+
+## Accepted items (node)
+
+The catalog (`src/lib/catalog.ts`) is every item the game lets players
+trade. A node's `items` setting (`src/lib/itemPolicy.ts`, Control panel →
+Trading → Accepted items) narrows what its bots take in: switches for stat
+potions, eggs, other consumables and UT/ST gear, a lowest tier per gear
+group, and per-item pins that beat the rules. The trade machine holds a
+deposit that offers a refused item (`TradeSessionOptions.acceptsType`);
+declared deposits, offer wants, accepting an offer and taking from the
+commons are refused up front. Items already in the pool are unaffected.

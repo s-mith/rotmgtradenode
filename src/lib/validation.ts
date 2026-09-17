@@ -1,5 +1,6 @@
 import { DEPOSIT_SIZES, isDepositSize } from "./depositSizes";
 import { ITEM_BY_ID } from "./catalog";
+import { nodeTakes } from "./itemPolicy";
 import { SERVER_SET, DEPOSIT_ONLY_SERVERS } from "./servers";
 import { isPotionStat, type PotionStat } from "./potionPlan";
 
@@ -52,6 +53,7 @@ export function parseDeclaredItems(v: unknown): Result<{ items?: { itemId: strin
     if (!raw || typeof raw !== "object") return err("items must be a list of {itemId, qty}");
     const { itemId, qty } = raw as { itemId?: unknown; qty?: unknown };
     if (typeof itemId !== "string" || !ITEM_BY_ID.has(itemId)) return err(`Unknown item: ${String(itemId)}`);
+    if (!nodeTakes(itemId)) return err(`${ITEM_BY_ID.get(itemId)!.name} is not taken on this node`);
     const n = qty === undefined ? 1 : Number(qty);
     if (!Number.isInteger(n) || n < 1 || n > MAX_DECLARED_ITEMS) return err(`items: qty for ${itemId} must be 1-${MAX_DECLARED_ITEMS}`);
     merged.set(itemId, (merged.get(itemId) ?? 0) + n);

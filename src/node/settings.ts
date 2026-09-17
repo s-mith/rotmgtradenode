@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
+import { DEFAULT_ITEM_POLICY, normalizeItemPolicy, type ItemPolicy } from "../lib/itemPolicy";
 
 export interface NodeSettings {
   /** Opt-in ban telemetry (design doc §8). Off until the owner says yes. */
@@ -14,6 +15,8 @@ export interface NodeSettings {
   hub: HubLink | null;
   /** Logins only ever go through a proxy; with none listed, nothing logs in (design doc §2). */
   proxies: { required: boolean };
+  /** Which catalog items this node's bots take in (src/lib/itemPolicy.ts). Everything tradeable unless the owner narrows it. */
+  items: ItemPolicy;
 }
 
 export interface HubLink {
@@ -30,7 +33,7 @@ export interface HubLink {
 export const NODE_SETTINGS_FILE = "node.json";
 
 function defaults(): NodeSettings {
-  return { telemetry: { enabled: false, hubUrl: "", salt: randomBytes(16).toString("base64url") }, knownBuilds: [], hub: null, proxies: { required: true } };
+  return { telemetry: { enabled: false, hubUrl: "", salt: randomBytes(16).toString("base64url") }, knownBuilds: [], hub: null, proxies: { required: true }, items: { ...DEFAULT_ITEM_POLICY, minTier: { ...DEFAULT_ITEM_POLICY.minTier }, overrides: {} } };
 }
 
 export class NodeSettingsStore {
@@ -44,6 +47,7 @@ export class NodeSettingsStore {
         knownBuilds: Array.isArray(raw.knownBuilds) ? raw.knownBuilds.filter((b): b is string => typeof b === "string") : [],
         hub: raw.hub && typeof raw.hub === "object" && typeof raw.hub.nodeId === "string" ? raw.hub : null,
         proxies: { required: raw.proxies?.required !== false },
+        items: normalizeItemPolicy(raw.items),
       };
     } catch {
       // absent or unreadable: defaults, written on the first change

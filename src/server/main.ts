@@ -56,6 +56,9 @@ if (process.env.RELAY_EMBEDDED === "1") {
   const f = Fleet.fromEnv({ api: new LocalSiteApi(getDb), onPoolChanged: notifyPoolChanged });
   registerEmbeddedRelay(createControlPlane(f));
   registerEmbeddedPool(() => poolPayload(f));
+  // The site's forms and the pool projection follow the owner's accepted-items policy too.
+  const { registerItemPolicy } = await import("@/lib/itemPolicy");
+  registerItemPolicy(() => f.nodeSettings.get().items);
   fleet = f;
   void f.start().catch((e) => console.error("[relay] fleet failed to start:", e));
   console.log("[relay] embedded fleet starting");

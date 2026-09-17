@@ -219,6 +219,8 @@ export interface TradeSessionOptions {
   resolveInstance: InstanceResolver;
   /** Slots that are somebody's personal property: never part of an aggregate offer. */
   excludeSlot?: (slot: number) => boolean;
+  /** The node's own say on a pool item offered in a deposit: false holds the trade (src/lib/itemPolicy.ts). */
+  acceptsType?: (objType: number) => boolean;
   /** Called whenever the trade reaches a terminal state. */
   onOutcome?: () => void;
   log?: (line: string) => void;
@@ -675,6 +677,10 @@ export class TradeSession {
           continue;
         }
         this.log(isSkinType(ti.item) ? "partner offered a skin on a normal deposit — holding" : "partner offered non-pool item at accept — holding");
+        return;
+      }
+      if (this.opts.acceptsType && !this.opts.acceptsType(ti.item)) {
+        this.log(`partner offered item ${ti.item}, which this node does not take — holding`);
         return;
       }
       const need = minEnchantsFor(ti.item);

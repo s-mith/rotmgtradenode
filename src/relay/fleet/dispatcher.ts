@@ -11,6 +11,7 @@ import type { GameClient } from "../client/gameClient";
 import { GameId } from "../realm/constants";
 import { PartnerCoordinator, TradeSession, type Outcome } from "../trade/tradeMachine";
 import { toCatalogId } from "../trade/itemMap";
+import { acceptsItem } from "../../lib/itemPolicy";
 import type { BotAccount, BotPool } from "./botPool";
 import { pullAccount } from "./botPool";
 import type { FleetDeps } from "./bringUp";
@@ -459,6 +460,13 @@ export class Dispatcher {
   private attachSession(acc: BotAccount, client: GameClient): void {
     const session = new TradeSession(client, {
       coordinator: this.coordinator,
+      // The owner's policy on what comes in (Control panel -> Trading -> Accepted items).
+      acceptsType: (type) => {
+        const policy = this.deps.itemPolicy?.();
+        if (!policy) return true;
+        const id = toCatalogId(type);
+        return !!id && acceptsItem(policy, id);
+      },
       // Somebody's property sitting on this bot (a claimed item waiting to be
       // packed, or a vault bot's own load) is never part of a pool offer.
       excludeSlot: (slot) => {
