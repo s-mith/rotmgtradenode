@@ -16,8 +16,7 @@ import { LoginCodes, PoolSettings, TradeHold, WhisperQueue } from "./stores";
 import { startupSweep } from "./sweeps";
 import { auditProxiesFromFile, BackpackService, BackpackStore } from "./backpacks";
 import { StorageService, StorageStore } from "./storage";
-import { sweepAccount, type SweepDeps } from "./sweeps";
-import { borrowAccount } from "./borrow";
+import type { SweepDeps } from "./sweeps";
 import type { BotAccount } from "./botPool";
 import type { BringUpVerdict } from "./bringUp";
 import { SeasonWatch } from "./seasonWatch";
@@ -241,22 +240,17 @@ export class Fleet {
   }
 
   /**
-   * Log an account in, read its inventory, log it out: a new account's first
-   * look, or a fresh one from the console. Borrowed from the dispatcher
-   * (borrow.ts) so a bot idling at the login desk can be read too.
+   * Log an account in, read everything it holds — the character, the vault
+   * chests, the potion rack, the gift and spoils chests, the other
+   * characters — and log it out: a new account's first look, or a fresh one
+   * from the console. A storage trip (docs/relay/STORAGE.md), borrowed from
+   * the dispatcher (borrow.ts) so a bot idling at the login desk can be read
+   * too. The result is what every item of the account looks like in the pool.
    */
   async readAccount(acc: BotAccount, why: string): Promise<BringUpVerdict | "busy" | "login-locked"> {
-    const holds = this.dispatcher?.maintenanceHolds ?? new Set<string>();
-    const lent = await borrowAccount(acc, { sd: this.sweepDeps, holds, release: (a) => this.dispatcher?.releaseForMaintenance(a) ?? true });
-    if (!lent.ok) {
-      this.log(`read: ${acc.alias} not read — ${lent.why}`);
-      return lent.why === "login-locked" ? "login-locked" : "busy";
-    }
-    try {
-      return await sweepAccount(this.sweepDeps, acc, `${acc.alias} (${why})`);
-    } finally {
-      lent.giveBack();
-    }
+    const v = await this.storage.read(acc, why);
+    if (v === "busy" || v === "login-locked") this.log(`read: ${acc.alias} not read — ${v}`);
+    return v;
   }
 
   stop(): void {

@@ -489,11 +489,14 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
       const connected = !!client && client.active && client.isReady && client.connected;
       const items = Object.entries(fleet.tracker.instancesFor(acc.botGuid)).sort((a, b) => Number(a[0]) - Number(b[0])).map(([slot, i]) => ({ slot: Number(slot), instanceId: i.instanceId, itemId: i.itemId, enchantments: i.enchantments, capturedAt: i.capturedAt }));
       const stamps = items.map((i) => i.capturedAt).filter(Boolean);
+      // What the account keeps beyond the character (docs/relay/STORAGE.md), in the pool like the rest.
+      const stored = fleet.storage.storedFor(acc).map((s) => ({ instanceId: s.instanceId, itemId: s.itemId, enchantments: s.enchantments, where: s.where, pools: s.pools }));
       return {
         alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, ign: igns[acc.botGuid] ?? "", server: connected ? client!.server : "",
         online: connected, inWorld: connected && client!.objectId !== -1, seasonal: acc.seasonal, suspended: acc.suspended,
         inUse: acc.inUse, assignedKind: acc.assignedKind, assignedRequestId: acc.assignedRequestId, capacity: caps[acc.botGuid] ?? 8,
         held: items.length, lastSeen: stamps.length ? Math.max(...stamps) : null, items, lastLoginError: acc.lastLoginError, charId: acc.info.charId ?? null,
+        stored, vaultReadAt: fleet.storage.visitedAt(acc),
       };
     });
     return c.json({ ok: true, total: hits.length, accounts });

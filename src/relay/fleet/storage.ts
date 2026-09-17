@@ -20,7 +20,7 @@ import { ITEM_BY_ID } from "../../lib/catalog";
 import { realmItemNameByType } from "../../lib/sprites";
 import { isPoolItem, toCatalogId, toObjType } from "../trade/itemMap";
 import type { BotAccount } from "./botPool";
-import { bringUp, BringUpRefused, takeDown } from "./bringUp";
+import { bringUp, BringUpRefused, takeDown, type BringUpVerdict } from "./bringUp";
 import { borrowAccount } from "./borrow";
 import type { Instance } from "./inventoryTracker";
 import { snapshotInventory, type SweepDeps } from "./sweeps";
@@ -143,13 +143,20 @@ export class StorageStore {
         // Moves from before a move carried its type and name are dropped; they are cheap to queue again.
         for (const [g, st] of Object.entries(raw.accounts ?? {})) {
           const moves = Array.isArray(st.moves) ? st.moves.filter((m) => Number.isInteger(m.objectType) && typeof m.name === "string") : [];
-          // A file from before every slot had an identity named only what this node placed.
+          // A file from before every slot had an identity named only what this
+          // node placed: the rest of what the containers hold gets one now, so
+          // it is in the pool without another trip.
           if (st.containers) {
             for (const k of CONTAINER_KINDS) {
               const c = st.containers[k] as ContainerSnapshot & { placed?: Record<number, Instance> };
               if (!c) continue;
               c.instances ??= c.placed ?? {};
               delete c.placed;
+              c.slots.forEach((type, slot) => {
+                if (c.instances[slot] || type <= 0 || !isPoolItem(type)) return;
+                const itemId = toCatalogId(type);
+                if (itemId) c.instances[slot] = { instanceId: randomUUID().replace(/-/g, ""), itemId, enchantments: [], capturedAt: Date.now() / 1000 };
+              });
             }
           }
           this.accounts.set(g, { ...st, moves, charItems: st.charItems ?? {} });
@@ -739,6 +746,10 @@ export class StorageService {
     this.o.store.requestSave();
   }
 
+  /** When the account's containers were last read (ms), or null: never, so nothing of its storage is listed yet. */
+  visitedAt(acc: BotAccount): number | null {
+    return this.o.store.get(acc.botGuid)?.lastVisitAt ?? null;
+  }
   /** What the account holds beyond the played character's trade slots, for the pool. */
   storedFor(acc: BotAccount): StoredInstance[] {
     const st = this.o.store.get(acc.botGuid);
@@ -947,19 +958,34 @@ export class StorageService {
     }
   }
 
+  /**
+   * Read an account: log in, look at everything it holds (the character,
+   * the containers, the other characters), log out. What "Read now" and a
+   * new account's first look do, so every item is in the pool from the
+   * start. An account that cannot reach the Nexus (a character still in the
+   * tutorial) is still captured as far as it got.
+   */
+  async read(acc: BotAccount, why: string): Promise<BringUpVerdict | "busy" | "login-locked"> {
+    const r = await this.trip(acc, [], { label: `read (${why})` });
+    if (r.captured) return "captured";
+    if (r.bringUpVerdict) return r.bringUpVerdict;
+    if (r.verdict === "skipped") return r.error === "login-locked" ? "login-locked" : "busy";
+    return "failed";
+  }
+
   /** One trip: borrow the account, log in, run the moves, record everything, log out. */
-  private async trip(acc: BotAccount, moves: Move[], o: { label: string; bankable?: Instance[] }): Promise<{ verdict: "ok" | "failed" | "skipped"; error: string | null; outcomes: MoveOutcome[] }> {
+  private async trip(acc: BotAccount, moves: Move[], o: { label: string; bankable?: Instance[] }): Promise<{ verdict: "ok" | "failed" | "skipped"; error: string | null; outcomes: MoveOutcome[]; /** The tracker was updated from a character in world. */ captured: boolean; bringUpVerdict?: BringUpVerdict }> {
     const { sd, store, holds } = this.o;
     const st = store.for(acc);
     const tag = o.label;
     if (acc.assignedRequestId !== null || acc.inUse) {
       st.lastError = "busy with a trade";
-      return { verdict: "skipped", error: st.lastError, outcomes: [] };
+      return { verdict: "skipped", error: st.lastError, outcomes: [], captured: false };
     }
     const lent = await borrowAccount(acc, { sd, holds, release: this.o.release, activity: (l) => this.setActivity(acc.guid, l && `${tag}: ${l}`), cancelled: () => this.cancelled, now: this.now });
     if (!lent.ok) {
       st.lastError = lent.why;
-      return { verdict: "skipped", error: lent.why, outcomes: [] };
+      return { verdict: "skipped", error: lent.why, outcomes: [], captured: false };
     }
     this.setActivity(acc.guid, `${tag}: logging in`);
     let client: GameClient;
@@ -971,8 +997,9 @@ export class StorageService {
       const verdict = e instanceof BringUpRefused ? e.verdict : "failed";
       st.lastError = `bring-up ${verdict}: ${(e as Error).message}`;
       this.log(`${tag}: ${acc.alias}: ${st.lastError}`);
-      return { verdict: verdict === "failed" ? "failed" : "skipped", error: st.lastError, outcomes: [] };
+      return { verdict: verdict === "failed" ? "failed" : "skipped", error: st.lastError, outcomes: [], captured: false, bringUpVerdict: verdict };
     }
+    let captured = false;
     try {
       const tracked = sd.tracker.instancesFor(acc.botGuid);
       const r = await runStorageTrip(client, { moves, tracked, bankable: o.bankable, log: (l) => this.log(`${tag}: ${acc.alias}: ${l}`), now: this.now, onStep: (label) => this.setActivity(acc.guid, `${tag}: ${label}`) });
@@ -1007,15 +1034,19 @@ export class StorageService {
           if (m) m.error = oc.detail;
         }
       }
-      const snap = snapshotInventory(client);
-      sd.tracker.updateFromSlots(acc.botGuid, snap.slots, snap.hasBp ? Math.max(16, snap.capacity) : 8);
-      if (client.playerData.name) sd.tracker.recordIgn(acc.botGuid, client.playerData.name);
+      // The character is described only once it was in world; a login that never got there keeps the last snapshot.
+      if (client.objectId !== -1 && client.playerData.name) {
+        const snap = snapshotInventory(client);
+        sd.tracker.updateFromSlots(acc.botGuid, snap.slots, snap.hasBp ? Math.max(16, snap.capacity) : 8);
+        sd.tracker.recordIgn(acc.botGuid, client.playerData.name);
+        captured = true;
+      }
       // The character list just read may name items the tracker now holds, or no longer does.
       reconcileCharItems(st, client.charId, this.now());
       st.lastRun = { at: this.now(), ok: r.ok, error: r.error, summary: r.summary };
       st.lastError = r.ok ? null : r.error;
       this.log(`${tag}: ${acc.alias}: ${r.summary}`);
-      return { verdict: r.ok ? "ok" : "failed", error: r.error, outcomes: r.outcomes };
+      return { verdict: r.ok ? "ok" : "failed", error: r.error, outcomes: r.outcomes, captured };
     } finally {
       takeDown(sd.deps, acc, `${tag} trip done`);
       lent.giveBack();

@@ -46,6 +46,22 @@ type Account = {
   /** Why the last login did not get the account in world, until one does. */
   lastLoginError: { at: number; kind: string; message: string } | null;
   items: Item[];
+  /** What the account keeps beyond the character (vault, rack, gift and spoils chests, other characters): in the pool like the rest. */
+  stored: StoredRow[];
+  /** When the containers were last read; null = never, so storage is not listed yet ("Read now" reads it). */
+  vaultReadAt: number | null;
+};
+type StoredRow = {
+  instanceId: string;
+  itemId: string;
+  name: string;
+  known: boolean;
+  realmId: number | null;
+  enchantments: number[];
+  enchantNames: (string | null)[];
+  /** Where it is, in words. */
+  where: string;
+  pools: { seasonal: boolean; nonseasonal: boolean };
 };
 
 type Sprite = { name: string; sprite: string | null };
@@ -151,7 +167,7 @@ export default function AccountsTab({ password }: { password: string }) {
     if (!accounts) return;
     const missing: number[] = [];
     for (const a of accounts) {
-      for (const it of a.items) {
+      for (const it of [...a.items, ...(a.stored ?? [])]) {
         const id = it.realmId;
         if (id === null) continue;
         if (sprites.current.has(id) || spriteInflight.current.has(id)) continue;
@@ -456,6 +472,36 @@ export default function AccountsTab({ password }: { password: string }) {
                           +{it.enchantments.length}
                         </span>
                       )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {/* Everything else the account holds: vault chests, potion rack, gift and spoils chests, other characters. In the pool like the rest; a withdraw fetches it. */}
+            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 10 }}>
+              In storage: {(a.stored ?? []).length} tradeable item{(a.stored ?? []).length === 1 ? "" : "s"}
+              {a.vaultReadAt === null ? " · vault never read — Read now looks at it" : ` · vault read ${relTime(a.vaultReadAt)}`}
+            </div>
+            {(a.stored ?? []).length > 0 && (
+              <ul style={{ listStyle: "none", padding: 0, margin: "6px 0 0" }}>
+                {a.stored.map((it) => {
+                  const sprite = spriteFor(it.realmId);
+                  return (
+                    <li key={it.instanceId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                      <span style={{ color: "var(--muted)", fontSize: 11, minWidth: 22 }} title="where the item is">{it.where}</span>
+                      {sprite ? (
+                        <img src={sprite} alt="" width={24} height={24} style={{ imageRendering: "pixelated" }} />
+                      ) : (
+                        <span style={{ width: 24, textAlign: "center", color: "var(--muted)", fontSize: 11 }}>{it.name.slice(0, 3)}</span>
+                      )}
+                      <span title={it.itemId}>{it.name}</span>
+                      {it.enchantments.length > 0 && (
+                        <span style={{ color: "var(--muted)", fontSize: 11 }} title={it.enchantNames.filter(Boolean).join(", ")}>+{it.enchantments.length}</span>
+                      )}
+                      <span style={{ color: "var(--muted)", fontSize: 11 }}>
+                        {it.pools.seasonal && it.pools.nonseasonal ? "both pools" : it.pools.seasonal ? "seasonal pool" : "non-seasonal pool"}
+                      </span>
                     </li>
                   );
                 })}

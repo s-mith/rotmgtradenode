@@ -36,15 +36,27 @@ offered to the halves a character of the account could carry it to:
 `inPool`; the withdraw route applies the same gate per item, so a forged id
 of the other side is "no longer available" like a tracked one.
 
+## When storage gets read
+
+Reading an account (`Fleet.readAccount`: a new account's first look, "Read
+now" on the Accounts tab, a corrected password) is a storage trip with no
+moves: the character list, the Vault's containers and the character's own
+slots, in one login. So every item of an account is in the pool from its
+first read. A fetch and an operator's run refresh the view too; nothing
+else visits the Vault by itself. The Accounts tab says when an account's
+vault was last read, or that it never was.
+
 ## Identities
 
 - A container slot gets an instance id the first time it is seen holding a
   tradeable item and keeps it while the slot's type holds
   (`ContainerSnapshot.instances`, formerly `placed`, which named only what
-  this node put there). An item this node banked keeps its tracker
-  instance, enchants included; anything else is listed unenchanted until it
-  is fetched (VAULTINFO gives types, not enchants). A take-out move carries
-  the listed id, so the tracker keeps it on arrival (`expectArrival`).
+  this node put there; a file from before gets the rest of its identities
+  on load, so nothing waits for another trip). An item this node banked
+  keeps its tracker instance, enchants included; anything else is listed
+  unenchanted until it is fetched (VAULTINFO gives types, not enchants). A
+  take-out move carries the listed id, so the tracker keeps it on arrival
+  (`expectArrival`).
 - Another character's items come from char/list's `Equipment` (item type
   per slot; 0-3 equipment, 4 on the trade slots). Every ordinary login reads
   char/list already, so `StorageService.onLogin` refreshes them for free.

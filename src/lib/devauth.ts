@@ -408,6 +408,10 @@ export const pyrelay = {
         lastSeen: number | null;
         /** Why the last bring-up did not get it in world, until one does. */
         lastLoginError: { at: number; kind: string; message: string } | null;
+        /** What the account keeps beyond the character (docs/relay/STORAGE.md); absent on an older relay. */
+        stored?: { instanceId: string; itemId: string; enchantments: number[]; where: StoredItem["where"]; pools: StoredItem["pools"] }[];
+        /** When its containers were last read (ms), null = never. */
+        vaultReadAt?: number | null;
         charId: number | null;
         items: {
           slot: number;

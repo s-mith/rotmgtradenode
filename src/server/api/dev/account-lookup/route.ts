@@ -3,6 +3,7 @@ import { checkDevPassword, pyrelay } from "@/lib/devauth";
 import { ITEM_BY_ID } from "@/lib/catalog";
 import { enchantName } from "@/lib/enchants";
 import { realmIdForItemName } from "@/lib/sprites";
+import { whereLabel } from "@/lib/poolWire";
 
 
 // GET /api/dev/account-lookup?q=<text>&limit=<n>
@@ -65,6 +66,11 @@ export async function GET(req: Request) {
       // (4 equip, 8 main, 8 backpack) — an operator comparing this against a
       // screenshot wants the same layout, not a prettier sort.
       .sort((x, y) => x.slot - y.slot),
+    // What the account keeps beyond the character (docs/relay/STORAGE.md), named the same way; `where` in words.
+    stored: (a.stored ?? []).map((s) => {
+      const name = ITEM_BY_ID.get(s.itemId)?.name ?? s.itemId;
+      return { instanceId: s.instanceId, itemId: s.itemId, name, known: ITEM_BY_ID.has(s.itemId), realmId: realmIdForItemName(name), enchantments: s.enchantments, enchantNames: s.enchantments.map((id) => enchantName(id)), where: whereLabel(s.where), pools: s.pools };
+    }),
   }));
 
   return json({ ok: true, total: res.data.total, accounts });

@@ -232,3 +232,32 @@ describe("roomMoves", () => {
     expect(roomMoves(inv, 16, 12, bankable, 5)).toEqual([]);
   });
 });
+
+describe("StorageStore migration", () => {
+  it("gives every tradeable container slot of an older file an identity on load, keeping what the node placed", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "storage-"));
+    const file = path.join(dir, "storage_state.json");
+    const old = {
+      accounts: {
+        "bot-a": {
+          alias: "A", guid: "a@x", botGuid: "bot-a", lastVisitAt: 1, chars: null, charsAt: null, moves: [], lastRun: null, lastError: null,
+          containers: {
+            vault: { objectId: 1, slots: [RING, PDEF, SOULBOUND, -1], placed: { 0: { instanceId: "kept", itemId: "ubatk", enchantments: [283], capturedAt: 1 } } },
+            rack: { objectId: 2, slots: [PATK], placed: {} }, gift: { objectId: 3, slots: [], placed: {} }, spoils: { objectId: 4, slots: [], placed: {} },
+          },
+        },
+      },
+    };
+    fs.writeFileSync(file, JSON.stringify(old));
+    const st = new StorageStore(file).get("bot-a")!;
+    const vault = st.containers!.vault as { instances: Record<number, { instanceId: string; itemId: string }>; placed?: unknown };
+    expect(vault.placed).toBeUndefined();
+    expect(vault.instances[0]).toMatchObject({ instanceId: "kept", enchantments: [283] });
+    expect(vault.instances[1]).toMatchObject({ itemId: "pdef" });
+    expect(vault.instances[2]).toBeUndefined(); // not an item the pool trades
+    expect(vault.instances[3]).toBeUndefined();
+    expect(st.containers!.rack.instances[0]).toMatchObject({ itemId: "patk" });
+    expect(storedInstances(st, null, true).map((s) => s.where)).toEqual([{ kind: "vault", slot: 0 }, { kind: "vault", slot: 1 }, { kind: "rack", slot: 0 }]);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
