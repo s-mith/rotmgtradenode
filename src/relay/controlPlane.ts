@@ -317,6 +317,25 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
     fleet.log(`roster: added ${acc.alias} (${acc.seasonalOrDefault ? "seasonal" : "non-seasonal"}${detected ? `, ${detected.chars} character(s), tutorial done` : ""}); sweeping it now`);
     return c.json({ ok: true, where: "roster", account: { alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, seasonal: acc.seasonal }, detected });
   });
+  // A corrected password: Realm is asked with it first, then it is saved, the lockout dropped and the account read.
+  app.post("/accounts/password", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { guid?: string; password?: string } | null;
+    if (!body || typeof body !== "object" || !body.guid || !body.password) return c.json({ error: "guid and password required" }, 400);
+    const acc = fleet.pool.every().find((a) => a.guid === body.guid || a.botGuid === body.guid);
+    if (!acc) return c.json({ error: "no such account" }, 404);
+    if ((acc.client && acc.client.active) || acc.assignedRequestId !== null || acc.inUse) return c.json({ error: "the account is online; try when it is idle" }, 409);
+    if (fleet.nodeSettings.get().proxies.required && !fleet.proxies.configured) return c.json({ error: "no proxies listed and logins are set to go through a proxy only" }, 409);
+    const { probeAccount } = await import("./fleet/accountProbe");
+    const r = await probeAccount({ guid: acc.guid, password: String(body.password) }, fleet.proxies.configured ? fleet.proxies.probeFor(acc.guid) : null, acc.info.charId ?? null);
+    if (r.verdict === "bad-credentials") return c.json({ error: "Realm rejects that password too" }, 400);
+    if (r.verdict === "attempt-limit") return c.json({ error: `Realm's login attempt limit: ${r.detail}` }, 429);
+    if (r.verdict === "error") return c.json({ error: `could not reach Realm to check it (${r.detail})` }, 502);
+    fleet.pool.setPassword(acc, String(body.password));
+    fleet.gate.unlock(acc.guid);
+    if (r.verdict === "suspended") return c.json({ ok: true, saved: true, note: "the password works, but Realm says the account is suspended" });
+    void fleet.readAccount(acc, "password corrected").catch((e) => fleet.log(`read after password change failed: ${String(e)}`));
+    return c.json({ ok: true, saved: true, detected: { tutorialDone: r.tutorialDone, chars: r.chars.length, loaded: r.loaded ? { id: r.loaded.id, seasonal: r.loaded.seasonal } : null } });
+  });
   // Log an account in, read its inventory, log it out: the first look at a new account, or a fresh one on demand.
   app.post("/accounts/sweep", async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { guids?: unknown };
@@ -438,7 +457,7 @@ export function createControlPlane(fleet: Fleet, auth: () => string | undefined 
         alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, ign: igns[acc.botGuid] ?? "", server: connected ? client!.server : "",
         online: connected, inWorld: connected && client!.objectId !== -1, seasonal: acc.seasonal, suspended: acc.suspended,
         inUse: acc.inUse, assignedKind: acc.assignedKind, assignedRequestId: acc.assignedRequestId, capacity: caps[acc.botGuid] ?? 8,
-        held: items.length, lastSeen: stamps.length ? Math.max(...stamps) : null, items,
+        held: items.length, lastSeen: stamps.length ? Math.max(...stamps) : null, items, lastLoginError: acc.lastLoginError, charId: acc.info.charId ?? null,
       };
     });
     return c.json({ ok: true, total: hits.length, accounts });

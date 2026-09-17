@@ -27,6 +27,11 @@ export async function POST(req: Request) {
     if (!r.ok) return json({ error: r.error }, { status: r.status });
     return json(r.data);
   }
+  if (body.action === "set-password") {
+    const r = await pyrelay.setAccountPassword(String(body.guid ?? ""), String(body.password ?? ""));
+    if (!r.ok) return json({ error: r.error }, { status: r.status });
+    return json(r.data);
+  }
   if (body.action === "sweep") {
     const r = await pyrelay.sweepAccounts(Array.isArray(body.guids) ? body.guids.map(String) : []);
     if (!r.ok) return json({ error: r.error }, { status: r.status });

@@ -107,11 +107,19 @@ function lockoutFrom(text: string): number {
   return (m ? Number(m[1]) : 5) * 60;
 }
 
+/**
+ * Realm's ways of saying the password is wrong: the old message, and the
+ * client's own localization key that account/verify answers with for some
+ * accounts (seen live 2026-09-17 on an account added with a mistyped password).
+ */
+export function isBadCredentials(text: string): boolean {
+  return text.includes("Account credentials not valid") || text.includes("WebChangePasswordDialog.passwordError");
+}
 function classify(text: string): AuthFailure {
   const upper = text.toUpperCase();
   if (upper.includes("LOGIN ATTEMPT LIMIT")) return { kind: "attempt-limit", lockoutSeconds: lockoutFrom(text), body: text };
   if (upper.includes("SUSPENDED")) return { kind: "suspended", body: text };
-  if (text.includes("Account credentials not valid")) return { kind: "bad-credentials", body: text };
+  if (isBadCredentials(text)) return { kind: "bad-credentials", body: text };
   return { kind: "unknown", body: text };
 }
 
@@ -158,7 +166,7 @@ export async function getCharList(accessToken: string, proxy: Proxy | null): Pro
     const seconds = m ? Math.min(Number(m[1]) + 3, ACCOUNT_IN_USE_MAX_S) : 60;
     return { ok: false, error: { kind: "account-in-use", seconds, body: text } };
   }
-  if (text.includes("Account credentials not valid")) return { ok: false, error: { kind: "bad-credentials", body: text } };
+  if (isBadCredentials(text)) return { ok: false, error: { kind: "bad-credentials", body: text } };
   const head = /<Chars nextCharId="(\d+)" maxNumChars="(\d+)">/.exec(text);
   if (!head) return { ok: false, error: classify(text) };
   const charIds = [...text.matchAll(/<Char id="(\d+)">/g)].map((x) => Number(x[1]));

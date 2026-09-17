@@ -1,7 +1,7 @@
 // Parsers for the read-only account calls, against bodies shaped like the
 // live ones captured 2026-09-07 (docs/relay/BACKPACKS.md §0).
 import { describe, expect, it } from "vitest";
-import { backpackDays, parseCalendar, parseCharListDetail, parseSeasonInfo, parseServers } from "../api";
+import { backpackDays, isBadCredentials, parseCalendar, parseCharListDetail, parseSeasonInfo, parseServers } from "../api";
 
 const CHAR_LIST = `<Chars nextCharId="2" maxNumChars="1"><Char id="1"><ObjectType>782</ObjectType><Seasonal>False</Seasonal><Level>7</Level><Exp>2167</Exp><CurrentFame>2</CurrentFame><Equipment>2711,2606,2652,-1,-1,-1,-1,-1,-1,-1,-1,-1</Equipment><PCStats>x</PCStats><Dead>False</Dead><BackpackSlots>8</BackpackSlots><Has3Quickslots>0</Has3Quickslots></Char><Char id="3"><ObjectType>804</ObjectType><Seasonal>True</Seasonal><Level>1</Level><Dead>True</Dead><BackpackSlots>0</BackpackSlots></Char><Account><Name>Foo</Name><MaxNumChars>1</MaxNumChars></Account><Servers></Servers></Chars>`;
 
@@ -88,5 +88,15 @@ describe("parseServers", () => {
   });
   it("rejects a body that is not a server list", () => {
     expect(() => parseServers("<Error>Account in use</Error>")).toThrow(/not a server list/);
+  });
+});
+
+describe("isBadCredentials", () => {
+  it("knows both of Realm's wrong-password answers", () => {
+    expect(isBadCredentials("<Error>Account credentials not valid</Error>")).toBe(true);
+    // account/verify answered this live on 2026-09-17 for an account added with a mistyped password.
+    expect(isBadCredentials("<Error>WebChangePasswordDialog.passwordError</Error>")).toBe(true);
+    expect(isBadCredentials("<Error>Account in use (5 seconds until timeout)</Error>")).toBe(false);
+    expect(isBadCredentials(CHAR_LIST)).toBe(false);
   });
 });

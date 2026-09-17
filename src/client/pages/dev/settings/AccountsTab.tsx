@@ -43,6 +43,8 @@ type Account = {
   capacity: number;
   held: number;
   lastSeen: number | null;
+  /** Why the last login did not get the account in world, until one does. */
+  lastLoginError: { at: number; kind: string; message: string } | null;
   items: Item[];
 };
 
@@ -89,6 +91,7 @@ export default function AccountsTab({ password }: { password: string }) {
   const [addPassword, setAddPassword] = useState("");
   const [addSeasonal, setAddSeasonal] = useState(true);
   const [sweepBusy, setSweepBusy] = useState<string | null>(null);
+  const [fixing, setFixing] = useState<{ guid: string; password: string; busy: boolean } | null>(null);
   const [addBusy, setAddBusy] = useState(false);
   const [addMsg, setAddMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [retryBusy, setRetryBusy] = useState(false);
@@ -209,6 +212,23 @@ export default function AccountsTab({ password }: { password: string }) {
       setAddBusy(false);
     }
   }, [addEmail, addPassword, addSeasonal, password, search]);
+
+  const savePassword = useCallback(async () => {
+    if (!fixing || !fixing.password) return;
+    setFixing({ ...fixing, busy: true });
+    try {
+      const res = await fetch("/api/dev/accounts", { method: "POST", headers: { "Content-Type": "application/json", "x-dev-password": password }, body: JSON.stringify({ action: "set-password", guid: fixing.guid, password: fixing.password }) });
+      const body = await res.json();
+      if (!res.ok) setAddMsg({ ok: false, text: body.error || `HTTP ${res.status}` });
+      else {
+        setAddMsg({ ok: true, text: body.note ? `Password saved. ${body.note}.` : "Password saved; Realm accepts it. The account is being read now." });
+        setFixing(null);
+      }
+    } finally {
+      setFixing((f) => (f ? { ...f, busy: false } : f));
+      void search(lastQuery.current);
+    }
+  }, [fixing, password, search]);
 
   const sweepNow = useCallback(async (guid: string) => {
     setSweepBusy(guid);
@@ -347,6 +367,22 @@ export default function AccountsTab({ password }: { password: string }) {
               </span>
             </div>
 
+            {a.lastLoginError && !a.online && (
+              <div style={{ color: "var(--bad)", fontSize: 12, marginTop: 4, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <span>last login failed {relTime(a.lastLoginError.at)}: {a.lastLoginError.message}</span>
+                {a.lastLoginError.kind === "bad-credentials" && fixing?.guid !== a.guid && (
+                  <button className="nav-link" type="button" onClick={() => setFixing({ guid: a.guid, password: "", busy: false })}>fix password</button>
+                )}
+              </div>
+            )}
+            {fixing?.guid === a.guid && (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+                <input type="password" autoComplete="new-password" placeholder="new password" value={fixing.password} onChange={(e) => setFixing({ ...fixing, password: e.target.value })} style={{ width: 180 }} />
+                <button className="nav-link" type="button" disabled={fixing.busy || !fixing.password} onClick={() => void savePassword()}>{fixing.busy ? "checking with Realm…" : "save"}</button>
+                <button className="nav-link" type="button" disabled={fixing.busy} onClick={() => setFixing(null)}>cancel</button>
+                <span className="hint">checked with Realm before it is saved</span>
+              </div>
+            )}
             <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
               {a.held}/{a.capacity} slots · captured {relTime(a.lastSeen)}
               {!a.online && a.lastSeen !== null && " (last known — bot is offline)"}

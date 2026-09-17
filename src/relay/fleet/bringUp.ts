@@ -121,6 +121,10 @@ export async function bringUp(deps: FleetDeps, acc: BotAccount, server: string, 
     client.stop();
     const e = auth.error;
     if (proxy && e.kind === "network") proxies.noteResult(proxy.host, false);
+    acc.lastLoginError = {
+      at: Date.now(), kind: e.kind,
+      message: e.kind === "bad-credentials" ? "Realm rejects the password" : e.kind === "suspended" ? "Realm says the account is suspended" : e.kind === "attempt-limit" ? "Realm's login attempt limit" : e.kind === "account-in-use" ? `account in use elsewhere (${e.seconds}s)` : e.kind === "network" ? `network error via ${proxy?.host ?? "direct"}: ${e.detail}` : `Realm answered: ${e.body.replace(/\s+/g, " ").slice(0, 120)}`,
+    };
     switch (e.kind) {
       case "suspended":
         retireSuspended(deps, acc);
@@ -142,6 +146,7 @@ export async function bringUp(deps: FleetDeps, acc: BotAccount, server: string, 
         throw new BringUpRefused("failed", "auth failed");
     }
   }
+  acc.lastLoginError = null;
   if (client.charSeasonal !== null) pool.setSeasonal(acc, client.charSeasonal);
   // char/list (read during authenticate) is the authority on the backpack;
   // the tracker's memory only stands in when there was no character to ask.

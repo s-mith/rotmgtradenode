@@ -51,6 +51,8 @@ export class BotAccount {
   assignedPartnerIgn: string | null = null;
   /** Personal storage: the account a claimed deposit's items belong to. */
   assignedVaultUser: number | null = null;
+  /** Why the last bring-up did not get the account in world, until one does (shown on the Accounts tab). */
+  lastLoginError: { at: number; kind: string; message: string } | null = null;
 
   constructor(public info: AccountInfo) {
     this.guid = info.guid;
@@ -245,6 +247,21 @@ export class BotPool {
       }
     });
     console.log(`BotPool: ${acc.alias} logs in with ${charId === null ? "its first character" : `character ${charId}`} from now on`);
+  }
+
+  /** A new password for an account (the owner corrected it). Persists; the gate is the caller's to unlock. */
+  setPassword(acc: BotAccount, password: string): void {
+    acc.info.password = password;
+    delete acc.info.secret;
+    this.revision++;
+    this.patchFile((entries) => {
+      for (const e of entries) if (e.guid === acc.guid) {
+        e.password = password;
+        delete e.secret;
+      }
+    });
+    acc.lastLoginError = null;
+    console.log(`BotPool: ${acc.alias} has a new password`);
   }
 
   setSeasonal(acc: BotAccount, seasonal: boolean): void {

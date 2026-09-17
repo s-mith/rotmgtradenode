@@ -387,6 +387,9 @@ export const pyrelay = {
         // Epoch SECONDS of the newest capture on the account (pyrelay's clock),
         // or null if nothing was ever recorded. How stale this picture is.
         lastSeen: number | null;
+        /** Why the last bring-up did not get it in world, until one does. */
+        lastLoginError: { at: number; kind: string; message: string } | null;
+        charId: number | null;
         items: {
           slot: number;
           instanceId: string;
@@ -396,6 +399,7 @@ export const pyrelay = {
         }[];
       }[];
     }>(`/account?q=${encodeURIComponent(q)}&limit=${limit}`),
+  setAccountPassword: (guid: string, password: string) => callPyrelay<{ ok: true; saved: true; note?: string }>("/accounts/password", { method: "POST", body: JSON.stringify({ guid, password }) }),
 };
 
 // --- accountgen -------------------------------------------------------------
