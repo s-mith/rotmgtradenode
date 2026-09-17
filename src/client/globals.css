@@ -151,7 +151,8 @@ header.site {
 .commons-card { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
 .commons-card.mine { border-color: var(--accent); }
 .commons-card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.commons-card-body .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.commons-card-body .muted { font-size: 12px; }
+.commons-card-body .hint { margin: 0; padding: 0; border: 0; background: none; font-size: 11px; }
 .commons-card .tx-submit { padding: 4px 10px; font-size: 12px; }
 .layout { transition: grid-template-columns 220ms ease; }
 .trade-desk { display: flex; flex-direction: column; gap: 10px; }
