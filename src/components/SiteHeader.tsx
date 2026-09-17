@@ -6,9 +6,13 @@ export default function SiteHeader() {
   const discordUrl = import.meta.env.VITE_DISCORD_URL;
   return (
     <header className="site">
-      <span className="title-link" aria-label="RotMG Trade" style={{ cursor: "default" }}>
+      <span className="title-link" aria-label="rotmg trade, beta" style={{ cursor: "default" }}>
         <img src="/logo.png" alt="" className="title-logo" width={48} height={48} />
-        RotMG Trade
+        <span className="title-text">
+          rotmg trade
+          {/* The one beta mark: a sash across the wordmark's corner, not a tag on every tab. */}
+          <span className="title-beta" aria-hidden="true">beta</span>
+        </span>
       </span>
       <nav className="site-nav" aria-label="Sections">
         <NavLink to="/" end className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}>

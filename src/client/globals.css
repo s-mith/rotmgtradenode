@@ -2049,16 +2049,28 @@ ul.tx-feed li:last-child {
 }
 
 /* A small "beta" mark beside a tab's name. */
-.bookmark-tag {
+/* The beta sash: pinned to the wordmark's top-right corner, turned 45°. */
+.title-text {
+  position: relative;
   display: inline-block;
-  margin-left: 6px;
-  padding: 1px 5px;
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  color: var(--accent);
+  padding-right: 4px;
+}
+.title-beta {
+  position: absolute;
+  top: -9px;
+  right: -22px;
+  transform: rotate(45deg);
+  transform-origin: center;
+  padding: 1px 10px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--bg, #0e0f13);
   font-size: 9px;
-  letter-spacing: 0.5px;
-  vertical-align: 1px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 /* A count pinned to a tab's top-right corner: raids gathering a headcount. */

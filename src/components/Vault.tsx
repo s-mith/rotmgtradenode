@@ -1064,7 +1064,7 @@ export default function Vault() {
             className={"bookmark" + (view === "vault" ? " active" : "")}
             onClick={() => switchPool("myvault")}
           >
-            My Vault <span className="bookmark-tag">beta</span>
+            My Vault
           </button>
           {features.includes("wishlist") && (
             <button
@@ -1080,14 +1080,14 @@ export default function Vault() {
             className={"bookmark" + (view === "trades" ? " active" : "")}
             onClick={() => switchPool(lastPoolKind, "trades")}
           >
-            Trades <span className="bookmark-tag">beta</span>
+            Trades
           </button>
           <button
             type="button"
             className={"bookmark" + (view === "commons" ? " active" : "")}
             onClick={() => switchPool(lastPoolKind, "commons")}
           >
-            Commons <span className="bookmark-tag">beta</span>
+            Commons
           </button>
         </nav>
         <section className="panel pool-panel bookmarked">
