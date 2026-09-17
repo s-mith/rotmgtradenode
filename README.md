@@ -27,6 +27,11 @@ This is the successor to the RotMG Communism pool. The design lives in
   The hub schedules a meeting on one server, both bots swap in the game's
   trade window, and the hub records the swap only when both nodes' receipts
   agree. Control panel → Economy → Offers.
+- **Shared vaults** (needs the hub). Give a hub user a personal vault on
+  your node: a slot quota per half, a role, and optionally the right to
+  trade with those items. They deposit, withdraw and trade from the hub
+  website; your bots do the physical trades. Control panel → Players →
+  Shared vaults.
 - **Local by default.** The server binds to loopback and needs no password.
   Credentials are sealed at rest. There is no hub account required for any of
   the above.
