@@ -59,7 +59,7 @@
   "license": "MIT",
   "main": "electron/main.mjs",
   "build": {
-    "appId": "is.him.rotmgtradenode",
+    "appId": "trade.rotmg.rotmgtradenode",
     "productName": "rotmgtradenode",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
