@@ -113,10 +113,14 @@ export interface StoredInstance extends Instance {
   pools: PoolSides;
 }
 
-/** Player classes by object type, for the character list. */
+/**
+ * Player classes by object type (objects.xml: Rogue 0x300 ... Kensei 0x332),
+ * for the character list. 801 = Necromancer and 784 = Priest were checked
+ * against a live account's characters (2026-09-17).
+ */
 export const CLASS_NAMES: Record<number, string> = {
-  768: "Rogue", 775: "Archer", 782: "Wizard", 784: "Priest", 797: "Warrior", 771: "Knight", 779: "Paladin", 803: "Assassin",
-  804: "Necromancer", 805: "Huntress", 807: "Mystic", 808: "Trickster", 809: "Sorcerer", 810: "Ninja", 811: "Samurai", 812: "Bard", 813: "Summoner", 814: "Kensei",
+  768: "Rogue", 775: "Archer", 782: "Wizard", 784: "Priest", 785: "Samurai", 796: "Bard", 797: "Warrior", 798: "Knight", 799: "Paladin",
+  800: "Assassin", 801: "Necromancer", 802: "Huntress", 803: "Mystic", 804: "Trickster", 805: "Sorcerer", 806: "Ninja", 817: "Summoner", 818: "Kensei",
 };
 
 const isPotion = (itemId: string): boolean => ITEM_BY_ID.get(itemId)?.category === "Potion";
