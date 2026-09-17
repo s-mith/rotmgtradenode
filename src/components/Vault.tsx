@@ -8,6 +8,7 @@ import { useLiveUpdates } from "@/lib/useLive"
 import { applyPoolWire, emptyPoolState, instancesFromState, type PoolInstance, type PoolState, type PoolWire, type Rarity } from "@/lib/poolWire";
 import LoginPanel from "./LoginPanel";
 import WishlistPanel from "./WishlistPanel";
+import TradePanel from "./TradePanel";
 import OpenRequests from "./OpenRequests";
 import PlayerName from "./PlayerName";
 import { ItemSprite } from "./ItemSprite";
@@ -340,6 +341,8 @@ export type VaultView = {
 export type VaultHalfKind = "seasonal" | "nonseasonal";
 
 const MAX_TRAY = 4;
+/** An offer can give up to a full trade window. */
+const MAX_TRADE_TRAY = 24;
 
 
 const RARITY_COLOR: Record<Rarity, string> = {
@@ -455,7 +458,10 @@ export default function Vault() {
   // non-seasonal vault, each on its own bot.
   const [vaultHalf, setVaultHalf] = useState<VaultHalfKind>("seasonal");
   const vaultHalfTouched = useRef(false);
-  const view: "pool" | "vault" | "wishlist" = pool === "myvault" ? "vault" : pool === "wishlist" ? "wishlist" : "pool";
+  // Trades: the pool grid stays as the picker, the tray feeds an offer instead of a withdraw.
+  const [tradeMode, setTradeMode] = useState(false);
+  const view: "pool" | "vault" | "wishlist" | "trades" = pool === "myvault" ? "vault" : pool === "wishlist" ? "wishlist" : tradeMode ? "trades" : "pool";
+  const maxTray = tradeMode ? MAX_TRADE_TRAY : MAX_TRAY;
   const [tray, setTray] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   // Search tags (item / enchantment / effect chips) picked from the search
@@ -736,9 +742,10 @@ export default function Vault() {
     };
   }, [view]);
 
-  const switchPool = useCallback((next: PoolKind) => {
+  const switchPool = useCallback((next: PoolKind, trades = false) => {
     setPool(next);
     if (next !== "myvault" && next !== "wishlist") setLastPoolKind(next);
+    setTradeMode(trades && next !== "myvault" && next !== "wishlist");
     setTray([]);
     // Claim and potions belong to the pool tabs, donate to My vault; land on
     // withdraw when the current tab has no meaning where we're going.
@@ -786,10 +793,16 @@ export default function Vault() {
   // and offline copies (server "") are wildcards.
   const addFromStack = useCallback((stackInstances: PoolInstance[]) => {
     setTray((prev) => {
-      if (prev.length >= MAX_TRAY) return prev;
+      if (prev.length >= maxTray) return prev;
       const prevSet = new Set(prev);
-      const candidates = stackInstances.filter((i) => !prevSet.has(i.instanceId));
+      let candidates = stackInstances.filter((i) => !prevSet.has(i.instanceId));
       if (candidates.length === 0) return prev;
+      if (tradeMode && prev.length) {
+        // One offer trades from one account: prefer a copy on the bot already in the tray.
+        const bot = instances.find((i) => i.instanceId === prev[0])?.botGuid;
+        const same = candidates.filter((i) => i.botGuid === bot);
+        if (same.length) candidates = same;
+      }
       const trayServers = new Set(
         prev
           .map((id) => instances.find((i) => i.instanceId === id)?.server)
@@ -802,7 +815,7 @@ export default function Vault() {
             candidates[0];
       return [...prev, match.instanceId];
     });
-  }, [instances]);
+  }, [instances, maxTray, tradeMode]);
 
   const removeFromTrayAt = useCallback((index: number) => {
     setTray((prev) => prev.filter((_, i) => i !== index));
@@ -1050,7 +1063,7 @@ export default function Vault() {
           <button
             type="button"
             className={"bookmark" + (view === "pool" ? " active" : "")}
-            onClick={() => switchPool(lastPoolKind)}
+            onClick={() => switchPool(lastPoolKind, false)}
           >
             The Pool
           </button>
@@ -1070,10 +1083,17 @@ export default function Vault() {
               My Wishlist
             </button>
           )}
+          <button
+            type="button"
+            className={"bookmark" + (view === "trades" ? " active" : "")}
+            onClick={() => switchPool(lastPoolKind, true)}
+          >
+            Trades <span className="bookmark-tag">beta</span>
+          </button>
         </nav>
         <section className="panel pool-panel bookmarked">
         <div className="pool-head">
-          <h2>{pool === "myvault" ? "My Vault" : pool === "wishlist" ? "My Wishlist" : "The Pool"}</h2>
+          <h2>{pool === "myvault" ? "My Vault" : pool === "wishlist" ? "My Wishlist" : tradeMode ? "Trades" : "The Pool"}</h2>
           <span className="pool-count">
             {pool === "wishlist"
                 ? ""
@@ -1088,17 +1108,17 @@ export default function Vault() {
                   : `${poolInstances.length} item${poolInstances.length === 1 ? "" : "s"}`}
           </span>
         </div>
-        {view === "pool" && (
+        {(view === "pool" || view === "trades") && (
           <div className="pool-tabs">
             <button
               className={"nav-link" + (pool === "seasonal" ? " active" : "")}
-              onClick={() => switchPool("seasonal")}
+              onClick={() => switchPool("seasonal", tradeMode)}
             >
               Seasonal
             </button>
             <button
               className={"nav-link" + (pool === "nonseasonal" ? " active" : "")}
-              onClick={() => switchPool("nonseasonal")}
+              onClick={() => switchPool("nonseasonal", tradeMode)}
             >
               Non-seasonal
             </button>
@@ -1307,7 +1327,7 @@ export default function Vault() {
                   <StackTile
                     stack={s}
                     selected={selected}
-                    trayFull={tray.length >= MAX_TRAY}
+                    trayFull={tray.length >= maxTray}
                     onAdd={() => addFromStack(s.instances)}
                     onHover={(rect) => setHover({ stack: s, rect })}
                     onLeave={() =>
@@ -1352,6 +1372,11 @@ export default function Vault() {
               <li>A wish is for the seasonal or the non-seasonal pool. A match that reaches that pool is claimed into your vault for it, priced like a claim, and the wish is spent. Items and wishes together can&apos;t exceed that vault&apos;s slots.</li>
               <li>A wish is checked the moment you make it and on every pool change after. Older wishes are served first, across all players.</li>
             </ul>
+          </div>
+        ) : tradeMode ? (
+          <div className="panel">
+            <h2>Offer</h2>
+            <TradePanel tray={trayInstances} onRemove={removeFromTrayAt} onClear={clearTray} seasonal={ctxSeasonal} onPosted={reload} maxTray={MAX_TRADE_TRAY} />
           </div>
         ) : (
           <div className="panel">

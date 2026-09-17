@@ -132,6 +132,13 @@ header.site {
   image-rendering: pixelated;
 }
 
+/* Trades bookmark (components/TradePanel.tsx). */
+.trade-tray { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.trade-tray li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.trade-tray li .nav-link { margin-left: auto; }
+.trade-offer { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+.trade-compose input, .trade-compose select { font-size: 12px; padding: 4px 6px; }
+
 /* The control panel's category row: real tabs, not a muted subtitle. */
 .panel-categories {
   display: flex;
