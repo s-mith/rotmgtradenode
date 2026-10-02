@@ -6,7 +6,7 @@ rotmg trade node runs a trading pool for Realm of the Mad God on your own comput
 
 - A Windows 10 or Windows 11 PC that stays on while you want people to trade.
 - One or more **Realm alt accounts**: made on Realm's website with an email and password, with the **tutorial finished**. Never use your main account.
-- **Proxies** (recommended), or your own internet for one bot at a time. The setup explains both.
+- **Proxies** (recommended), or your own internet for one bot at a time. The setup explains both. No proxies yet? [Webshare](https://www.webshare.io/) gives you 10 free ones when you sign up, with no card needed.
 
 ## 1. Install
 
@@ -26,7 +26,7 @@ The setup opens by itself the first time you start the app. You can go back and 
 
 1. **Welcome.** What the app does and what you need.
 2. **Connection.** Choose how your bots reach the game:
-   - **Use proxies (recommended).** Paste the list your proxy seller gave you, press **Save proxies**, then **Test my proxies**. Each line shows whether it works.
+   - **Use proxies (recommended).** Paste the list your proxy seller gave you, press **Save proxies**, then **Test my proxies**. Each line shows whether it works. If you have none yet, press **Get 10 free proxies at Webshare**, sign up, and copy the list Webshare gives you.
    - **Use my own internet.** Free, but your bots and your main account then come from the same home address. Read the warning, tick **I understand**, and only one bot logs in at a time.
 3. **Accounts.** Add your alt accounts one by one with their email and password. "Added" means Realm accepted the account. If something is wrong, the setup says what to do.
 4. **rotmg trade (optional).** Linking lets people find your pool on the rotmg trade website. Sign in on rotmg trade, open **My nodes**, press **Link my node**, and paste the code. You can skip this and do it later.
