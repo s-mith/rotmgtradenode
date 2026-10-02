@@ -52,9 +52,22 @@ the code stays private, publish to a small public "releases" repository
 
 ## Code signing
 
-Unsigned, Windows shows "Windows protected your PC" (SmartScreen) to everyone
-who downloads the installer, and some antivirus products quarantine it. Most
-owners will stop there, so sign every public release.
+**For now releases ship unsigned** (decided 2026-10-01). Everyone who
+installs meets the browser's "isn't commonly downloaded" warning and
+"Windows protected your PC" (SmartScreen: More info → Run anyway), and
+Windows 11 PCs with Smart App Control on cannot install at all. The
+getting-started guide, the FAQ and every release's notes
+(`build/release-notes.md`) walk people through the warnings. Some antivirus
+products may quarantine the installer too.
+
+Updates are not affected: an unsigned build has no publisher name, so the
+installed app takes unsigned updates without checking a signature (and
+without SmartScreen, which only looks at files a browser downloaded).
+Signing later is a smooth switch: unsigned installs accept the first signed
+update, and from then on every update must carry that publisher.
+
+Unsigned, a good share of owners will stop at those warnings, so sign public
+releases once you can (below).
 
 Signing is configured only through environment variables (repository
 secrets in CI); nothing secret is in the repository.
@@ -115,7 +128,8 @@ With neither set, CI builds an unsigned installer and marks the run with an
 Everything above can be built on Linux, but only Windows can prove these:
 
 - [ ] The installer runs for a normal (non-administrator) user: no admin
-      prompt, no SmartScreen warning when signed, Defender does not flag it.
+      prompt, and Defender does not flag it. Unsigned: SmartScreen's More
+      info → Run anyway gets through; signed: no SmartScreen warning.
 - [ ] Shortcuts appear on the desktop and in the Start menu, and the app opens
       when the installer finishes, on the setup steps.
 - [ ] A Windows username with a space or non-English letters, and a Documents

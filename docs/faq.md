@@ -34,7 +34,15 @@ No. Keep the PC awake while you want people to trade: Control panel → Help →
 
 ## "Windows protected your PC" — is that a virus?
 
-Windows shows that screen for programs it has not seen often yet. If you downloaded the installer from the official link on rotmg trade or our Discord, click **More info**, then **Run anyway**. If you are not sure where the file came from, delete it.
+No. The app is not signed with a publisher certificate yet, so Windows does not know who made it ("Unknown publisher") and shows that screen. If you downloaded the installer from the official link on rotmg trade or our Discord, click **More info**, then **Run anyway**. If you are not sure where the file came from, delete it. You only see this when you install: updates install without it.
+
+## My browser says the installer "isn't commonly downloaded"
+
+Browsers say that about new files few people have downloaded yet. If it came from the official link, keep it. In Edge, press **…** next to the download, then **Keep**, **Show more** and **Keep anyway**. In Chrome, press **Keep**.
+
+## "Smart App Control blocked an app that may be unsafe"
+
+Smart App Control is a Windows 11 security setting that blocks every app without a publisher signature, and it has no **Run anyway**. While it is on, the node cannot be installed on that PC. Windows only allows it if you turn Smart App Control off (Windows Security → App & browser control → Smart App Control settings). That is your decision: on some versions of Windows it cannot be turned back on without resetting Windows. A signed version of the app, planned for later, will not have this problem.
 
 ## How do I update?
 

@@ -11,12 +11,14 @@ rotmg trade node runs a trading pool for Realm of the Mad God on your own comput
 ## 1. Install
 
 1. Download the installer (a file like `rotmgtradenode-Setup-1.2.3.exe`) from the official download link on rotmg trade or in our Discord. Do not run copies from anywhere else.
+   If your browser says the file "isn't commonly downloaded", keep it. In Edge, press **…** next to the download, then **Keep**, **Show more** and **Keep anyway**. In Chrome, press **Keep**.
 2. Double-click it. It installs for your Windows user only, so it does not ask for an administrator password, and it opens when it is done.
 
+**If Windows says "Windows protected your PC":** the app is not signed yet, so Windows does not know who made it and calls it "Unknown publisher". If you downloaded the installer from the official link, click **More info**, then **Run anyway**. If you are not sure where the file came from, do not run it. You only see this when you install: updates install without it.
 
-**If Windows says "Windows protected your PC":** Windows shows this for programs it has not seen often yet. If you downloaded the installer from the official link, click **More info**, then **Run anyway**. If you are not sure where the file came from, do not run it.
+**If Windows says "Smart App Control blocked an app":** that Windows 11 setting blocks every app that is not signed, and it has no **Run anyway**. See the [FAQ](faq.md).
 
-**If your antivirus warns you:** the app logs bots into a game, which some antivirus programs dislike. Only allow it if you got it from the official link.
+**If your antivirus warns you:** some antivirus programs are wary of new apps that are not signed yet. Only allow it if you got it from the official link.
 
 ## 2. The setup
 

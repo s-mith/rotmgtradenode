@@ -54,6 +54,8 @@ module.exports = {
     "!node_modules/**/*.md",
   ],
   publish,
+  // The body of each GitHub release: how to install past the unsigned-app warnings.
+  releaseInfo: { releaseNotesFile: "build/release-notes.md" },
   win: {
     target: [{ target: "nsis", arch: ["x64"] }],
     icon: "build/icon.ico",
