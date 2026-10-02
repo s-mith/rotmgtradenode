@@ -146,7 +146,8 @@ header.site {
   display: block;
   width: 48px;
   height: 48px;
-  image-rendering: pixelated;
+  /* Drawn at 112 px with a 1 px outline and a soft shadow: shrunk smoothly, or rows of the outline drop out. */
+  image-rendering: auto;
 }
 
 /* "node" carries the accent, so the wordmark follows the view's colour. */
