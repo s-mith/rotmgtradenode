@@ -81,7 +81,16 @@ within a minute and reports on as they move, and the node reports its
 communism, login gate, proxy and account counts with every heartbeat so the
 website's node card is live.
 
-## Run it
+## Install
+
+Most people should download the Windows installer
+(`rotmgtradenode-Setup-<version>.exe`) and follow
+[docs/getting-started.md](docs/getting-started.md). The installer brings
+everything the app needs: no Node.js or npm on the PC.
+
+## Run it from source
+
+For development; this needs Node.js 22 or newer and npm.
 
 Desktop (Windows first; Linux and macOS builds are best-effort):
 
