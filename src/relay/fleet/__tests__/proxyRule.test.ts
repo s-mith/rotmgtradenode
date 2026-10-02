@@ -23,7 +23,7 @@ describe("pasted proxy list", () => {
     expect(r.lines[4]).toMatchObject({ raw: "••••", error: expect.stringMatching(/^Couldn't read this line/) });
     expect(pool.exclusiveCapacity()).toBe(3);
     expect(pool.listText().split("\n")).toEqual(["1.1.1.1:1080:u:p", "2.2.2.2:1080", "socks4://3.3.3.3:1080"]);
-    expect(fs.statSync(file).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") expect(fs.statSync(file).mode & 0o777).toBe(0o600); // no POSIX modes on Windows
     const again = ProxyPool.fromSource({ file });
     expect(again.exclusiveCapacity()).toBe(3);
     expect(pool.setList("nothing useful")).toMatchObject({ count: 0, error: expect.stringMatching(/^None of these lines is a proxy/) });

@@ -28,7 +28,8 @@ describe("secrets", () => {
   });
   it("creates the key file once, mode 0600, and rejects the wrong key", () => {
     const key = secretKey(dir);
-    expect(fs.statSync(path.join(dir, "secret_key")).mode & 0o777).toBe(0o600);
+    // Windows has no POSIX modes (every file reads 0666); the profile folder's per-user ACLs keep it private there.
+    if (process.platform !== "win32") expect(fs.statSync(path.join(dir, "secret_key")).mode & 0o777).toBe(0o600);
     resetSecretKey();
     expect(secretKey(dir).equals(key)).toBe(true);
     const sealed = seal("x", key);
