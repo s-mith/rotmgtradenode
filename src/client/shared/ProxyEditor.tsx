@@ -1,9 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getProxies, parseProxies, saveProxies, testProxies, type ParsedLine, type ProxyTest } from "./api";
 
 // Paste proxies, see at once which lines the node understands, save, and test
 // them for real (each one reaches Realm's website and a game server through
 // the proxy). Shared by the setup wizard and the control panel's Proxies tab.
+
+/** Free proxies for a new owner: Webshare gives 10 when you sign up, with no card needed. */
+export const FREE_PROXIES_URL = "https://www.webshare.io/";
+
+function FreeProxiesLink({ children }: { children: ReactNode }) {
+  return (
+    <a href={FREE_PROXIES_URL} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  );
+}
 
 export function ProxyExplainer() {
   return (
@@ -15,12 +26,28 @@ export function ProxyExplainer() {
           coming from your home connection — the one your main account uses. One proxy carries one bot at a time.
         </p>
         <p>
-          Search the web for <b>&ldquo;SOCKS5 proxies&rdquo;</b> and buy from a seller you trust: dedicated (not shared) ones work best. After you buy, the
-          seller shows a list of lines such as <span className="ui-mono">1.2.3.4:1080:username:password</span>. Copy the whole list and paste it below.
+          To start for free, sign up at <FreeProxiesLink>Webshare</FreeProxiesLink>: it gives you 10 proxies at no cost, with no card needed. For more
+          bots, search the web for <b>&ldquo;SOCKS5 proxies&rdquo;</b> and buy from a seller you trust: dedicated (not shared) ones work best. Either way
+          you get a list of lines such as <span className="ui-mono">1.2.3.4:1080:username:password</span>. Copy the whole list and paste it below.
           Most formats work; the node tells you line by line what it understood.
         </p>
       </div>
     </details>
+  );
+}
+
+/** For an owner with no proxies yet: where to get some for free, in plain sight. */
+function FreeProxiesOffer() {
+  return (
+    <div className="ui-msg" role="note" style={{ marginTop: 0 }}>
+      <p style={{ margin: "0 0 10px" }}>
+        <b>No proxies yet?</b> Webshare gives you 10 free proxies when you sign up, with no card needed. Sign up, copy your proxy list from
+        Webshare, and paste it below.
+      </p>
+      <a className="ui-btn small primary" href={FREE_PROXIES_URL} target="_blank" rel="noopener noreferrer">
+        Get 10 free proxies at Webshare <span aria-hidden="true">↗</span>
+      </a>
+    </div>
   );
 }
 
@@ -108,6 +135,7 @@ export default function ProxyEditor({ onSaved }: { onSaved?: (count: number) => 
   const working = results?.filter((x) => x.ok).length ?? 0;
   return (
     <div>
+      {saved !== null && !saved.trim() && <FreeProxiesOffer />}
       <ProxyExplainer />
       <div className="ui-field" style={{ marginTop: 12 }}>
         <label htmlFor="proxy-list">Your proxies, one per line</label>

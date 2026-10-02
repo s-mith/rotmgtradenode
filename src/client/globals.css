@@ -146,7 +146,8 @@ header.site {
   display: block;
   width: 48px;
   height: 48px;
-  image-rendering: pixelated;
+  /* Drawn at 112 px with a 1 px outline and a soft shadow: shrunk smoothly, or rows of the outline drop out. */
+  image-rendering: auto;
 }
 
 /* "node" carries the accent, so the wordmark follows the view's colour. */
@@ -2570,6 +2571,8 @@ ul.tx-feed li:last-child {
 .ui-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .ui-field label { font-weight: 600; font-size: 14px; }
 .ui-field .hint { color: var(--muted); font-size: 13px; }
+/* No feedback yet: no empty box (it stays in the page, so screen readers still hear what arrives). */
+.ui-field .hint:empty { padding: 0; border: 0; background: none; }
 .ui-input, .ui-textarea { font: inherit; font-size: 15px; padding: 10px 12px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; width: 100%; max-width: 420px; }
 .ui-textarea { max-width: none; min-height: 150px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
 .ui-input:focus, .ui-textarea:focus { outline: none; border-color: var(--accent); }
