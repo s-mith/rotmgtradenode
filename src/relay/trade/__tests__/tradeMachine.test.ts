@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PartnerCoordinator, TradeSession, CONSOLIDATION_ACCEPT_DELAY_MS, PRESENCE_SETTLE_MS, REQUEST_TIMEOUT_MS, type Assignment } from "../tradeMachine";
+import { PartnerCoordinator, TradeSession, CONSOLIDATION_ACCEPT_DELAY_MS, PLAYER_MAX_WINDOWS, PLAYER_REINVITE_MS, PRESENCE_SETTLE_MS, REQUEST_RETRY_MS, REQUEST_TIMEOUT_MS, TRADE_TIMEOUT_MS, matchItemDetails, type Assignment } from "../tradeMachine";
+import { coverLines, parseWantInput } from "../../../lib/offers";
 import type { GameClient } from "../../client/gameClient";
 import type { AnyPacket, Packets, PacketName } from "../../protocol/packets";
 import type { TradeItem } from "../../protocol/data";
@@ -9,7 +10,7 @@ import { Stat } from "../../protocol/stats";
 const UBATK = 2979; // ring of unbound attack, curated id "ubatk"
 const PATK = 2591; // attack potion, "patk"
 const PDEF = 2592; // defense potion, "pdef"
-const AGENT_SKIN = 8827; // "skin:8827": only taken on an operator's skin deposit
+const AGENT_SKIN = 8827; // "agent_skin": a tradeable skin, a pool item since the skins joined the catalog
 const JUNK = 999999; // not in any catalog
 
 class FakeClient extends EventEmitter {
@@ -55,13 +56,15 @@ function setup(assignment: Assignment | null, opts: { resolve?: Record<string, {
   const coordinator = new PartnerCoordinator();
   const client = new FakeClient("bot@example.com", "Bot");
   const outcomes: number[] = [];
+  const notes: { event: string; detail: Record<string, unknown> }[] = [];
   const session = new TradeSession(client as unknown as GameClient, {
     coordinator,
     resolveInstance: (id) => opts.resolve?.[id],
     onOutcome: () => outcomes.push(Date.now()),
+    onNote: (event, detail) => notes.push({ event, detail }),
   });
   session.setAssignment(assignment);
-  return { coordinator, client, session, outcomes };
+  return { coordinator, client, session, outcomes, notes };
 }
 
 /** Land the bot on a map with the partner in view and the request sent. */
@@ -102,21 +105,14 @@ describe("deposit", () => {
     expect(session.phase).toBe("IDLE");
   });
 
-  it("takes a skin only when the deposit was queued for skins", () => {
+  it("takes a tradeable skin on any deposit, like any other pool item", () => {
     const plain = setup({ kind: "deposit", partnerIgn: "Partner", items: [], itemCount: 8 });
     landWithPartner(plain.client);
     plain.client.feed({ type: "TRADESTART", clientItems: [EMPTY], partnerName: "Partner", partnerItems: [item(AGENT_SKIN), item(PATK)] });
     plain.client.feed({ type: "TRADEACCEPTED", clientOffer: [false], partnerOffer: [true, true] });
-    expect(plain.client.last("ACCEPTTRADE")).toBeUndefined();
-    expect(plain.session.phase).toBe("IN_TRADE");
-
-    const skins = setup({ kind: "deposit", partnerIgn: "Partner", items: [], itemCount: 8, acceptSkins: true });
-    landWithPartner(skins.client);
-    skins.client.feed({ type: "TRADESTART", clientItems: [EMPTY], partnerName: "Partner", partnerItems: [item(AGENT_SKIN), item(PATK)] });
-    skins.client.feed({ type: "TRADEACCEPTED", clientOffer: [false], partnerOffer: [true, true] });
-    expect(skins.client.last("ACCEPTTRADE")?.body).toEqual({ clientOffer: [false], partnerOffer: [true, true] });
-    skins.client.feed({ type: "TRADEDONE", code: 0, description: "" });
-    expect(skins.session.takeOutcome()).toMatchObject({ ok: true, kind: "deposit", received: [{ itemId: "skin:8827", qty: 1 }, { itemId: "patk", qty: 1 }] });
+    expect(plain.client.last("ACCEPTTRADE")?.body).toEqual({ clientOffer: [false], partnerOffer: [true, true] });
+    plain.client.feed({ type: "TRADEDONE", code: 0, description: "" });
+    expect(plain.session.takeOutcome()).toMatchObject({ ok: true, kind: "deposit", received: [{ itemId: "agent_skin", qty: 1 }, { itemId: "patk", qty: 1 }] });
   });
 
   it("holds instead of accepting an item the pool doesn't take", () => {
@@ -166,7 +162,7 @@ describe("withdraw", () => {
     landWithPartner(client);
     client.feed({ type: "TRADESTART", clientItems: [item(UBATK)], partnerName: "Partner", partnerItems: [] });
     expect(client.last("CANCELTRADE")).toBeDefined();
-    expect(session.takeOutcome()).toEqual({ ok: false, error: "items not present" });
+    expect(session.takeOutcome()).toMatchObject({ ok: false, error: "items not present" });
   });
 
   it("cancels when the partner sneaks items into a one-way trade", () => {
@@ -175,7 +171,7 @@ describe("withdraw", () => {
     client.feed({ type: "TRADESTART", clientItems: [item(UBATK)], partnerName: "Partner", partnerItems: [item(PATK)] });
     client.feed({ type: "TRADECHANGED", offer: [true] });
     expect(client.last("CANCELTRADE")).toBeDefined();
-    expect(session.takeOutcome()).toEqual({ ok: false, error: "partner added items" });
+    expect(session.takeOutcome()).toMatchObject({ ok: false, error: "partner added items" });
   });
 });
 
@@ -192,7 +188,7 @@ describe("consolidation", () => {
     taker.client.feed(ping);
     expect(taker.client.last("ACCEPTTRADE")?.body).toEqual({ clientOffer: [false, false], partnerOffer: [true, true, false] });
     taker.client.feed({ type: "TRADEDONE", code: 0, description: "" });
-    expect(taker.session.takeOutcome()).toEqual({ ok: true, kind: "consolidate_take", consolidated: [{ itemId: "patk", qty: 2 }] });
+    expect(taker.session.takeOutcome()).toMatchObject({ ok: true, kind: "consolidate_take", consolidated: [{ itemId: "patk", qty: 2 }] });
 
     const giver = setup({ kind: "consolidate_give", partnerIgn: "Taker", items: [{ itemId: "patk", qty: 2 }] });
     landWithPartner(giver.client, "Taker");
@@ -212,7 +208,7 @@ describe("consolidation", () => {
     client.feed(ping);
     expect(client.last("ACCEPTTRADE")?.body).toEqual({ clientOffer: [true, false], partnerOffer: [true, false] });
     client.feed({ type: "TRADEDONE", code: 0, description: "" });
-    expect(session.takeOutcome()).toEqual({ ok: true, kind: "consolidate_take", consolidated: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }] });
+    expect(session.takeOutcome()).toMatchObject({ ok: true, kind: "consolidate_take", consolidated: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }] });
   });
 
   it("swap: the giver mirrors only when the partner's side is exactly the agreed swap", () => {
@@ -225,7 +221,7 @@ describe("consolidation", () => {
     client.feed({ type: "TRADEACCEPTED", clientOffer: [true], partnerOffer: [true, false] });
     expect(client.last("ACCEPTTRADE")?.body).toEqual({ clientOffer: [true], partnerOffer: [true, false] });
     client.feed({ type: "TRADEDONE", code: 0, description: "" });
-    expect(session.takeOutcome()).toEqual({ ok: true, kind: "consolidate_give", consolidated: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }] });
+    expect(session.takeOutcome()).toMatchObject({ ok: true, kind: "consolidate_give", consolidated: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }] });
   });
 
   it("swap: the giver cancels on anything outside the swap, or a short side at accept", () => {
@@ -234,14 +230,14 @@ describe("consolidation", () => {
     outside.client.feed({ type: "TRADESTART", clientItems: [item(PATK)], partnerName: "Taker", partnerItems: [item(PDEF), item(UBATK)] });
     outside.client.feed({ type: "TRADECHANGED", offer: [true, true] });
     expect(outside.client.last("CANCELTRADE")).toBeDefined();
-    expect(outside.session.takeOutcome()).toEqual({ ok: false, error: "partner added items" });
+    expect(outside.session.takeOutcome()).toMatchObject({ ok: false, error: "partner added items" });
 
     const short = setup({ kind: "consolidate_give", partnerIgn: "Taker", items: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }] });
     landWithPartner(short.client, "Taker");
     short.client.feed({ type: "TRADESTART", clientItems: [item(PATK)], partnerName: "Taker", partnerItems: [item(PDEF), item(UBATK)] });
     short.client.feed({ type: "TRADEACCEPTED", clientOffer: [true], partnerOffer: [false, false] });
     expect(short.client.last("CANCELTRADE")).toBeDefined();
-    expect(short.session.takeOutcome()).toEqual({ ok: false, error: "swap offer mismatch" });
+    expect(short.session.takeOutcome()).toMatchObject({ ok: false, error: "swap offer mismatch" });
   });
 });
 
@@ -254,6 +250,29 @@ describe("presence and timeouts", () => {
     expect(session.sendTradeRequest()).toBe(false);
     expect(client.last("REQUESTTRADE")).toBeUndefined();
     expect(session.takeOutcome()).toEqual({ ok: false, error: "partner not in nexus", partnerAbsent: true });
+  });
+
+  it("still sees a partner who stayed in view after the session is reset (no map change)", () => {
+    const { client, session } = setup(null);
+    landWithPartner(client);
+    // A failed trade hands the row back: the session resets but the bot stays on the map,
+    // and the server does not re-announce players already in view.
+    session.reset();
+    vi.setSystemTime(Date.now() + PRESENCE_SETTLE_MS + 1);
+    session.setAssignment({ kind: "withdraw", partnerIgn: "Partner", items: [] });
+    session.sendTradeRequest();
+    expect(client.last("REQUESTTRADE")?.body).toEqual({ name: "Partner" });
+    expect(session.takeOutcome()).toBeNull();
+  });
+
+  it("forgets who was in view when the map changes", () => {
+    const { client, session } = setup(null);
+    landWithPartner(client);
+    client.feed(mapInfo);
+    vi.setSystemTime(Date.now() + PRESENCE_SETTLE_MS + 1);
+    session.setAssignment({ kind: "withdraw", partnerIgn: "Partner", items: [] });
+    expect(session.sendTradeRequest()).toBe(false);
+    expect(session.takeOutcome()).toMatchObject({ ok: false, error: "partner not in nexus" });
   });
 
   it("still invites while the map is streaming in (absence isn't known yet)", () => {
@@ -269,7 +288,7 @@ describe("presence and timeouts", () => {
     client.feed({ type: "TRADESTART", clientItems: [EMPTY], partnerName: "Partner", partnerItems: [] });
     client.feed(drop(7));
     expect(client.last("CANCELTRADE")).toBeDefined();
-    expect(session.takeOutcome()).toEqual({ ok: false, error: "partner left", partnerAbsent: true });
+    expect(session.takeOutcome()).toMatchObject({ ok: false, error: "partner left", partnerAbsent: true });
   });
 
   it("times out a request the partner never answers", () => {
@@ -350,7 +369,7 @@ describe("withdraw in windows sized to the partner's room", () => {
     landWithPartner(client);
     client.feed({ type: "TRADESTART", clientItems: ours(1), partnerName: "Partner", partnerItems: window(8, 0) });
     expect(client.last("CANCELTRADE")).toBeDefined();
-    expect(session.takeOutcome()).toEqual({ ok: false, error: "partner inventory full" });
+    expect(session.takeOutcome()).toMatchObject({ ok: false, error: "partner inventory full" });
   });
 
   it("a failure after a finished window reports what already crossed", () => {
@@ -364,7 +383,7 @@ describe("withdraw in windows sized to the partner's room", () => {
     client.feed(ping);
     expect(session.phase).toBe("REQUESTED");
     client.feed(drop(7));
-    expect(session.takeOutcome()).toEqual({ ok: false, error: "partner left", partnerAbsent: true, delivered: [{ itemId: "patk", qty: 2 }], deliveredInstanceIds: [] });
+    expect(session.takeOutcome()).toMatchObject({ ok: false, error: "partner left", partnerAbsent: true, delivered: [{ itemId: "patk", qty: 2 }], deliveredInstanceIds: [] });
   });
 
   it("hands picked instances over in order, as many per window as fit", () => {
@@ -386,5 +405,338 @@ describe("withdraw in windows sized to the partner's room", () => {
     client.feed({ type: "TRADEACCEPTED", clientOffer: [false, false, false, false, false, false, true, false], partnerOffer: window(8, 1).map(() => false) });
     client.feed({ type: "TRADEDONE", code: 0, description: "" });
     expect(session.takeOutcome()).toEqual({ ok: true, kind: "withdraw", delivered: [{ itemId: "ubatk", qty: 3 }], deliveredInstanceIds: ["i1", "i2", "i3"] });
+  });
+});
+
+describe("meetings with another node's bot", () => {
+  const deadline = () => Date.now() + 10 * 60_000;
+
+  it("the taker never invites; it answers the giver's request", () => {
+    const { client, session } = setup({ kind: "consolidate_take", partnerIgn: "Giver", items: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }], meetingDeadlineAt: deadline() });
+    landWithPartner(client, "Giver");
+    expect(session.sendTradeRequest()).toBe(false);
+    client.feed(ping);
+    expect(client.last("REQUESTTRADE")).toBeUndefined();
+    expect(session.phase).toBe("IDLE");
+    client.feed({ type: "TRADEREQUESTED", name: "Giver,1234" });
+    expect(client.last("REQUESTTRADE")?.body).toEqual({ name: "Giver,1234" });
+    expect(session.phase).toBe("REQUESTED");
+  });
+
+  it("the giver waits for a sighting, asks again when unanswered, and fails only at the deadline", () => {
+    const until = Date.now() + 2 * REQUEST_RETRY_MS + 3 * REQUEST_TIMEOUT_MS;
+    const { client, session } = setup({ kind: "consolidate_give", partnerIgn: "Taker", items: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }], meetingDeadlineAt: until });
+    client.feed(mapInfo);
+    expect(session.sendTradeRequest()).toBe(false);
+    expect(client.last("REQUESTTRADE")).toBeUndefined();
+    client.feed(playerUpdate(7, "Taker"));
+    expect(session.sendTradeRequest()).toBe(true);
+    expect(client.sent.filter((x) => x.type === "REQUESTTRADE")).toHaveLength(1);
+    vi.setSystemTime(Date.now() + REQUEST_TIMEOUT_MS + 1);
+    client.feed(ping);
+    expect(session.phase).toBe("IDLE");
+    expect(session.takeOutcome()).toBeNull();
+    vi.setSystemTime(Date.now() + REQUEST_RETRY_MS);
+    client.feed(ping);
+    expect(client.sent.filter((x) => x.type === "REQUESTTRADE")).toHaveLength(2);
+    expect(session.phase).toBe("REQUESTED");
+    vi.setSystemTime(until + 1);
+    client.feed(ping);
+    expect(session.takeOutcome()).toMatchObject({ ok: false, partnerAbsent: true, error: "partner never answered before the meeting deadline" });
+  });
+
+  it("an extended meeting keeps asking past the old deadline and fails only at the new one", () => {
+    const until = Date.now() + REQUEST_TIMEOUT_MS + 1000;
+    const later = until + 2 * REQUEST_RETRY_MS + 3 * REQUEST_TIMEOUT_MS;
+    const { client, session } = setup({ kind: "consolidate_give", partnerIgn: "Taker", items: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }], meetingDeadlineAt: until });
+    client.feed(mapInfo);
+    client.feed(playerUpdate(7, "Taker"));
+    expect(session.sendTradeRequest()).toBe(true);
+    session.extendMeeting(later);
+    vi.setSystemTime(until + 1);
+    client.feed(ping);
+    expect(session.takeOutcome()).toBeNull();
+    // Past the old deadline it still asks again.
+    vi.setSystemTime(until + 1 + REQUEST_RETRY_MS);
+    client.feed(ping);
+    expect(client.sent.filter((x) => x.type === "REQUESTTRADE")).toHaveLength(2);
+    expect(session.takeOutcome()).toBeNull();
+    vi.setSystemTime(later + 1);
+    client.feed(ping);
+    expect(session.takeOutcome()).toMatchObject({ ok: false, partnerAbsent: true });
+  });
+
+  it("a meeting's partner that drops out mid-request or mid-window is waited for and asked again, not failed", () => {
+    const until = Date.now() + 10 * REQUEST_RETRY_MS;
+    const { client, session } = setup({ kind: "consolidate_give", partnerIgn: "Taker", items: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }], meetingDeadlineAt: until });
+    client.feed(mapInfo);
+    client.feed(playerUpdate(7, "Taker"));
+    expect(session.sendTradeRequest()).toBe(true);
+    // The taker's node restarts: its bot leaves the nexus.
+    client.feed(drop(7));
+    expect(session.takeOutcome()).toBeNull();
+    expect(session.phase).toBe("IDLE");
+    // Back again: asked once the retry pause is over.
+    client.feed(playerUpdate(7, "Taker"));
+    vi.setSystemTime(Date.now() + REQUEST_RETRY_MS + 1);
+    expect(session.sendTradeRequest()).toBe(true);
+    expect(client.sent.filter((x) => x.type === "REQUESTTRADE")).toHaveLength(2);
+    // Mid-window this time: the window is cancelled, the meeting goes on.
+    client.feed({ type: "TRADESTART", clientItems: [item(PATK)], partnerName: "Taker", partnerItems: [item(PDEF)] });
+    expect(session.phase).toBe("IN_TRADE");
+    client.feed(drop(7));
+    expect(client.last("CANCELTRADE")).toBeDefined();
+    expect(session.takeOutcome()).toBeNull();
+    expect(session.phase).toBe("IDLE");
+  });
+
+  it("a player trade still gives up after one unanswered request", () => {
+    const { client, session } = setup({ kind: "withdraw", partnerIgn: "Player", items: [{ itemId: "patk", qty: 1 }] });
+    landWithPartner(client, "Player");
+    vi.setSystemTime(Date.now() + REQUEST_TIMEOUT_MS + 1);
+    client.feed(ping);
+    expect(session.takeOutcome()).toMatchObject({ ok: false, partnerAbsent: true });
+  });
+
+  it("the taker accepts only the copy with the promised enchantments, and reports what it saw", () => {
+    const { client, session } = setup({ kind: "consolidate_take", partnerIgn: "Giver", items: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }], meetingDeadlineAt: deadline(), expectIncoming: [{ itemId: "patk", enchants: [5] }] });
+    landWithPartner(client, "Giver");
+    client.feed({ type: "TRADESTART", clientItems: [item(PDEF), EMPTY], partnerName: "Giver,9", partnerItems: [item(PATK), item(PATK, ONE_ENCHANT)] });
+    client.feed({ type: "TRADECHANGED", offer: [true, false] });
+    vi.advanceTimersByTime(CONSOLIDATION_ACCEPT_DELAY_MS + 1);
+    client.feed(ping);
+    expect(client.last("ACCEPTTRADE")).toBeUndefined();
+    client.feed({ type: "TRADECHANGED", offer: [false, true] });
+    vi.advanceTimersByTime(CONSOLIDATION_ACCEPT_DELAY_MS + 1);
+    client.feed(ping);
+    expect(client.last("ACCEPTTRADE")?.body).toEqual({ clientOffer: [true, false], partnerOffer: [false, true] });
+    client.feed({ type: "TRADEDONE", code: 0, description: "" });
+    expect(session.takeOutcome()).toMatchObject({ ok: true, kind: "consolidate_take", partnerName: "Giver", partnerOffered: [{ itemId: "patk", enchants: [5] }], ourOffered: [{ itemId: "pdef", enchants: [] }] });
+  });
+
+  it("the giver cancels when the taker puts up a copy without the promised enchantment", () => {
+    const { client, session } = setup({ kind: "consolidate_give", partnerIgn: "Taker", items: [{ itemId: "patk", qty: 1 }], swapItems: [{ itemId: "pdef", qty: 1 }], meetingDeadlineAt: deadline(), expectIncoming: [{ itemId: "pdef", enchants: [5] }] });
+    landWithPartner(client, "Taker");
+    client.feed({ type: "TRADESTART", clientItems: [item(PATK)], partnerName: "Taker", partnerItems: [item(PDEF)] });
+    client.feed({ type: "TRADECHANGED", offer: [true] });
+    expect(client.last("CANCELTRADE")).toBeDefined();
+    expect(session.takeOutcome()).toMatchObject({ ok: false, error: "partner's items differ from the meeting's", partnerName: "Taker" });
+  });
+
+  it("matches offered items against per-item expectations, specific ones first", () => {
+    const plain = { itemId: "patk", enchants: [] as number[] };
+    const ench = { itemId: "patk", enchants: [5] };
+    expect(matchItemDetails([plain, ench], [{ itemId: "patk", enchants: [5] }, { itemId: "patk", enchants: [] }], true)).toEqual({ ok: true });
+    expect(matchItemDetails([ench], [{ itemId: "patk", enchants: [] }], true)).toMatchObject({ ok: false });
+    expect(matchItemDetails([{ itemId: "patk", enchants: null }], [{ itemId: "patk", enchants: [5, 6] }], true)).toEqual({ ok: true });
+    // An unreadable record passes only for a plain or any-copy expectation.
+    expect(matchItemDetails([plain], [{ itemId: "patk", enchants: null }], true)).toEqual({ ok: true });
+    expect(matchItemDetails([ench], [{ itemId: "patk", enchants: null }], true)).toMatchObject({ ok: false });
+    // A side still being filled is a subset; exact wants everything.
+    expect(matchItemDetails([plain, ench], [{ itemId: "patk", enchants: [5] }], false)).toEqual({ ok: true });
+    expect(matchItemDetails([plain, ench], [{ itemId: "patk", enchants: [5] }], true)).toMatchObject({ ok: false, why: expect.stringContaining("missing") });
+  });
+});
+
+
+describe("player swap (a person trading with their own character against an offer)", () => {
+  const PDEF_TYPE = PDEF;
+  /** The offer asks for one Potion of Defense; the bot gives the Potion of Attack in slot 0. */
+  function player(extra: Partial<Assignment> = {}, give = [{ itemId: "patk", qty: 1 }], ids = ["i-patk"]) {
+    const p = parseWantInput([{ itemId: "pdef", qty: 1 }]);
+    if (!p.ok) throw new Error(p.error);
+    const lines = p.want;
+    return setup({
+      kind: "player_swap", partnerIgn: "Player", items: give, instanceIds: ids, itemCount: 2, meetingDeadlineAt: Date.now() + 30 * 60_000,
+      incomingCount: 1, incomingCheck: (offered, exact) => coverLines(lines, offered.map((o) => ({ itemId: o.itemId, enchantIds: o.enchants })), exact),
+      ...extra,
+    }, { resolve: { "i-patk": { slot: 0, itemId: "patk" }, "i-patk2": { slot: 1, itemId: "patk" } } });
+  }
+  /** Four equipment slots, then the person's inventory: a Potion of Defense, a Potion of Attack, and six empty slots. */
+  const theirs = () => [EMPTY, EMPTY, EMPTY, EMPTY, item(PDEF_TYPE), item(PATK), EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY];
+  const mask = (...on: number[]) => Array.from({ length: 12 }, (_, i) => on.includes(i));
+  const count = (client: FakeClient, type: string) => client.sent.filter((s) => s.type === type).length;
+
+  it("waits to be asked, puts up the offer's items, holds a wrong side with a reason, and mirrors the player's accept once it fits", () => {
+    const { client, session, notes } = player();
+    client.feed(mapInfo);
+    // Nobody in view, long past the presence settle: a player meeting does not give up; it waits for the deadline.
+    vi.advanceTimersByTime(PRESENCE_SETTLE_MS + 1);
+    expect(session.sendTradeRequest()).toBe(false);
+    client.feed(ping);
+    expect(session.takeOutcome()).toBeNull();
+    expect(count(client, "REQUESTTRADE")).toBe(0);
+
+    // The player types /trade: the bot answers.
+    client.feed({ type: "TRADEREQUESTED", name: "Player" });
+    expect(client.last("REQUESTTRADE")?.body).toEqual({ name: "Player" });
+    client.feed({ type: "TRADESTART", clientItems: [item(PATK), EMPTY], partnerName: "Player,77ab", partnerItems: theirs() });
+    expect(client.last("CHANGETRADE")?.body).toEqual({ offer: [true, false] });
+    expect(notes.map((n) => n.event)).toContain("player-window-open");
+
+    // The wrong potion: held with a reason, never cancelled; an accept of it is not mirrored.
+    client.feed({ type: "TRADECHANGED", offer: mask(5) });
+    expect(notes.at(-1)).toMatchObject({ event: "player-holding", detail: { why: expect.stringContaining("is not part of this trade") } });
+    client.feed({ type: "TRADEACCEPTED", clientOffer: [true, false], partnerOffer: mask(5) });
+    expect(client.last("ACCEPTTRADE")).toBeUndefined();
+    expect(client.last("CANCELTRADE")).toBeUndefined();
+    expect(session.phase).toBe("IN_TRADE");
+
+    // The right one: the bot says it fits and mirrors the accept.
+    client.feed({ type: "TRADECHANGED", offer: mask(4) });
+    expect(notes.at(-1)?.event).toBe("player-matches");
+    client.feed({ type: "TRADEACCEPTED", clientOffer: [true, false], partnerOffer: mask(4) });
+    expect(client.last("ACCEPTTRADE")?.body).toEqual({ clientOffer: [true, false], partnerOffer: mask(4) });
+    expect(session.phase).toBe("ACCEPTED");
+
+    client.feed({ type: "TRADEDONE", code: 0, description: "" });
+    expect(session.takeOutcome()).toMatchObject({
+      ok: true, kind: "player_swap", gave: [{ itemId: "patk", qty: 1 }], got: [{ itemId: "pdef", qty: 1 }], partnerName: "Player",
+      ourOffered: [{ itemId: "patk" }], partnerOffered: [{ itemId: "pdef" }],
+    });
+  });
+
+  it("invites once when it sees the player, then no more often than the re-invite interval; an unanswered invite goes back to waiting", () => {
+    const { client, session, notes } = player();
+    landWithPartner(client, "Player");
+    expect(notes.map((n) => n.event)).toContain("player-seen");
+    expect(session.sendTradeRequest()).toBe(true);
+    expect(count(client, "REQUESTTRADE")).toBe(1);
+    expect(session.phase).toBe("REQUESTED");
+
+    vi.advanceTimersByTime(REQUEST_TIMEOUT_MS + 1);
+    client.feed(ping);
+    expect(session.phase).toBe("IDLE");
+    expect(session.takeOutcome()).toBeNull();
+    expect(session.sendTradeRequest()).toBe(false);
+    expect(count(client, "REQUESTTRADE")).toBe(1);
+
+    vi.advanceTimersByTime(PLAYER_REINVITE_MS);
+    expect(session.sendTradeRequest()).toBe(true);
+    expect(count(client, "REQUESTTRADE")).toBe(2);
+  });
+
+  it("a window that closes without the trade leaves the meeting open, until too many have", () => {
+    const { client, session, notes } = player();
+    client.feed(mapInfo);
+    for (let w = 1; w <= PLAYER_MAX_WINDOWS; w++) {
+      client.feed({ type: "TRADEREQUESTED", name: "Player" });
+      client.feed({ type: "TRADESTART", clientItems: [item(PATK), EMPTY], partnerName: "Player", partnerItems: theirs() });
+      client.feed({ type: "TRADEDONE", code: 1, description: "Trade canceled" });
+      // The trailing echo of a window already over changes nothing.
+      client.feed({ type: "TRADEDONE", code: 1, description: "Trade canceled" });
+      if (w < PLAYER_MAX_WINDOWS) {
+        expect(session.phase).toBe("IDLE");
+        expect(session.takeOutcome()).toBeNull();
+        expect(notes.at(-1)).toMatchObject({ event: "player-window-failed", detail: { windows: w } });
+        vi.advanceTimersByTime(2_000);
+      }
+    }
+    expect(session.takeOutcome()).toMatchObject({ ok: false, error: expect.stringContaining(`${PLAYER_MAX_WINDOWS} trade windows`) });
+    expect(session.playerProgress()).toEqual({ seen: true, windowsOpened: PLAYER_MAX_WINDOWS, windowFailures: PLAYER_MAX_WINDOWS });
+  });
+
+  it("closes a window where the player has no room for what the bot hands over, and says how much room is needed", () => {
+    // The bot gives two potions for one: the player needs one free slot beyond the one their potion leaves.
+    const { client, session, notes } = player({}, [{ itemId: "patk", qty: 2 }], ["i-patk", "i-patk2"]);
+    client.feed(mapInfo);
+    client.feed({ type: "TRADEREQUESTED", name: "Player" });
+    const full = [EMPTY, EMPTY, EMPTY, EMPTY, item(PDEF_TYPE), ...Array.from({ length: 7 }, () => item(PATK))];
+    client.feed({ type: "TRADESTART", clientItems: [item(PATK), item(PATK)], partnerName: "Player", partnerItems: full });
+    expect(client.last("CANCELTRADE")).toBeDefined();
+    expect(notes.at(-1)).toMatchObject({ event: "player-window-failed", detail: { why: "you need 1 free inventory slot and have 0; make room, then /trade again" } });
+    expect(session.phase).toBe("IDLE");
+    expect(session.takeOutcome()).toBeNull();
+  });
+
+  it("an idle window is closed after the trade timeout; a player walking off ends that window only; a stranger's window is refused without ending the meeting", () => {
+    const { client, session, notes } = player();
+    landWithPartner(client, "Player");
+    client.feed({ type: "TRADEREQUESTED", name: "Player" });
+    client.feed({ type: "TRADESTART", clientItems: [item(PATK), EMPTY], partnerName: "Player", partnerItems: theirs() });
+    vi.advanceTimersByTime(TRADE_TIMEOUT_MS + 1);
+    client.feed(ping);
+    expect(client.last("CANCELTRADE")).toBeDefined();
+    expect(notes.at(-1)).toMatchObject({ event: "player-window-failed", detail: { why: expect.stringContaining("untouched") } });
+
+    client.sent.length = 0;
+    vi.advanceTimersByTime(2_000);
+    client.feed({ type: "TRADEREQUESTED", name: "Player" });
+    client.feed({ type: "TRADESTART", clientItems: [item(PATK), EMPTY], partnerName: "Player", partnerItems: theirs() });
+    client.feed(drop(7));
+    expect(client.last("CANCELTRADE")).toBeDefined();
+    expect(notes.at(-1)).toMatchObject({ event: "player-window-failed", detail: { why: "you left the nexus" } });
+    expect(session.takeOutcome()).toBeNull();
+
+    client.sent.length = 0;
+    client.feed({ type: "TRADESTART", clientItems: [item(PATK), EMPTY], partnerName: "Stranger", partnerItems: theirs() });
+    expect(client.last("CANCELTRADE")).toBeDefined();
+    expect(session.takeOutcome()).toBeNull();
+    expect(session.playerProgress().windowFailures).toBe(2);
+  });
+
+  it("gives the meeting up when the offer's items are not in the window (nothing the player can fix)", () => {
+    const { client, session } = player();
+    client.feed(mapInfo);
+    client.feed({ type: "TRADEREQUESTED", name: "Player" });
+    client.feed({ type: "TRADESTART", clientItems: [item(PDEF), EMPTY], partnerName: "Player", partnerItems: theirs() });
+    expect(session.takeOutcome()).toMatchObject({ ok: false, error: "items not present" });
+  });
+});
+
+describe("pipeline fixes", () => {
+  it("holds an empty deposit instead of accepting it, and tells the player once", () => {
+    const { client, session } = setup({ kind: "deposit", partnerIgn: "Partner", items: [], itemCount: 8 });
+    landWithPartner(client);
+    client.feed({ type: "TRADESTART", clientItems: [EMPTY], partnerName: "Partner", partnerItems: [item(PATK)] });
+    client.feed({ type: "TRADEACCEPTED", clientOffer: [false], partnerOffer: [false] });
+    client.feed({ type: "TRADEACCEPTED", clientOffer: [false], partnerOffer: [false] });
+    expect(client.last("ACCEPTTRADE")).toBeUndefined();
+    expect(session.phase).toBe("IN_TRADE");
+    const tells = client.sent.filter((s) => s.type === "PLAYERTEXT");
+    expect(tells).toHaveLength(1);
+    expect((tells[0].body as { text: string }).text).toMatch(/^\/tell Partner Put the items/);
+  });
+
+  it("names the items it won't take instead of holding silently", () => {
+    const coordinator = new PartnerCoordinator();
+    const client = new FakeClient("bot@example.com", "Bot");
+    const session = new TradeSession(client as unknown as GameClient, { coordinator, resolveInstance: () => undefined, acceptsType: (t) => t !== PDEF });
+    session.setAssignment({ kind: "deposit", partnerIgn: "Partner", items: [], itemCount: 8 });
+    landWithPartner(client);
+    client.feed({ type: "TRADESTART", clientItems: [EMPTY], partnerName: "Partner", partnerItems: [item(PATK), item(PDEF), item(JUNK)] });
+    client.feed({ type: "TRADEACCEPTED", clientOffer: [false], partnerOffer: [true, true, true] });
+    expect(client.last("ACCEPTTRADE")).toBeUndefined();
+    const text = (client.last("PLAYERTEXT")?.body as { text: string }).text;
+    expect(text).toContain("/tell Partner I can't take:");
+    expect(text).toContain("pdef (this node does not take it)");
+    expect(text).toContain("item 999999 (not tradeable into the pool)");
+    // Taking them off and accepting again goes through.
+    client.feed({ type: "TRADEACCEPTED", clientOffer: [false], partnerOffer: [true, false, false] });
+    expect(client.last("ACCEPTTRADE")?.body).toEqual({ clientOffer: [false], partnerOffer: [true, false, false] });
+  });
+
+  it("a by-type withdraw never offers a slot the claim says is someone else's", () => {
+    const coordinator = new PartnerCoordinator();
+    const client = new FakeClient("bot@example.com", "Bot");
+    const kept = new Set([0]);
+    const session = new TradeSession(client as unknown as GameClient, { coordinator, resolveInstance: () => undefined, excludeSlot: (s) => kept.has(s) });
+    session.setAssignment({ kind: "withdraw", partnerIgn: "Partner", items: [{ itemId: "patk", qty: 1 }] });
+    landWithPartner(client);
+    client.feed({ type: "TRADESTART", clientItems: [item(PATK), item(PATK)], partnerName: "Partner", partnerItems: [EMPTY] });
+    expect(client.last("CHANGETRADE")?.body).toEqual({ offer: [false, true] });
+  });
+
+  it("knows what a chunked withdraw already handed over, for a disconnect to report", () => {
+    const win = (size: number, free: number): TradeItem[] => [EMPTY, EMPTY, EMPTY, EMPTY, ...Array.from({ length: size }, (_, i) => (i < size - free ? item(PDEF, "", false) : EMPTY))];
+    const ours = (n: number): TradeItem[] => [EMPTY, EMPTY, EMPTY, EMPTY, ...Array.from({ length: 8 }, (_, i) => (i < n ? item(PATK) : EMPTY))];
+    const { client, session } = setup({ kind: "withdraw", partnerIgn: "Partner", items: [{ itemId: "patk", qty: 3 }] });
+    expect(session.partialDelivery()).toBeNull();
+    landWithPartner(client);
+    client.feed({ type: "TRADESTART", clientItems: ours(3), partnerName: "Partner", partnerItems: win(8, 2) });
+    const offer = (client.last("CHANGETRADE")?.body as { offer: boolean[] }).offer;
+    client.feed({ type: "TRADEACCEPTED", clientOffer: offer, partnerOffer: win(8, 2).map(() => false) });
+    client.feed({ type: "TRADEDONE", code: 0, description: "" });
+    expect(session.partialDelivery()).toEqual({ delivered: [{ itemId: "patk", qty: 2 }], deliveredInstanceIds: [] });
   });
 });

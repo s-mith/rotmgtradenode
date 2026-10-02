@@ -40,9 +40,10 @@ type RequestTable = "withdraw_requests" | "deposit_requests";
  *
  * Deadlock is bounded by the existing sweeps. A claimed row whose bot died is
  * cancelled after CLAIMED_TIMEOUT_MS, releasing everything queued behind it. A
- * head-of-queue row that no bot can serve ages out on PENDING_TIMEOUT_MS,
- * promoting the next one — so a group that is genuinely unservable drains
- * rather than wedging.
+ * head-of-queue withdraw that no bot can serve ages out on PENDING_TIMEOUT_MS,
+ * and a deposit no account on the node can take is cancelled by the fleet
+ * (relay/fleet/dispatcher.ts), promoting the next one — so a group that is
+ * genuinely unservable drains rather than wedging.
  *
  * Cross-table ordering is only enforced at the claimed level: a player with a
  * pending deposit AND a pending withdraw and nothing in flight can have one of
@@ -52,7 +53,19 @@ type RequestTable = "withdraw_requests" | "deposit_requests";
 export function isPlayersNextTrade(table: RequestTable): string {
   return `
       ign_lower NOT IN (SELECT ign_lower FROM withdraw_requests WHERE status = 'claimed')
-      AND ign_lower NOT IN (SELECT ign_lower FROM deposit_requests WHERE status = 'claimed')
+      AND ign_lower NOT IN (SELECT ign_lower FROM deposit_requests WHERE status = 'claimed')${table === "withdraw_requests" ? `
+      AND ign_lower NOT IN (${CONTINUING_DEPOSITORS})` : ""}
       AND id = (SELECT MIN(q.id) FROM ${table} q
                  WHERE q.ign_lower = ${table}.ign_lower AND q.status = 'pending')`;
 }
+
+/**
+ * Players whose deposit is continuing on the next empty bot (advanced
+ * management, lib/queue.ts fulfillDeposit): a pending deposit row whose group
+ * already has a fulfilled one. The rest of that deposit is still in their
+ * inventory, so it goes before any withdraw they queued meanwhile. Without
+ * advanced management no deposit continues, and this is always empty.
+ */
+export const CONTINUING_DEPOSITORS = `SELECT c.ign_lower FROM deposit_requests c
+        WHERE c.status = 'pending' AND c.group_id IS NOT NULL
+          AND EXISTS (SELECT 1 FROM deposit_requests f WHERE f.group_id = c.group_id AND f.status = 'fulfilled')`;

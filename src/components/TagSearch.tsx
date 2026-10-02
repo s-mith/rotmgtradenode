@@ -16,7 +16,7 @@ export const tagKey = (t: SearchTag) =>
   t.kind === "item" ? `item:${t.id}` : t.kind === "ench" ? `ench:${t.name}` : `effect:${t.key}`;
 
 // Effect keys ("+Attack", "-MP Cost", …) live in lib/enchantEffects.ts so the
-// server-side wishlist matcher shares them; re-exported for the pool UI.
+// server-side offer matcher shares them; re-exported for the pool UI.
 export { effectsOfEnchant, effectLabel } from "@/lib/enchantEffects";
 
 // Does an instance with these enchantments satisfy every tag? `itemId` is
@@ -50,6 +50,17 @@ export type Suggestions = {
 };
 
 const MAX_PER_GROUP = 8;
+// Items get a longer list; the suggestion box scrolls.
+const MAX_ITEMS = 100;
+
+// Every typed word must appear somewhere in the name, in any order, so
+// "health potion" finds "Potion of Health3". Names that start with the typed
+// text come first, then names holding it as one piece, then the rest.
+function searchRank(name: string, q: string, words: string[]): number {
+  const n = name.toLowerCase();
+  if (!words.every((w) => n.includes(w))) return -1;
+  return n.startsWith(q) ? 0 : n.includes(q) ? 1 : 2;
+}
 
 export function TagSearch({
   tags,
@@ -73,9 +84,13 @@ export function TagSearch({
   // Filter each group by the typed text and flatten for keyboard navigation.
   const q = text.trim().toLowerCase();
   const rows = useMemo<SearchTag[]>(() => {
+    const words = q.split(/\s+/).filter(Boolean);
     const items = suggestions.items
-      .filter((i) => !q || i.name.toLowerCase().includes(q))
-      .slice(0, MAX_PER_GROUP)
+      .map((i) => ({ i, rank: q ? searchRank(i.name, q, words) : 0 }))
+      .filter((r) => r.rank >= 0)
+      .sort((a, b) => a.rank - b.rank)
+      .map((r) => r.i)
+      .slice(0, MAX_ITEMS)
       .map((i): SearchTag => ({ kind: "item", id: i.id, label: i.name }));
     const enchants = suggestions.enchants
       .filter((n) => !q || n.toLowerCase().includes(q))
@@ -92,6 +107,12 @@ export function TagSearch({
   useEffect(() => {
     setCursor(0);
   }, [rows]);
+
+  // Keep the arrow-key row in view as the list scrolls.
+  const listRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    listRef.current?.querySelector(".tag-suggest-row.active")?.scrollIntoView({ block: "nearest" });
+  }, [cursor]);
 
   // Suggestions show once there's something to narrow by: typed text, or a
   // tag already in place (so picking "Doom Bow" immediately lists its enchants).
@@ -178,6 +199,7 @@ export function TagSearch({
       </div>
       {open && (
         <ul
+          ref={listRef}
           className="tag-suggest"
           role="listbox"
           // Keep the input focused while clicking a row.

@@ -10,11 +10,11 @@ import { ItemSprite } from "@/components/ItemSprite";
 // which character an account logs in with.
 
 type Move = { id: string; kind: string; itemId: string | null; objectType: number; name: string; instanceId?: string; slot?: number; queuedAt: number; error?: string };
-type CharRow = { id: number; objectType: number; className: string; level: number; seasonal: boolean; dead: boolean; backpackSlots: number; hasBackpack: boolean; items: number };
+type CharRow = { id: number; objectType: number; className: string; level: number; seasonal: boolean; dead: boolean; backpackSlots: number; hasBackpack: boolean; items: number; visitedAt: number | null; capacity: number | null };
 type Counts = { character: { held: number; capacity: number }; vault: { used: number; slots: number }; rack: { used: number; slots: number }; gift: { items: number; tradeable: number }; spoils: { items: number; tradeable: number }; otherChars: number };
-type Summary = { alias: string; guid: string; botGuid: string; ign: string; seasonal: boolean; suspended: boolean; busy: boolean; lastVisitAt: number | null; charsAt: number | null; chars: CharRow[] | null; preferredCharId: number | null; loginCharId: number | null; moves: Move[]; lastRun: { at: number; ok: boolean; error: string | null; summary: string } | null; lastError: string | null; counts: Counts };
+type Summary = { alias: string; guid: string; botGuid: string; ign: string; seasonal: boolean; suspended: boolean; busy: boolean; lastVisitAt: number | null; charsAt: number | null; chars: CharRow[] | null; preferredCharId: number | null; loginCharId: number | null; moves: Move[]; lastRun: { at: number; ok: boolean; error: string | null; summary: string } | null; lastSnapshot: { at: number; chars: number; charItems: number; enchanted: number; containerEnchanted: number; records: number; sections: string[]; authoritative: boolean } | null; lastError: string | null; counts: Counts };
 type SlotRow = { slot: number; objectType: number; itemId: string | null; name: string; tradeable: boolean; instanceId: string | null };
-type CharItemRow = { slot: number; instanceId: string; itemId: string; name: string };
+type CharItemRow = { slot: number; instanceId: string; itemId: string; name: string; enchantments: number[] };
 type Detail = Summary & { character: { slot: number; instanceId: string; itemId: string; name: string; enchantments: number[]; potion: boolean }[]; untracked: { slot: number; objectType: number; name: string }[]; vault: SlotRow[]; rack: SlotRow[]; gift: SlotRow[]; spoils: SlotRow[]; charItems: Record<string, CharItemRow[]> };
 type Run = { running: boolean; startedAt: number | null; finishedAt: number | null; total: number; done: number; ok: number; failed: number; skipped: number; current: string[]; stoppedReason: string | null; lastErrors: { alias: string; error: string }[]; moved: number };
 
@@ -180,7 +180,7 @@ export default function StorageTab({ password }: { password: string }) {
                         return (
                           <li key={ch.id}>
                             <span>{ch.className} level {ch.level} · #{ch.id}</span>
-                            <span className="muted"> · {ch.seasonal ? "seasonal" : "non-seasonal"} · {ch.backpackSlots ? `${8 + ch.backpackSlots} trade slots` : "8 trade slots, no backpack"}{ch.dead ? " · dead" : ""}{d.loginCharId === ch.id ? " · the one the tracker describes" : ch.items ? ` · ${ch.items} tradeable item(s), in the pool` : ""}</span>
+                            <span className="muted"> · {ch.seasonal ? "seasonal" : "non-seasonal"} · {ch.capacity ? `${ch.capacity} trade slots` : ch.backpackSlots ? `${8 + ch.backpackSlots} trade slots` : "8 trade slots, no backpack"}{ch.dead ? " · dead" : ""}{d.loginCharId === ch.id ? " · the one the tracker describes" : ch.items ? ` · ${ch.items} tradeable item(s), in the pool` : ""}{d.loginCharId !== ch.id && !ch.dead && ch.items ? (ch.visitedAt ? ` · looked at ${when(ch.visitedAt)}` : " · not looked at yet: enchantments unknown until a read") : ""}</span>
                             {chosen ? <span className="tab-badge">logs in with this one</span> : <button className="nav-link" disabled={busy || ch.dead} onClick={() => void setChar(d.guid, ch.id)}>use this character</button>}
                           </li>
                         );
@@ -230,7 +230,7 @@ export default function StorageTab({ password }: { password: string }) {
                 )}
                 {Object.keys(d.charItems).length > 0 && (
                   <div>
-                    <b>On other characters</b> <span className="muted">{d.counts.otherChars} tradeable item(s); in the pool, fetched by a login as that character</span>
+                    <b>On other characters</b> <span className="muted">{d.counts.otherChars} tradeable item(s); in the pool, fetched by a login as that character. A read logs in as each one to see its items' enchantments.</span>
                     {Object.entries(d.charItems).map(([id, items]) => {
                       const ch = d.chars?.find((c) => String(c.id) === id);
                       return (
@@ -240,7 +240,7 @@ export default function StorageTab({ password }: { password: string }) {
                             {items.map((it) => (
                               <li key={it.instanceId}>
                                 <span className="storage-item"><ItemSprite name={it.name} size={18} /> {it.name}</span>
-                                <span className="muted"> · slot {it.slot}</span>
+                                <span className="muted"> · slot {it.slot}{it.enchantments.length ? ` · ${it.enchantments.length} ench` : ""}</span>
                               </li>
                             ))}
                           </ul>
@@ -254,6 +254,12 @@ export default function StorageTab({ password }: { password: string }) {
                 <div><b>Gift chest</b> <span className="muted">{d.counts.gift.items} items, {d.counts.gift.tradeable} tradeable</span>{rows(d.gift, "giftOut", d, "take")}</div>
                 <div><b>Seasonal spoils</b> <span className="muted">{d.counts.spoils.items} items, {d.counts.spoils.tradeable} tradeable</span>{rows(d.spoils, "spoilsOut", d, "take")}</div>
                 {d.lastRun && <div className="muted" style={{ fontSize: 12 }}>last run: {d.lastRun.summary}</div>}
+                {d.lastSnapshot && (
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    account snapshot: {d.lastSnapshot.chars} other character{d.lastSnapshot.chars === 1 ? "" : "s"}, {d.lastSnapshot.charItems} item{d.lastSnapshot.charItems === 1 ? "" : "s"} ({d.lastSnapshot.enchanted} enchanted), {d.lastSnapshot.containerEnchanted} enchanted in storage, {d.lastSnapshot.records} record{d.lastSnapshot.records === 1 ? "" : "s"} · sections: {d.lastSnapshot.sections.length ? d.lastSnapshot.sections.join(", ") : "none"}
+                    {d.lastSnapshot.sections.some((x) => x.startsWith("Account/")) ? "" : " · Realm sent no storage section (set SNAPSHOT_SOURCE)"}
+                  </div>
+                )}
               </div>
             )}
           </div>

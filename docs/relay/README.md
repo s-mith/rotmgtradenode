@@ -13,6 +13,8 @@ standalone relay. `src/server/main.ts` builds one `Fleet` with a
 
 Policy: `POLICIES.md`. Backpacks: `BACKPACKS.md`. Account storage (vault
 chests, potion rack, gift and spoils chests, character choice): `STORAGE.md`.
+Advanced management (deposits into an empty character, banking, potions by
+kind, one session per account; off by default, per pool): `ADVANCED.md`.
 
 ## Node-specific parts
 

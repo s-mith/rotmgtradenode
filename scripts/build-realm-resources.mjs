@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { XMLParser } from "fast-xml-parser";
 
-const dir = process.argv[2] ?? "../accountgen/tutorial-state/pyrelay/Resources";
+const dir = process.argv[2] ?? "../rotmgclient/7.0.0.2.0/extracted_assets";
 const read = (f) => {
   let s = fs.readFileSync(path.join(dir, f), "latin1");
   s = s.replace(/[^\x09\x0A\x0D\x20-￿]/g, "").replace(/&(?!amp;|lt;|gt;|quot;|apos;|#)/g, "&amp;");

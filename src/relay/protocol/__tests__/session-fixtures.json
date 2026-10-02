@@ -1,0 +1,162 @@
+{
+ "packets": [
+  {
+   "name": "PLAYERSHOOT",
+   "id": 30,
+   "fields": {
+    "time": 1234,
+    "bulletId": 7,
+    "weaponId": 2592,
+    "projectileId": -1,
+    "startingPos": {
+     "x": 10.300000190734863,
+     "y": 20.700000762939453
+    },
+    "angle": 1.25,
+    "isBurst": false,
+    "patternIdx": 0,
+    "attackType": 1,
+    "playerPosition": {
+     "x": 10.0,
+     "y": 20.5
+    }
+   },
+   "hex": "000000251e000004d200070a20ff4124cccd41a5999a3fa000000000014120000041a40000"
+  },
+  {
+   "name": "USEITEM",
+   "id": 13,
+   "fields": {
+    "time": 55,
+    "slotObject": {
+     "objectId": 42,
+     "slotId": 1,
+     "objectType": 2593
+    },
+    "pos": {
+     "x": 3.0,
+     "y": 4.0
+    },
+    "useType": 0,
+    "unknownInt": 0
+   },
+   "hex": "000000220d000000370000002a0000000100000a2140400000408000000000000000"
+  },
+  {
+   "name": "ENEMYHIT",
+   "id": 25,
+   "fields": {
+    "time": 99,
+    "bulletId": 12,
+    "id1": 42,
+    "targetId": 900,
+    "kill": false,
+    "id2": 42
+   },
+   "hex": "000000181900000063000c0000002a00000384000000002a"
+  },
+  {
+   "name": "OTHERHIT",
+   "id": 20,
+   "fields": {
+    "time": 99,
+    "bulletId": 12,
+    "objectId": 42,
+    "targetId": 901
+   },
+   "hex": "000000131400000063000c0000002a00000385"
+  },
+  {
+   "name": "SHOOTACKCOUNTER",
+   "id": 121,
+   "fields": {
+    "time": 77,
+    "ack": 1
+   },
+   "hex": "0000000b790000004d0001"
+  },
+  {
+   "name": "DAMAGE",
+   "id": 75,
+   "fields": {
+    "targetId": 900,
+    "effects": [
+     4,
+     7
+    ],
+    "damageAmount": 35,
+    "info": 0,
+    "bulletId": 12,
+    "objectId": 42
+   },
+   "hex": "000000154b00000384020407002300000c0000002a"
+  },
+  {
+   "name": "DAMAGE",
+   "id": 75,
+   "fields": {
+    "targetId": 900,
+    "effects": [],
+    "damageAmount": 0,
+    "info": -1,
+    "bulletId": 65535,
+    "objectId": 42
+   },
+   "hex": "000000134b00000384000000ffffff0000002a"
+  },
+  {
+   "name": "ALLYSHOOT",
+   "id": 49,
+   "fields": {
+    "bulletId": 5,
+    "ownerId": 77,
+    "containerType": 2592,
+    "angle": 0.5,
+    "inspiredBuff": true
+   },
+   "hex": "000000143100050000004d00000a203f00000001"
+  },
+  {
+   "name": "QUESTOBJID",
+   "id": 82,
+   "fields": {
+    "objectId": 1313,
+    "unknownBytes": [
+     1,
+     -2,
+     3
+    ]
+   },
+   "hex": "0000000c520000052101fe03"
+  },
+  {
+   "name": "QUESTOBJID",
+   "id": 82,
+   "fields": {
+    "objectId": 1313,
+    "unknownBytes": []
+   },
+   "hex": "000000095200000521"
+  },
+  {
+   "name": "DEATH",
+   "id": 46,
+   "fields": {
+    "accountId": "acc",
+    "charId": 3,
+    "killedBy": "Evil Chicken God",
+    "gravestoneType": 5,
+    "totalFame": 150,
+    "fameBonuses": [
+     {
+      "name": "Thirsty",
+      "rank": 1,
+      "fame": 5
+     }
+    ],
+    "pcStats": "x"
+   },
+   "hex": "000000322e00036163630300104576696c20436869636b656e20476f64000000059602010007546869727374790105000178"
+  }
+ ]
+}

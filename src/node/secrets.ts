@@ -26,22 +26,89 @@ function keyFromEnv(): Buffer | null {
   return b.length === 32 ? b : null;
 }
 
-/** The sealing key: env first, else the data-dir file (created on first use). */
-export function secretKey(dataDir = process.env.DATA_DIR || "./data"): Buffer {
-  if (cached) return cached;
-  const env = keyFromEnv();
-  if (env) return (cached = env);
-  const file = path.join(dataDir, KEY_FILE);
+/** Thrown when sealed data exists but no key, or the wrong key, is at hand. Never papered over with a fresh key. */
+export class SecretKeyError extends Error {}
+
+const CHECK_FILE = "secret_key.check";
+const CHECK_TEXT = "rotmgtradenode sealing key";
+
+function readKeyFile(file: string): Buffer | null {
   try {
     const b = Buffer.from(fs.readFileSync(file, "utf8").trim(), "base64");
-    if (b.length === 32) return (cached = b);
+    return b.length === 32 ? b : null;
   } catch {
-    // create below
+    return null;
   }
-  const b = randomBytes(32);
-  fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(file, b.toString("base64") + "\n", { mode: 0o600 });
-  return (cached = b);
+}
+
+/**
+ * One sealed string already on disk (the roster, the hub link's key), so a
+ * key can be checked against data written before the check file existed.
+ */
+export function sealedSample(dataDir: string): { file: string; sealed: string } | null {
+  const relay = process.env.RELAY_DATA_DIR || path.join(dataDir, "relay");
+  for (const file of [path.join(relay, "Accounts.json"), path.join(relay, "node.json"), path.join(dataDir, "node.json")]) {
+    try {
+      const m = /rt1:[A-Za-z0-9+/=]+/.exec(fs.readFileSync(file, "utf8"));
+      if (m) return { file, sealed: m[0] };
+    } catch {
+      // not there
+    }
+  }
+  return null;
+}
+
+/**
+ * The sealing key: env first, else the data-dir file. A new key is only
+ * minted when nothing sealed exists yet; a missing or different key in front
+ * of sealed data is an error, because sealing anything new with a fresh key
+ * would orphan every stored password for good.
+ */
+export function secretKey(dataDir = process.env.DATA_DIR || "./data"): Buffer {
+  if (cached) return cached;
+  const file = path.join(dataDir, KEY_FILE);
+  const checkFile = path.join(dataDir, CHECK_FILE);
+  const env = keyFromEnv();
+  let key = env ?? readKeyFile(file);
+  if (!key) {
+    const sample = sealedSample(dataDir);
+    if (sample || fs.existsSync(checkFile)) {
+      throw new SecretKeyError(
+        `sealed credentials exist (${sample?.file ?? checkFile}) but the sealing key is missing: ${env === null && process.env.ROTMGTRADE_SECRET_KEY ? "ROTMGTRADE_SECRET_KEY is not a 32-byte base64 key" : `restore ${file} (or run the node the way it was set up, e.g. the desktop app)`}. Refusing to make a new key, which would lose them.`,
+      );
+    }
+    key = randomBytes(32);
+    fs.mkdirSync(dataDir, { recursive: true });
+    if (!env) fs.writeFileSync(file, key.toString("base64") + "\n", { mode: 0o600 });
+  }
+  // The key must open what is already sealed: the check file, else whatever sealed data predates it.
+  let check: string | null = null;
+  try {
+    check = fs.readFileSync(checkFile, "utf8").trim();
+  } catch {
+    // first run with a check file
+  }
+  const probe = check ?? sealedSample(dataDir)?.sealed ?? null;
+  if (probe) {
+    let opened: string | null = null;
+    try {
+      opened = open(probe, key);
+    } catch {
+      opened = null;
+    }
+    if (opened === null || (check !== null && opened !== CHECK_TEXT)) {
+      throw new SecretKeyError(`the sealing key ${env ? "from ROTMGTRADE_SECRET_KEY" : `in ${file}`} does not open this data dir's sealed credentials (${dataDir}). Run the node with the key it was set up with; refusing to continue, which would lose them.`);
+    }
+  }
+  if (check === null) {
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+      fs.writeFileSync(checkFile, seal(CHECK_TEXT, key) + "\n", { mode: 0o600 });
+    } catch {
+      // read-only data dir: the sample check above still guards it
+    }
+  }
+  return (cached = key);
 }
 
 /** Tests: forget the cached key. */

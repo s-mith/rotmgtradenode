@@ -41,9 +41,7 @@ export function applyNodeDefaults(): NodeConfig {
   process.env.DATA_DIR = dataDir;
   setDefault("NODE_MODE", "local");
   setDefault("RELAY_DATA_DIR", path.join(dataDir, "relay"));
-  setDefault("ACCOUNTGEN_DATA_DIR", path.join(dataDir, "onboarding"));
   setDefault("RELAY_EMBEDDED", "1");
-  setDefault("ACCOUNTGEN_EMBEDDED", "1");
   // Loopback only: the operator console trusts every request in local mode.
   setDefault("HOST", "127.0.0.1");
   setDefault("PORT", "3000");
@@ -52,15 +50,12 @@ export function applyNodeDefaults(): NodeConfig {
   if (!process.env.PYRELAY_AUTH) process.env.PYRELAY_AUTH = randomBytes(24).toString("base64url");
   // Logins go through the owner's proxies (pasted in the console); the list
   // lives in the data dir. Direct logins are only possible when the owner
-  // turns the "proxy only" rule off, and then only a few at once.
-  setDefault("PROXIES_URL", "");
-  setDefault("DIRECT_ONLINE_BOTS", "4");
+  // turns the "proxy only" rule off, and then one account at a time: one
+  // account per IP, the host's own included.
+  setDefault("DIRECT_ONLINE_BOTS", "1");
   // The desk bot waits where trades default to meeting (the trade desk's
   // default server), so a one-account node is already in place.
   setDefault("LOGIN_DESK_SERVERS", "USSouth3,USWest4,USMidWest2");
-  // A guest's vault shares the owner's bots (design doc §6.5); no dedicated
-  // vault bots on a node with a handful of accounts.
-  setDefault("SHARED_VAULT_BOTS", "1");
   // What the hub and telemetry see as this node's version: package.json's,
   // unless the shell (or a release) set it.
   if (!process.env.ROTMGTRADE_VERSION) {
@@ -77,4 +72,21 @@ export function applyNodeDefaults(): NodeConfig {
 /** True when the operator console may be used without a password. */
 export function isLocalMode(): boolean {
   return (process.env.NODE_MODE ?? "local") === "local" && !process.env.DEV_PASSWORD;
+}
+
+/** Whether a bind address only accepts connections from this machine. */
+export function isLoopbackHost(host: string): boolean {
+  const h = host.trim().toLowerCase().replace(/^\[|\]$/g, "");
+  return h === "localhost" || h === "::1" || /^127(\.\d{1,3}){3}$/.test(h) || h.endsWith(".localhost");
+}
+
+/**
+ * Why the server must not start on this bind, or null. The console trusts
+ * every request in local mode, so a bind anyone else can reach needs
+ * DEV_PASSWORD; otherwise the whole network gets the owner's console.
+ */
+export function bindRefusal(host: string, env: NodeJS.ProcessEnv = process.env): string | null {
+  if (isLoopbackHost(host)) return null;
+  if (env.DEV_PASSWORD) return null;
+  return `HOST=${host} lets other machines reach this node, and its control panel has no password. Set DEV_PASSWORD, or bind to 127.0.0.1.`;
 }

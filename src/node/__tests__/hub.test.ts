@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HubClient } from "../hub";
+import { HubClient, isLoopbackUrl } from "../hub";
 import { NodeSettingsStore } from "../settings";
 import { resetSecretKey } from "../secrets";
 import { verifyRequest } from "../../shared/hubWire";
@@ -31,11 +31,12 @@ function fakeHub(opts: { minNodeVersion?: string; knownBuilds?: string[]; failLi
     const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
     if (pathq === "/api/v1/version") return json({ minNodeVersion: opts.minNodeVersion ?? "0.1.0", latestNodeVersion: "0.1.0", downloadUrl: "", build: { gameVersion: "7.0.0.2.0", knownBuilds: opts.knownBuilds ?? [], updatedAt: 1 } });
     if (pathq === "/api/v1/nodes/link") {
-      if (opts.failLink) return json({ error: "bad password" }, 401);
+      if (opts.failLink) return json({ error: "that link code is not valid" }, 401);
       const b = JSON.parse(body);
       publicKey = b.publicKey;
       seen.push({ path: pathq, body: b, verified: null });
-      return json({ nodeId: "node-abc", userId: 7, displayName: "Owner" });
+      if (b.code === "WRONG") return json({ error: "that link code is not valid" }, 401);
+      return json({ nodeId: "node-abc", userId: 7, displayName: "Owner", email: "owner@x" });
     }
     const verified = verifyRequest(publicKey, headers, init?.method ?? "GET", pathq, body).ok;
     seen.push({ path: pathq, body: body ? JSON.parse(body) : null, verified });
@@ -53,15 +54,15 @@ function client(hub: ReturnType<typeof fakeHub>, settings = NodeSettingsStore.at
 }
 
 describe("HubClient", () => {
-  it("links with the password once, then signs everything with the node key", async () => {
+  it("links with a code once, then signs everything with the node key", async () => {
     const hub = fakeHub();
     const { c, settings } = client(hub);
     expect(c.linked).toBe(false);
-    const r = await c.linkTo("https://hub.example/", "me@x", "pw", "desk");
+    const r = await c.linkTo("https://hub.example/", "ABCD2345", "desk");
     expect(r).toMatchObject({ ok: true, data: { nodeId: "node-abc" } });
     c.stop();
     const link = settings.get().hub!;
-    expect(link).toMatchObject({ url: "https://hub.example", nodeId: "node-abc", email: "me@x" });
+    expect(link).toMatchObject({ url: "https://hub.example", nodeId: "node-abc", email: "owner@x" });
     expect(link.privateKeyPemSealed.startsWith("rt1:")).toBe(true);
     expect(settings.get().telemetry.hubUrl).toBe("https://hub.example");
     expect(await c.sendHeartbeat()).toBe(true);
@@ -77,14 +78,36 @@ describe("HubClient", () => {
     expect(await again.c.sendHeartbeat()).toBe(true);
   });
 
+  it("links with a code from the hub website: the code travels tidied, no password, and the reply names the account", async () => {
+    const hub = fakeHub();
+    const { c, settings } = client(hub);
+    const r = await c.linkTo("https://hub.example", " abcd-2345 ", "desk");
+    expect(r.ok).toBe(true);
+    const sent = hub.seen.find((s) => s.path === "/api/v1/nodes/link")!.body as Record<string, unknown>;
+    expect(sent).toMatchObject({ code: "ABCD2345", name: "desk", version: "0.1.0" });
+    expect(sent.email).toBeUndefined();
+    expect(sent.password).toBeUndefined();
+    expect(settings.get().hub).toMatchObject({ nodeId: "node-abc", email: "owner@x" });
+    await c.unlink();
+    expect(await c.linkTo("https://hub.example", "", "desk")).toMatchObject({ ok: false, status: 0 });
+    expect(await c.linkTo("https://hub.example", "WRONG", "desk")).toMatchObject({ ok: false, status: 401 });
+    // Plain http only to a hub on this machine.
+    expect(await c.linkTo("http://hub.example", "ABCD2345", "desk")).toMatchObject({ ok: false, status: 0, error: expect.stringContaining("must use https://") });
+    expect(settings.get().hub).toBeNull();
+    expect(isLoopbackUrl("http://localhost:4000")).toBe(true);
+    expect(isLoopbackUrl("http://127.0.0.1:4000")).toBe(true);
+    expect(isLoopbackUrl("http://[::1]:4000")).toBe(true);
+    expect(isLoopbackUrl("http://127.0.0.1.evil.example")).toBe(false);
+  });
+
   it("a refused link stores nothing; unlinking forgets the key", async () => {
     const bad = fakeHub({ failLink: true });
     const { c, settings } = client(bad);
-    expect(await c.linkTo("https://hub.example", "me@x", "wrong", "desk")).toMatchObject({ ok: false, status: 401, error: "bad password" });
+    expect(await c.linkTo("https://hub.example", "WRONG", "desk")).toMatchObject({ ok: false, status: 401, error: "that link code is not valid" });
     expect(settings.get().hub).toBeNull();
     const good = fakeHub();
     const g = client(good, settings);
-    await g.c.linkTo("https://hub.example", "me@x", "pw", "desk");
+    await g.c.linkTo("https://hub.example", "ABCD2345", "desk");
     g.c.stop();
     await g.c.unlink();
     expect(settings.get().hub).toBeNull();
@@ -96,7 +119,7 @@ describe("HubClient", () => {
     const hub = fakeHub({ minNodeVersion: "0.2.0", knownBuilds: ["7.0.0.3.0"] });
     const got: string[][] = [];
     const { c } = client(hub, undefined, (b) => got.push(b));
-    await c.linkTo("https://hub.example", "me@x", "pw", "desk");
+    await c.linkTo("https://hub.example", "ABCD2345", "desk");
     c.stop();
     await c.refreshVersion();
     expect(c.outdated).toBe(true);
@@ -107,7 +130,7 @@ describe("HubClient", () => {
   it("a hub that is down is an error, not a crash", async () => {
     const down = { fetchImpl: (async () => { throw new Error("ECONNREFUSED"); }) as typeof fetch, seen: [] };
     const { c } = client(down);
-    expect(await c.linkTo("https://hub.example", "me@x", "pw", "desk")).toMatchObject({ ok: false, status: 0 });
+    expect(await c.linkTo("https://hub.example", "ABCD2345", "desk")).toMatchObject({ ok: false, status: 0 });
     expect(c.status().lastError).toMatch(/unreachable/);
   });
 });

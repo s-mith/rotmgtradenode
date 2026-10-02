@@ -10,7 +10,7 @@ type OpenRequest = {
   groupId: string;
   kind: "deposit" | "withdraw";
   server: string;
-  vault: boolean;
+  communism: boolean;
   seasonal: boolean;
   createdAt: number;
   itemCount: number;
@@ -112,18 +112,20 @@ export default function OpenRequests({
           <li key={r.groupId} className="inflight-item">
             <div className="inflight-head">
               <span className="inflight-title">
-                <strong>{r.vault ? "Vault " : ""}{r.kind === "deposit" ? "deposit" : "withdraw"}</strong>
+                <strong>{r.communism ? "Communism " : ""}{r.kind === "deposit" ? "deposit" : "withdraw"}</strong>
                 {" "}· {r.server} · {r.seasonal ? "seasonal" : "non-seasonal"}
                 <span className="inflight-time"> · {rel(r.createdAt)}</span>
               </span>
-              <button
-                type="button"
-                className="login-char-btn login-char-btn-danger"
-                disabled={cancelling === r.groupId}
-                onClick={() => cancel(r.groupId)}
-              >
-                {cancelling === r.groupId ? "Cancelling…" : "Cancel"}
-              </button>
+              {r.groupStatus === "in-flight" && (
+                <button
+                  type="button"
+                  className="login-char-btn login-char-btn-danger"
+                  disabled={cancelling === r.groupId}
+                  onClick={() => cancel(r.groupId)}
+                >
+                  {cancelling === r.groupId ? "Cancelling…" : "Cancel"}
+                </button>
+              )}
             </div>
             {r.kind === "withdraw" && r.items.length > 0 && (
               <div className="inflight-items">
@@ -139,7 +141,7 @@ export default function OpenRequests({
               tradeCount={r.tradeCount}
               status={r.groupStatus === "in-flight" ? "polling" : r.groupStatus}
               endReason={r.endReason}
-              personal={r.vault}
+              communism={r.communism}
             />
           </li>
         ))}

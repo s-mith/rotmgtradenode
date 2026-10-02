@@ -45,6 +45,8 @@ export interface AccountInfo {
   /** Legacy: accounts flagged for the retired capitalism site are skipped on load. */
   economy?: string;
   suspended?: boolean;
+  /** Set aside for communism: its slots are communism capacity, its items communism items; never pool work. */
+  communism?: boolean;
   /** The character this account logs in with, when it still exists (docs/relay/STORAGE.md); unset = the first one. */
   charId?: number;
 }
@@ -57,13 +59,12 @@ export class BotAccount {
   alias: string;
   seasonal: boolean | null;
   suspended: boolean;
+  communism: boolean;
   inUse = false;
   client: GameClient | null = null;
   assignedRequestId: number | null = null;
   assignedKind: AssignmentKind | null = null;
   assignedPartnerIgn: string | null = null;
-  /** Personal storage: the account a claimed deposit's items belong to. */
-  assignedVaultUser: number | null = null;
   /** Why the last bring-up did not get the account in world, until one does (shown on the Accounts tab). */
   lastLoginError: { at: number; kind: string; message: string } | null = null;
 
@@ -73,6 +74,13 @@ export class BotAccount {
     this.botGuid = deriveBotGuid(info.guid);
     this.seasonal = info.seasonal === undefined || info.seasonal === null ? null : Boolean(info.seasonal);
     this.suspended = Boolean(info.suspended);
+    // A roster entry from before the rename (2026-09-22) carries the flag under the old key; it is read once and written back under the new one.
+    const legacy = (info as { commons?: boolean }).commons;
+    if (info.communism === undefined && legacy !== undefined) {
+      info.communism = Boolean(legacy);
+      delete (info as { commons?: boolean }).commons;
+    }
+    this.communism = Boolean(info.communism);
   }
   /** Unknown pool counts as seasonal, the pre-split default. */
   get seasonalOrDefault(): boolean {
@@ -93,6 +101,8 @@ export class BotPool {
   revision = 0;
   /** The file as last read or written, so reload() can skip parsing an unchanged file. */
   private fileStat: { mtimeMs: number; size: number } | null = null;
+  /** Set while Accounts.json exists but cannot be opened (wrong or missing sealing key, corruption): nothing may overwrite it then. */
+  private unreadable = false;
 
   constructor(readonly accountsPath: string) {
     this.load();
@@ -116,17 +126,28 @@ export class BotPool {
   }
 
   private readFile(): AccountInfo[] | null {
-    if (!fs.existsSync(this.accountsPath)) return null;
+    if (!fs.existsSync(this.accountsPath)) {
+      this.unreadable = false;
+      return null;
+    }
     try {
       // Sealed at rest (src/node/secrets.ts); a plaintext file from before still reads.
       const raw = JSON.parse(unseal(fs.readFileSync(this.accountsPath, "utf8").trim()));
-      return Array.isArray(raw) ? raw.filter((e) => e && typeof e === "object" && typeof e.guid === "string" && e.guid) : null;
+      if (!Array.isArray(raw)) throw new Error("not a list of accounts");
+      this.unreadable = false;
+      return raw.filter((e) => e && typeof e === "object" && typeof e.guid === "string" && e.guid);
     } catch (e) {
-      console.log(`BotPool: failed to parse ${this.accountsPath}: ${String(e)}`);
+      this.unreadable = true;
+      console.error(`BotPool: cannot open ${this.accountsPath}: ${String(e)}. The roster is left untouched on disk; no change is saved until it opens again.`);
       return null;
     }
   }
   private writeFile(entries: AccountInfo[]): void {
+    // Overwriting a roster this process could not open would replace every stored account with whatever is in memory.
+    if (this.unreadable) {
+      console.error(`BotPool: not saving ${this.accountsPath}: it could not be opened, and overwriting it would lose the accounts in it`);
+      return;
+    }
     try {
       fs.mkdirSync(path.dirname(this.accountsPath), { recursive: true });
       fs.writeFileSync(this.accountsPath, seal(JSON.stringify(entries, null, 2)) + "\n", { mode: 0o600 });
@@ -291,6 +312,27 @@ export class BotPool {
     return replacement;
   }
 
+  /**
+   * Take an account off the roster for good: the node forgets its login and
+   * stops using it. The caller makes sure it is not mid-trade. What the
+   * fleet filed under its bot guid (tracked items, storage and backpack
+   * state) is the caller's to drop; the items themselves stay on the account
+   * in the game.
+   */
+  remove(acc: BotAccount): boolean {
+    const i = this.accounts.indexOf(acc);
+    if (i < 0) return false;
+    this.accounts.splice(i, 1);
+    this.byBot.delete(acc.botGuid);
+    this.touched();
+    this.patchFile((entries) => {
+      const j = entries.findIndex((e) => sameAccount(e.guid, acc.guid));
+      if (j >= 0) entries.splice(j, 1);
+    });
+    console.log(`BotPool: ${acc.alias} removed from the roster`);
+    return true;
+  }
+
   /** A new password for an account (the owner corrected it). Persists; the gate is the caller's to unlock. */
   setPassword(acc: BotAccount, password: string): void {
     acc.info.password = password;
@@ -315,6 +357,21 @@ export class BotPool {
       for (const e of entries) if (e.guid === acc.guid) e.seasonal = seasonal;
     });
     console.log(`BotPool: ${acc.alias} is ${seasonal ? "seasonal" : "non-seasonal"}`);
+  }
+
+  /** Move an account into or out of communism. Takes effect on the next supervise pass. */
+  setCommunism(acc: BotAccount, communism: boolean): void {
+    if (acc.communism === communism) return;
+    acc.communism = communism;
+    acc.info.communism = communism;
+    this.revision++;
+    this.patchFile((entries) => {
+      for (const e of entries) if (e.guid === acc.guid) {
+        if (communism) e.communism = true;
+        else delete e.communism;
+      }
+    });
+    console.log(`BotPool: ${acc.alias} is ${communism ? "a communism account" : "a pool account"}`);
   }
 
   markAllNonseasonal(): { changed: number; total: number } {
@@ -342,13 +399,12 @@ export class BotPool {
     acc.assignedRequestId = null;
     acc.assignedKind = null;
     acc.assignedPartnerIgn = null;
-    acc.assignedVaultUser = null;
   }
 
   /** Called with every account that joins the roster while the process runs (the fleet sweeps it). */
   onAdded: ((acc: BotAccount) => void) | null = null;
 
-  /** Add an account dispensed by accountgen or the owner; persists before returning. */
+  /** Add an account the owner gave; persists before returning. */
   addPulled(entry: AccountInfo): BotAccount | null {
     if (this.accounts.some((a) => sameAccount(a.guid, entry.guid))) return null;
     this.patchFile((entries) => entries.push(entry));
@@ -357,80 +413,4 @@ export class BotPool {
     this.onAdded?.(acc);
     return acc;
   }
-}
-
-/** In-process accountgen, when it runs inside this process. */
-export type LocalAccountSource = (seasonal: boolean | null | undefined) => Promise<{ email: string; password: string; name: string; server: string | null; seasonal: boolean | null } | null>;
-declare global {
-  // eslint-disable-next-line no-var
-  var __local_accountgen__: LocalAccountSource | undefined;
-}
-export function registerLocalAccountSource(fn: LocalAccountSource | undefined): void {
-  globalThis.__local_accountgen__ = fn;
-}
-
-/** Pull one tutorial-finished account from accountgen (in-process if embedded, else HTTP). */
-export async function pullAccount(
-  pool: BotPool,
-  opts: { server?: string; seasonal?: boolean | null } = {},
-): Promise<BotAccount | null> {
-  const local = globalThis.__local_accountgen__;
-  if (local) {
-    const a = await local(opts.seasonal);
-    if (!a) return null;
-    const entry: AccountInfo = { alias: a.name || a.email.split("@")[0], guid: a.email, password: a.password, seasonal: a.seasonal ?? (opts.seasonal ?? true) };
-    if (opts.server || a.server) entry.server = opts.server || a.server || undefined;
-    const acc = pool.addPulled(entry);
-    if (acc) console.log(`BotPool.pullAccount: added ${acc.alias} from the embedded accountgen (pool now ${pool.all().length})`);
-    return acc;
-  }
-  const base = (process.env.ACCOUNTGEN_URL ?? "").replace(/\/$/, "");
-  const auth = process.env.ACCOUNTGEN_AUTH ?? "";
-  if (!base || !auth) return null;
-  const params = new URLSearchParams();
-  if (opts.seasonal !== null && opts.seasonal !== undefined) params.set("seasonal", opts.seasonal ? "1" : "0");
-  let res: Response;
-  try {
-    res = await fetch(`${base}/account${params.size ? `?${params}` : ""}`, {
-      headers: { "X-Accountgen-Auth": auth },
-      signal: AbortSignal.timeout(15_000),
-    });
-  } catch (e) {
-    console.log(`BotPool.pullAccount: accountgen request failed: ${String(e)}`);
-    return null;
-  }
-  if (res.status === 503) {
-    console.log("BotPool.pullAccount: accountgen pool empty — worker is refilling");
-    return null;
-  }
-  if (!res.ok) {
-    console.log(`BotPool.pullAccount: accountgen returned HTTP ${res.status}`);
-    return null;
-  }
-  let body: { account?: { email?: string; password?: string; name?: string; seasonal?: boolean; server?: string } };
-  try {
-    body = await res.json();
-  } catch {
-    console.log("BotPool.pullAccount: accountgen returned a non-JSON body");
-    return null;
-  }
-  const acct = body.account ?? {};
-  if (!acct.email || !acct.password) {
-    console.log("BotPool.pullAccount: accountgen response missing email/password");
-    return null;
-  }
-  const entry: AccountInfo = {
-    alias: acct.name || acct.email.split("@")[0],
-    guid: acct.email,
-    password: acct.password,
-    seasonal: acct.seasonal ?? (opts.seasonal ?? true),
-  };
-  if (opts.server || acct.server) entry.server = opts.server || acct.server;
-  const acc = pool.addPulled(entry);
-  if (!acc) {
-    console.log(`BotPool.pullAccount: ${acct.email} already in pool — skipping`);
-    return null;
-  }
-  console.log(`BotPool.pullAccount: added ${acc.alias} from accountgen (pool now ${pool.all().length})`);
-  return acc;
 }

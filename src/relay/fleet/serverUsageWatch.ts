@@ -10,6 +10,8 @@ import type { ServerUsageReport, SiteApi } from "./siteApi";
 import type { ServerList } from "../realm/serverList";
 
 export const SERVER_USAGE_REFRESH_MS = Number(process.env.SERVER_USAGE_REFRESH_SECONDS ?? 30) * 1000;
+/** A reading older than this is not acted on (the site's load gate uses the same window). */
+export const SERVER_USAGE_FRESH_MS = Number(process.env.SERVER_USAGE_FRESH_SECONDS ?? 90) * 1000;
 
 export interface ServerUsageWatchOptions {
   /** Live clients: any authenticated one lends its token for the list. */
@@ -52,6 +54,11 @@ export class ServerUsageWatch {
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+  }
+  /** The servers a fresh reading reports empty (no load at all), or null without a fresh reading. */
+  emptyServers(): string[] | null {
+    if (this.fetchedAt === null || this.now() - this.fetchedAt > SERVER_USAGE_FRESH_MS) return null;
+    return this.servers.filter((s) => s.usage <= 0).map((s) => s.name);
   }
   status(): ServerUsageWatchStatus {
     return { servers: this.servers, fetchedAt: this.fetchedAt, lastFetchError: this.lastFetchError, skippedNoLender: this.skippedNoLender };

@@ -11,6 +11,7 @@ import { acceptsItem, currentItemPolicy } from "./itemPolicy";
 import { enchantName } from "./enchants";
 import type { PyrelayPool } from "./devauth";
 import { rarityFor, whereLabel, type Rarity } from "./poolWire";
+import { tradeableEnchants } from "../relay/protocol/enchants";
 
 export type PoolInstance = {
   instanceId: string;
@@ -47,9 +48,8 @@ export function projectCatalog() {
 /**
  * pyrelay's `/pool` payload -> the sorted instance list /api/pool returns.
  *
- * `owned` is personal storage (lib/vault.ts): those instances are somebody's
- * private property and never appear in, or can be picked from, the pool —
- * whichever bot happens to hold them.
+ * `owned` is communism (lib/communismPool.ts): instances on the accounts set
+ * aside for it never appear in, or can be picked from, the pool.
  */
 export function projectInstances(data: PyrelayPool, owned: Set<string> = new Set()): PoolInstance[] {
   const meta = data.botMeta ?? {};
@@ -60,6 +60,7 @@ export function projectInstances(data: PyrelayPool, owned: Set<string> = new Set
       if (owned.has(info.instanceId)) continue;
       const item = ITEM_BY_ID.get(info.itemId);
       if (!item) continue; // unknown item id — drop silently rather than break UI
+      if (!tradeableEnchants((info.enchantments ?? []).length)) continue; // legendary and divine: the game will not trade them
       const enchantments = (info.enchantments ?? []).map((id) => ({
         id,
         name: enchantName(id),
@@ -91,6 +92,7 @@ export function projectInstances(data: PyrelayPool, owned: Set<string> = new Set
       if (owned.has(s.instanceId)) continue;
       const item = ITEM_BY_ID.get(s.itemId);
       if (!item) continue;
+      if (!tradeableEnchants((s.enchantments ?? []).length)) continue;
       const enchantments = (s.enchantments ?? []).map((id) => ({ id, name: enchantName(id) }));
       const pools = s.pools;
       instances.push({

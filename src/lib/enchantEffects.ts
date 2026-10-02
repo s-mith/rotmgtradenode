@@ -1,9 +1,9 @@
 // What an enchantment does, reduced to a handful of "+Attack" / "-MP Cost" /
 // "+Loot Boost" keys so the pool search can offer "adds Loot Boost" and match
-// every enchant that grants it, whatever its name or tier — and so a wishlist
-// rule can ask for the same thing server-side. Derived from the enchant-mods
+// every enchant that grants it, whatever its name or tier — and so an offer's
+// want-line can ask for the same thing server-side. Derived from the enchant-mods
 // data the tooltip uses (flat stats, multipliers and the game's own effect
-// text). No React here: lib/wishlist.ts runs this on the server.
+// text). No React here: lib/enchantMatch.ts runs this on the server.
 import enchantMods from "./enchant-mods.json";
 
 type EnchantMods = {

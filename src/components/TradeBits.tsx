@@ -1,7 +1,7 @@
 import { ItemSprite } from "./ItemSprite";
 
 // The pieces every trade on the vault page is drawn with (TradePanel,
-// CommonsPanel): an item slot like the in-game window's, a padded row of
+// CommunismPanel): an item slot like the in-game window's, a padded row of
 // them, and the two-sided ticket.
 
 /** One item slot: a sprite with optional badges. `sprite` is a data URL from the pool; otherwise the atlas by name. */
@@ -53,5 +53,5 @@ export const ago = (ms: number) => {
 export const left = (ms: number) => {
   const s = Math.round((ms - Date.now()) / 1000);
   if (s <= 0) return "expired";
-  return s < 3600 ? `${Math.ceil(s / 60)} min left` : `${Math.round(s / 3600)} h left`;
+  return s < 3600 ? `${Math.ceil(s / 60)} min left` : s < 2 * 86400 ? `${Math.round(s / 3600)} h left` : `${Math.round(s / 86400)} days left`;
 };

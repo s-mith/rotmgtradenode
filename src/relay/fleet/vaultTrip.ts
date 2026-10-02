@@ -2,7 +2,7 @@
 // from the Nexus, the VAULTINFO sequence that names every container, and
 // the small waits and walks every trip through it is made of. Shared by
 // the backpack chore (backpacks.ts) and the storage chore (storage.ts).
-import { findPath, smoothPath } from "../../accountgen/walker/pathfinding";
+import { findPath, smoothPath } from "../client/pathfinding";
 import type { GameClient } from "../client/gameClient";
 import type { AnyPacket, Packet } from "../protocol/packets";
 import type { WorldPos } from "../protocol/data";
@@ -129,19 +129,33 @@ export async function walkTo(client: GameClient, goal: WorldPos, goalDist: numbe
   throw new Error(`timed out after ${ms / 1000}s walking to ${what}`);
 }
 
-/** Gather one VAULTINFO sequence (lists concatenate until `last`). */
-export async function readVaultInfo(client: GameClient, ms: number): Promise<VaultView | null> {
+/** Gather one VAULTINFO sequence (lists concatenate until `last`). `log` hears each packet, and why the read gave up. */
+export async function readVaultInfo(client: GameClient, ms: number, log: (l: string) => void = () => {}, quietMs = VAULT_INFO_QUIET_MS): Promise<VaultView | null> {
   const deadline = Date.now() + ms;
   let view = emptyVaultView();
+  let seen = 0;
   for (;;) {
-    const left = deadline - Date.now();
-    if (left <= 0) return null;
-    const p = await nextPacket(client, "VAULTINFO", left);
-    if (!p) return null;
-    view = mergeVaultInfo(view, p as Packet<"VAULTINFO">);
-    if ((p as Packet<"VAULTINFO">).last) return view;
+    // The first packet gets the whole wait; after one, the next chunk is due within `quietMs` or the sequence is over.
+    const left = Math.min(deadline - Date.now(), seen ? quietMs : Infinity);
+    if (left <= 0) break;
+    const p = (await nextPacket(client, "VAULTINFO", left)) as Packet<"VAULTINFO"> | null;
+    if (!p) break;
+    seen++;
+    log(`VAULTINFO ${seen}: last=${p.last} vault ${p.vaultContents.length} · material ${p.materialContents.length} · gift ${p.giftContents.length} · potion ${p.potionContents.length} · spoils ${p.spoilsContents.length}${p.tail.length ? ` · ${p.tail.length} tail byte(s)` : ""}`);
+    view = mergeVaultInfo(view, p);
+    if (p.last) return view;
   }
+  const r = client.recentPackets();
+  if (seen) {
+    // A vault of hundreds of chests comes in 2048-slot chunks and the server stopped after two without a `last` (566 chests, live 2026-09-22): what came is the view, the rest of the chests are unknown.
+    log(`VAULTINFO sequence ended without a last packet after ${seen} chunk(s): taking the ${view.vault.slots.length} vault slot(s) it described · last recv: ${r.recv.join(", ") || "(nothing)"}`);
+    return view;
+  }
+  log(`no VAULTINFO within ${Math.round(ms / 1000)}s · last recv: ${r.recv.join(", ") || "(nothing)"}`);
+  return null;
 }
+/** How long after one VAULTINFO chunk the next is waited for before the sequence counts as over. */
+export const VAULT_INFO_QUIET_MS = 5_000;
 
 /** Collect the server's chatter (notifications, claim responses, failures) between arm() and stop(), for the trip log. */
 export function captureChatter(client: GameClient): { seen: string[]; stop: () => string[] } {
@@ -171,7 +185,7 @@ export async function enterVault(client: GameClient, T: VaultTimeouts, log: (l: 
     await walkTo(client, portal.pos, 0.8, T.walkMs, "the Vault Portal");
     await sleep(700); // let the server's copy of us arrive too (the first USEPORTAL right after the walk was ignored, live 2026-09-07)
     const me = client.pos ?? portal.pos;
-    const vaultInfo = readVaultInfo(client, T.portalWaitMs + T.vaultInfoMs);
+    const vaultInfo = readVaultInfo(client, T.portalWaitMs + T.vaultInfoMs, log);
     const arrived = nextPacket(client, "MAPINFO", T.portalWaitMs, (p) => p.name === VAULT_MAP);
     client.send("USEPORTAL", { objectId: portal.objectId });
     last = `USEPORTAL #${portal.objectId} attempt ${attempt} from (${me.x.toFixed(1)},${me.y.toFixed(1)}), portal at (${portal.pos.x.toFixed(1)},${portal.pos.y.toFixed(1)})`;

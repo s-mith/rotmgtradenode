@@ -14,7 +14,7 @@ import { GameVersion } from "../realm/gameVersion";
 import { HttpSiteApi, type SiteApi } from "./siteApi";
 import { LoginCodes, PoolSettings, TradeHold, WhisperQueue } from "./stores";
 import { startupSweep } from "./sweeps";
-import { auditProxiesFromFile, BackpackService, BackpackStore } from "./backpacks";
+import { BackpackService, BackpackStore } from "./backpacks";
 import { StorageService, StorageStore } from "./storage";
 import type { SweepDeps } from "./sweeps";
 import type { BotAccount } from "./botPool";
@@ -25,13 +25,20 @@ import { WakeScheduler } from "./wakes";
 import { ServerList } from "../realm/serverList";
 import { BuildGate } from "./buildGate";
 import { Telemetry } from "./telemetry";
-import { NodeSettingsStore } from "../../node/settings";
+import { advancedFor, NodeSettingsStore } from "../../node/settings";
 import { HubClient } from "../../node/hub";
-import { PROXIES_REFRESH_S } from "./constants";
+import { RealmLoginRunner } from "../../node/realmLogins";
+import { SetupService } from "../../node/setup";
+import type { NodeStatusWire } from "../../shared/hubWire";
+import { LOGIN_DESK_SERVERS, onlineCapFor } from "./constants";
+import { takeDown } from "./bringUp";
+
+/** Log lines kept in memory for the control panel. */
+const LOG_KEEP = 5000;
 
 export interface FleetOptions {
   dataDir: string;
-  /** Where the exit-IP list comes from: PROXIES_URL and/or PROXIES_FILE. */
+  /** Where the exit-IP list the console saves lives (PROXIES_FILE). */
   proxies: ProxySource;
   /** Pinned build string; ignored when `versions` is given. */
   buildVersion: string;
@@ -40,7 +47,6 @@ export interface FleetOptions {
   /** The site's queue client; without one no dispatcher runs. */
   api?: SiteApi;
   log?: (line: string) => void;
-  freeSlotsTarget?: number;
   /** Test hook, forwarded to FleetDeps. */
   bringUp?: FleetDeps["bringUp"];
   /** Called whenever the tracker's revision moves. */
@@ -49,11 +55,19 @@ export interface FleetOptions {
   nodeSettings?: NodeSettingsStore;
   /** What telemetry reports as the node version. */
   nodeVersion?: string;
+  /** Instances the site has spoken for (open picks, posted offers, hand-overs): the storage chores and consolidation leave them where they are. */
+  reserved?: () => Set<string>;
 }
 
 export class Fleet {
   readonly dataDir: string;
   readonly log: (line: string) => void;
+  private readonly recent: { at: number; line: string }[] = [];
+  /** The newest `n` log lines, oldest first. */
+  /** The newest `n` log lines, every one kept by default. */
+  logTail(n = LOG_KEEP): { at: number; line: string }[] {
+    return this.recent.slice(-Math.max(1, Math.min(n, LOG_KEEP)));
+  }
   readonly pool: BotPool;
   readonly settings: PoolSettings;
   readonly tracker: InventoryTracker;
@@ -85,18 +99,36 @@ export class Fleet {
   readonly nodeSettings: NodeSettingsStore;
   /** Connected mode: linked hub, heartbeats, version feed (design doc §4.3). */
   readonly hub: HubClient;
+  /** The hub's login node duty: sign-in codes whispered to this node's login desk (idle unless the hub names this node). */
+  readonly realmLogins: RealmLoginRunner;
+  /** The first-run setup (the desktop app's wizard): its steps, the proxy check, the test login. */
+  readonly setup: SetupService;
+  /** What this node reports as its version (the app's, ROTMGTRADE_VERSION). */
+  readonly nodeVersion: string;
+  readonly startedAt = Date.now();
+  /** Facts the embedding process adds to the node card the hub shows (trades with players, the login desk): they need the site's database, which the fleet does not hold. */
+  hubStatusExtra: (() => Partial<NodeStatusWire>) | null = null;
   /** What the sweeps and the maintenance services need (backpacks, storage, a new account's first look). */
   readonly sweepDeps: SweepDeps;
   private started = false;
-  private proxyRefresh: ReturnType<typeof setInterval> | null = null;
 
   constructor(opts: FleetOptions) {
     this.dataDir = opts.dataDir;
-    this.log = opts.log ?? ((l) => console.log(l));
+    const sink = opts.log ?? ((l: string) => console.log(l));
+    // The last lines, for the control panel (GET /node/log): what the console shows, kept in memory only.
+    this.log = (l: string) => {
+      this.recent.push({ at: Date.now(), line: l });
+      if (this.recent.length > LOG_KEEP) this.recent.splice(0, this.recent.length - LOG_KEEP);
+      sink(l);
+    };
     fs.mkdirSync(this.dataDir, { recursive: true });
     this.pool = BotPool.at(this.dataDir);
     this.settings = PoolSettings.at(this.dataDir);
     this.tracker = InventoryTracker.at(this.dataDir);
+    {
+      const stale = this.tracker.pruneTo(new Set(this.pool.every().map((a) => a.botGuid)));
+      if (stale.length) this.log(`tracker: dropped ${stale.length} bot(s) no longer on the roster: ${stale.map((g) => g.slice(0, 8)).join(", ")}`);
+    }
     if (this.settings.poolHasBackpack) this.log("pool_settings: pool_has_backpack is set but no longer forces capacity — slots are per bot (backpack seen on that character); the knob is inert");
     if (opts.onPoolChanged) this.tracker.onChange = opts.onPoolChanged;
     this.proxies = ProxyPool.fromSource(opts.proxies);
@@ -115,6 +147,7 @@ export class Fleet {
       servers: this.servers,
       requireProxy: () => this.nodeSettings.get().proxies.required,
       itemPolicy: () => this.nodeSettings.get().items,
+      isAdvanced: (acc) => advancedFor(this.nodeSettings.get().advanced, acc.communism),
       // Read at every bring-up, so a build bump reaches the next HELLO.
       get buildVersion() { return versions.current; },
       refreshBuildVersion: () => versions.refresh(),
@@ -133,14 +166,24 @@ export class Fleet {
       ? new Dispatcher({
           api: opts.api, pool: this.pool, deps: this.deps, tracker: this.tracker, settings: this.settings, hold: this.hold,
           wakes: this.wakes, coordinator: this.coordinator, loginCodes: this.loginCodes, whispers: this.whispers, dataDir: this.dataDir,
-          freeSlotsTarget: opts.freeSlotsTarget,
+          reserved: opts.reserved,
+          loginDeskAlwaysOn: () => this.nodeSettings.get().loginDesk.alwaysOn,
+          advanced: () => this.nodeSettings.get().advanced,
+          emptyServers: () => this.serverUsage?.emptyServers() ?? null,
         })
       : null;
     const backpackStore = BackpackStore.at(this.dataDir);
+    {
+      const gone = backpackStore.pruneTo(new Set(this.pool.every().map((a) => a.botGuid)));
+      if (gone) this.log(`backpacks: dropped ${gone} row(s) of accounts no longer on the roster`);
+    }
     this.backpacks = new BackpackService({
       sd: sweepDeps, store: backpackStore, holds: this.dispatcher?.maintenanceHolds ?? new Set<string>(),
-      auditProxy: auditProxiesFromFile(process.env.BACKPACK_AUDIT_PROXIES_FILE, this.log),
-      vaultBots: () => this.dispatcher?.vaultBotGuids() ?? new Set<string>(),
+      // A job waits for the account and borrows it as a storage trip does: an idle bot at the desk is let go for it.
+      release: (acc) => this.dispatcher?.releaseForMaintenance(acc) ?? true,
+      // A backpack job's look at a side's Vault, and a backpack it applied, reach storage's view of the account.
+      onVaultView: (acc, view, seasonal) => this.storage.noteVaultView(acc, view, seasonal),
+      onBackpackApplied: (acc, charId) => this.storage.noteBackpackApplied(acc, charId),
     });
     // What the accounts keep in storage is part of the served pool: a change there re-serves it like a tracker change.
     const storageStore = StorageStore.at(this.dataDir);
@@ -148,6 +191,9 @@ export class Fleet {
     this.storage = new StorageService({
       sd: sweepDeps, store: storageStore, holds: this.dispatcher?.maintenanceHolds ?? new Set<string>(),
       release: (acc) => this.dispatcher?.releaseForMaintenance(acc) ?? true,
+      // The refresh's token also reads the login calendar, so the roster's backpack days are as fresh as its items.
+      onToken: (acc, token, proxy) => this.backpacks.refreshFromToken(acc, token, proxy),
+      keep: opts.reserved,
     });
     // A withdraw for something in an account's storage: the dispatcher asks
     // what each account keeps, and orders the fetch trip that brings it out.
@@ -157,16 +203,57 @@ export class Fleet {
         return acc ? this.storage.storedFor(acc) : [];
       },
       fetch: (acc, need, o) => this.storage.fetch(acc, need, o),
+      chars: (botGuid) => {
+        const acc = this.pool.byBotGuid(botGuid);
+        return acc ? this.storage.charsFor(acc) : [];
+      },
+      loginChar: (botGuid) => {
+        const acc = this.pool.byBotGuid(botGuid);
+        return acc ? this.storage.loginCharFor(acc)?.id ?? null : null;
+      },
+      // Advanced management (docs/relay/ADVANCED.md): trips on the live client, and the offline chores.
+      bankOnline: (acc, client, o) => this.storage.bankOnline(acc, client, o),
+      fetchOnline: (acc, client, need, o) => this.storage.fetchOnline(acc, client, need, o),
+      tripping: (guid) => this.storage.isTripping(guid),
+      liveBlocked: (acc, client) => this.storage.liveTripBlocked(acc, client),
+      vaultRoom: (botGuid, seasonal) => {
+        const acc = this.pool.byBotGuid(botGuid);
+        return acc ? this.storage.vaultRoom(acc, seasonal) : null;
+      },
+      compact: (acc, o) => this.storage.compact(acc, o),
+      gatherPotions: (acc, o) => this.storage.gatherPotions(acc, o),
     });
     this.seasonWatch = new SeasonWatch({ store: backpackStore, pool: this.pool, clients: this.clients, log: this.log });
     this.serverUsage = new ServerUsageWatch({ clients: this.clients, api: opts.api ?? null, log: this.log, servers: this.servers });
     this.buildGate = new BuildGate({ versions: this.versions, deps: this.deps, pool: this.pool, settings: this.nodeSettings, log: this.log });
     const nodeVersion = opts.nodeVersion ?? process.env.ROTMGTRADE_VERSION ?? "dev";
+    this.nodeVersion = nodeVersion;
     this.hub = new HubClient({
       settings: this.nodeSettings, nodeVersion, log: this.log,
       build: () => this.versions.current,
       bots: () => this.pool.all().map((a) => ({ ign: this.tracker.ignFor(a.botGuid) ?? "", seasonal: a.seasonalOrDefault, online: a.online })).filter((b) => b.ign),
+      status: () => {
+        const gate = this.buildGate.status();
+        const accounts = this.pool.all();
+        return {
+          gate: { held: gate.held, reason: gate.reason, known: gate.known },
+          proxies: this.proxies.healthReport().length,
+          onlineCap: onlineCapFor(this.proxies.exclusiveCapacity()),
+          maxTradeSlots: Math.max(8, ...accounts.filter((a) => !a.suspended).map((a) => this.tracker.capacityFor(a.botGuid))),
+          accounts: accounts.length,
+          suspended: accounts.filter((a) => a.suspended).length,
+          deskServer: this.dispatcher?.deskServerNow() ?? LOGIN_DESK_SERVERS[0] ?? null,
+          ...(this.hubStatusExtra?.() ?? {}),
+        };
+      },
       onKnownBuilds: (b) => this.buildGate.acceptFromHub(b),
+    });
+    this.realmLogins = new RealmLoginRunner({
+      hub: this.hub, codes: this.loginCodes, log: this.log,
+      desk: () => {
+        const e = this.dispatcher?.electLoginBot() ?? null;
+        return e && e.ign ? { ign: e.ign, server: e.acc.client?.server ?? null } : null;
+      },
     });
     this.telemetry = new Telemetry({
       settings: this.nodeSettings, pool: this.pool, tracker: this.tracker, versions: this.versions, nodeVersion, log: this.log,
@@ -176,12 +263,17 @@ export class Fleet {
         return r.ok ? { ok: true } : { ok: false, error: r.error };
       },
     });
-    // A 16-slot deposit nothing can serve: the dispatcher records a backpack
-    // order; the owner runs the chore from the Backpacks tab.
+    // A 16-slot deposit nothing can serve: nothing fits a bot by itself any more; the owner uses a
+    // backpack on a character of that side from the Accounts tab. Said once per side per ten minutes.
+    const lastBackpackNote = new Map<boolean, number>();
     this.dispatcher?.setBackpackOrders((seasonal) => {
-      if (!this.backpacks.orderBackpackBot(seasonal)) return;
-      this.log(`backpacks: a waiting ${seasonal ? "seasonal" : "non-seasonal"} 16-slot deposit has no bot with the room — run the backpack chore to fit one`);
+      const now = Date.now();
+      if (now - (lastBackpackNote.get(seasonal) ?? 0) < 10 * 60_000) return;
+      lastBackpackNote.set(seasonal, now);
+      this.log(`backpacks: a waiting ${seasonal ? "seasonal" : "non-seasonal"} 16-slot deposit has no bot with the room — use a backpack on a ${seasonal ? "seasonal" : "non-seasonal"} character from the Accounts tab`);
     });
+    this.setup = new SetupService(this);
+    this.setup.adoptExisting();
   }
 
   static fromEnv(overrides: Partial<FleetOptions> = {}): Fleet {
@@ -210,19 +302,6 @@ export class Fleet {
     // from the feed holds logins the moment it lands.
     this.buildGate.start();
     this.versions.start();
-    // The cached file was loaded in the constructor; the live list replaces
-    // it before anything logs in, so pins are computed against today's hosts.
-    if (this.proxies.sourceStatus().urlConfigured) {
-      await this.proxies.refresh();
-      // Keep following the list: a host added at the provider is a bot more
-      // the fleet can have online, and a removed one stops being handed out.
-      if (PROXIES_REFRESH_S > 0) {
-        this.proxyRefresh = setInterval(() => {
-          void this.proxies.refresh();
-        }, PROXIES_REFRESH_S * 1000);
-        this.proxyRefresh.unref?.();
-      }
-    }
     if (opts.sweep ?? true) {
       try {
         await startupSweep({ deps: this.deps, pool: this.pool, tracker: this.tracker, settings: this.settings });
@@ -233,10 +312,19 @@ export class Fleet {
     this.seasonWatch.start();
     this.serverUsage.start();
     this.backpacks.seedCapacities();
+    // Accounts with a backpack day ahead on the calendar get one login a day (docs/relay/BACKPACKS.md §12).
+    if (process.env.BACKPACK_DAILY_LOGIN !== "0") this.backpacks.startDailyLogins();
+    // Characters are made from the Accounts tab (the wizard buttons); the fill pass is opt-in (CHARACTER_FILL=1), a few per account per pass.
+    if (process.env.CHARACTER_FILL === "1") this.storage.startCharacterFill();
+    // A nearly full played character tucks gear and consumables into its equipment slots and quickslots.
+    if (process.env.TUCK !== "0") this.storage.startTuck();
+    // Deletes and drops queued before a restart are still in the saved state: once the fleet has settled, they carry on.
+    setTimeout(() => this.storage.resumeQueuedJobs(this.pool.every()), 15_000).unref?.();
     if (this.dispatcher) this.dispatcher.start();
     else this.log("Fleet: no site configured (COMMUNISM_URL/COMMUNISM_SECRET unset) — no dispatcher started");
     this.telemetry.start();
     this.hub.start();
+    this.realmLogins.start();
   }
 
   /**
@@ -253,15 +341,47 @@ export class Fleet {
     return v;
   }
 
+  /**
+   * The computer woke up from sleep: every session it had is dead on Realm's
+   * side. Log each bot out cleanly (the dispatcher logs in again whatever
+   * work needs), let back the proxies benched for failures the sleep caused
+   * (not the ones Realm banned), and catch up on the game version and the
+   * hub. Returns how many bots were logged out and proxies let back.
+   */
+  resume(): { stopped: number; proxies: number } {
+    let stopped = 0;
+    for (const [guid, client] of [...this.clients]) {
+      if (!client.active) continue;
+      const acc = this.pool.byGuid(guid);
+      if (acc) takeDown(this.deps, acc, "the computer woke up");
+      else client.stop();
+      stopped++;
+    }
+    // A dispatcher bot not (or no longer) in the map.
+    for (const acc of this.pool.every()) {
+      if (acc.client && acc.client.active) {
+        acc.client.stop();
+        stopped++;
+      }
+    }
+    const proxies = this.proxies.clearBenches();
+    this.log(`resume: the computer woke up; ${stopped} bot(s) logged out to start fresh, ${proxies} proxy host(s) let back`);
+    void this.versions.refresh().catch(() => false);
+    void this.hub.sendHeartbeat().catch(() => false);
+    return { stopped, proxies };
+  }
+
   stop(): void {
-    if (this.proxyRefresh) clearInterval(this.proxyRefresh);
-    this.proxyRefresh = null;
     this.storage.flush();
     this.seasonWatch.stop();
     this.serverUsage.stop();
     this.telemetry.stop();
     this.hub.stop();
+    this.realmLogins.stop();
     this.buildGate.stop();
+    this.storage.stopCharacterFill();
+    this.storage.stopTuck();
+    this.backpacks.stopDailyLogins();
     this.backpacks.flush();
     this.dispatcher?.stop();
     this.versions.stop();

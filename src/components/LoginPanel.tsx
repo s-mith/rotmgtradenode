@@ -23,6 +23,8 @@ export default function LoginPanel({
   onChange: (ign: string | null) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  // Starting takes more than a moment when no bot is at the login desk: one logs in first (it is staffed on demand).
+  const [slow, setSlow] = useState(false);
   const [challenge, setChallenge] = useState<{ code: string; botIgn: string; link: boolean } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -56,6 +58,7 @@ export default function LoginPanel({
     setNotice(null);
     setCopied(false);
     setBusy(true);
+    const slowTimer = setTimeout(() => setSlow(true), 1500);
     try {
       const r = await fetch("/api/login/start", { method: "POST" });
       const d = await r.json();
@@ -67,9 +70,12 @@ export default function LoginPanel({
     } catch {
       setErr("Network error.");
     } finally {
+      clearTimeout(slowTimer);
+      setSlow(false);
       setBusy(false);
     }
   }
+  const waitingForBot = busy && slow && <p className="login-status">Getting a bot into the game to receive your whisper… this can take a minute.</p>;
 
   const logout = useCallback(async () => {
     await fetch("/api/login/logout", { method: "POST" }).catch(() => {});
@@ -127,10 +133,14 @@ export default function LoginPanel({
             onChangeRef.current(d.ign);
           }
         } else if (!r.ok && d.state === "verified") {
-          // The tell landed but the name couldn't be linked (it has a vault of
-          // its own, say). The code is spent either way.
+          // The tell landed but the name couldn't be linked (it has other
+          // characters of its own, say). The code is spent either way.
           setChallenge(null);
           setErr(d.error || "Couldn't link that character.");
+        } else if (!r.ok && d.state === "logged-out") {
+          // The session lapsed before the tell landed: nothing was spent, start over.
+          setChallenge(null);
+          setErr(d.error || "Log in again, then link the character.");
         } else if (r.ok && d.state === "expired") {
           setChallenge(null);
           setErr("That code expired — start again.");
@@ -210,7 +220,7 @@ export default function LoginPanel({
                         className="login-char-btn login-char-btn-danger"
                         disabled={accountBusy}
                         onClick={() => {
-                          if (confirm(`Unlink ${c.ign}? Its items stay in this vault; that account can log in on its own again.`)) void account("unlink", c.ign);
+                          if (confirm(`Unlink ${c.ign}? That account can log in on its own again.`)) void account("unlink", c.ign);
                         }}
                       >
                         Unlink
@@ -222,6 +232,7 @@ export default function LoginPanel({
             })}
           </ul>
           {challengeBox}
+          {waitingForBot}
         </div>
 
         <button type="button" className="login-secondary" onClick={logout}>
@@ -251,6 +262,7 @@ export default function LoginPanel({
       <button type="button" className="login-primary" onClick={() => start(false)} disabled={busy}>
         {busy ? "Starting…" : "Log in"}
       </button>
+      {waitingForBot}
       {err && <p className="login-err">{err}</p>}
     </div>
   );

@@ -15,13 +15,15 @@ import {
   STAT_LABELS,
   type PotionWithdrawPlan,
 } from "@/lib/potionPlan";
-import { pyrelay, type PyrelayPool } from "@/lib/devauth";
+import { advancedForPool } from "@/lib/advanced";
+import { notifyPendingChange } from "@/lib/queue";
+import { pyrelay, swaps, type PyrelayPool } from "@/lib/devauth";
 import { whereLabel } from "@/lib/poolWire";
-import { MAX_OPEN_WITHDRAWS, openRequestsFor } from "@/lib/cancelCode";
+import { maxOpenWithdraws, openRequestsFor } from "@/lib/cancelCode";
 import { sessionFromRequest } from "@/lib/session";
 import { blockMessage, withdrawBlock } from "@/lib/serverControls";
-import { ownedInstanceIds, releaseVaultBotIfEmpty, reservedInstanceIds } from "@/lib/vault";
-import { sessionUser } from "@/lib/users";
+import { picksOverCommitted, reservedInstanceIds } from "@/lib/reservations";
+import { isCommunismBot } from "@/lib/communismPool";
 
 
 /**
@@ -37,6 +39,121 @@ function storedFor(pool: PyrelayPool, botGuid: string, seasonal: boolean) {
 function capacityOf(pool: PyrelayPool, botGuid: string): number {
   const c = pool.capacities?.[botGuid];
   return Number.isInteger(c) && c! > 0 ? c! : 8;
+}
+
+/** One trade of a withdraw: the bot, what it hands over, and the copies when they are picked (they sit on another character of the account, which the fleet logs in as). */
+type Trade = { botGuid: string; items: (ItemReq & { enchants?: number })[]; instanceIds?: string[] };
+type PotionCopy = { instanceId: string; itemId: string; enchants: number };
+/** What one account could hand over of a stat's potions (advanced management): by count off the played character and its containers, copy by copy off its other characters. */
+type AccountPotions = {
+  primary: Map<string, number>;
+  chars: Map<number, { capacity: number; copies: PotionCopy[] }>;
+  /** Every copy counted above: its item, and its character when on another one. */
+  where: Map<string, { itemId: string; charId: number | null }>;
+};
+
+/**
+ * Advanced management (docs/relay/ADVANCED.md): each pool account's stock of
+ * these potions for one side — the played character's and its containers'
+ * (fetched a trade at a time, so not capped at one trade's worth) and its
+ * other characters' of that side, each with its own trade slots.
+ */
+function accountPotions(pool: PyrelayPool, seasonal: boolean, relevant: Set<string>): Map<string, AccountPotions> {
+  const meta = pool.botMeta ?? {};
+  const out = new Map<string, AccountPotions>();
+  const account = (g: string) => {
+    let a = out.get(g);
+    if (!a) out.set(g, (a = { primary: new Map(), chars: new Map(), where: new Map() }));
+    return a;
+  };
+  for (const [botGuid, slots] of Object.entries(pool.instances ?? {})) {
+    if (!isPoolBot(meta[botGuid], seasonal) || isCommunismBot(meta[botGuid]) || meta[botGuid]?.suspended) continue;
+    for (const info of Object.values(slots)) {
+      if (!relevant.has(info.itemId)) continue;
+      const a = account(botGuid);
+      a.primary.set(info.itemId, (a.primary.get(info.itemId) ?? 0) + 1);
+      a.where.set(info.instanceId, { itemId: info.itemId, charId: null });
+    }
+  }
+  for (const botGuid of Object.keys(pool.stored ?? {})) {
+    if (meta[botGuid]?.suspended || isCommunismBot(meta[botGuid])) continue;
+    for (const st of storedFor(pool, botGuid, seasonal)) {
+      if (!relevant.has(st.itemId)) continue;
+      const a = account(botGuid);
+      if (st.where.kind !== "char") {
+        a.primary.set(st.itemId, (a.primary.get(st.itemId) ?? 0) + 1);
+        a.where.set(st.instanceId, { itemId: st.itemId, charId: null });
+        continue;
+      }
+      let ch = a.chars.get(st.where.charId);
+      if (!ch) a.chars.set(st.where.charId, (ch = { capacity: st.where.capacity ?? 8, copies: [] }));
+      ch.copies.push({ instanceId: st.instanceId, itemId: st.itemId, enchants: (st.enchantments ?? []).length });
+      a.where.set(st.instanceId, { itemId: st.itemId, charId: st.where.charId });
+    }
+  }
+  return out;
+}
+
+/**
+ * Advanced management: the trades of a bulk potion withdraw. The plan takes
+ * the account whose stock just covers the request (else the biggest stacks
+ * first, lib/potionPlan.ts); each account's share comes off its played
+ * character and containers first — one session, a vault fetch per trade —
+ * then off its other characters, the one holding most of what is left first.
+ * The trades of one account follow each other, and each is at most what the
+ * character serving it can hold.
+ */
+function advancedPotionTrades(points: number, stock: Map<string, AccountPotions>, ids: { normal: string; greater: string }, capacity: (botGuid: string) => number): { plan: PotionWithdrawPlan; trades: Trade[] } {
+  const count = (a: AccountPotions, itemId: string) => (a.primary.get(itemId) ?? 0) + [...a.chars.values()].reduce((n, ch) => n + ch.copies.filter((c) => c.itemId === itemId).length, 0);
+  const botStock = [...stock].map(([botGuid, a]) => ({ botGuid, normal: count(a, ids.normal), greater: count(a, ids.greater) }));
+  const plan = planPotionWithdraw(points, botStock, ids, capacity, { bestFit: true });
+  const share = new Map<string, { greater: number; normal: number }>();
+  for (const f of plan.fragments) {
+    const sh = share.get(f.botGuid) ?? { greater: 0, normal: 0 };
+    sh.greater += f.items[ids.greater] ?? 0;
+    sh.normal += f.items[ids.normal] ?? 0;
+    share.set(f.botGuid, sh);
+  }
+  const trades: Trade[] = [];
+  for (const [botGuid, want] of share) {
+    const a = stock.get(botGuid)!;
+    // The played character and its containers, by type: a trade's worth at a time, greaters first.
+    let g = Math.min(want.greater, a.primary.get(ids.greater) ?? 0);
+    let n = Math.min(want.normal, a.primary.get(ids.normal) ?? 0);
+    const cap = Math.max(1, capacity(botGuid));
+    while (g + n > 0) {
+      const tg = Math.min(g, cap);
+      const tn = Math.min(n, cap - tg);
+      trades.push({ botGuid, items: [...(tg ? [{ itemId: ids.greater, qty: tg }] : []), ...(tn ? [{ itemId: ids.normal, qty: tn }] : [])] });
+      g -= tg;
+      n -= tn;
+    }
+    // The rest off its other characters, copy by copy.
+    g = want.greater - Math.min(want.greater, a.primary.get(ids.greater) ?? 0);
+    n = want.normal - Math.min(want.normal, a.primary.get(ids.normal) ?? 0);
+    const chars = [...a.chars].map(([charId, ch]) => ({ charId, capacity: Math.max(1, ch.capacity), greater: ch.copies.filter((c) => c.itemId === ids.greater), normal: ch.copies.filter((c) => c.itemId === ids.normal) }));
+    while (g + n > 0) {
+      const useful = (c: (typeof chars)[number]) => Math.min(g, c.greater.length) + Math.min(n, c.normal.length);
+      chars.sort((x, y) => useful(y) - useful(x) || x.charId - y.charId);
+      const c = chars[0];
+      if (!c || useful(c) === 0) break;
+      const picked = [...c.greater.splice(0, Math.min(g, c.greater.length)), ...c.normal.splice(0, Math.min(n, c.normal.length))];
+      g -= picked.filter((p) => p.itemId === ids.greater).length;
+      n -= picked.filter((p) => p.itemId === ids.normal).length;
+      for (let i = 0; i < picked.length; i += c.capacity) {
+        const chunk = picked.slice(i, i + c.capacity);
+        const lines = new Map<string, ItemReq & { enchants: number }>();
+        for (const p of chunk) {
+          const k = `${p.itemId}:${p.enchants}`;
+          const cur = lines.get(k);
+          if (cur) cur.qty++;
+          else lines.set(k, { itemId: p.itemId, qty: 1, enchants: p.enchants });
+        }
+        trades.push({ botGuid, items: [...lines.values()].sort((x, y) => x.itemId.localeCompare(y.itemId) || x.enchants - y.enchants), instanceIds: chunk.map((p) => p.instanceId).sort() });
+      }
+    }
+  }
+  return { plan, trades };
 }
 
 export async function POST(req: Request) {
@@ -74,7 +191,7 @@ export async function POST(req: Request) {
   // concurrent submits). Refusing here lets the UI offer a one-click cancel of
   // the wedged queue — the player is logged in, so it's just POST /api/cancel
   // on their own session (no whispered code needed anymore).
-  if (openRequestsFor(db, parsed.ignLower).withdraws >= MAX_OPEN_WITHDRAWS) {
+  if (openRequestsFor(db, parsed.ignLower).withdraws >= maxOpenWithdraws()) {
     return json(
       {
         error: "Too many open withdraw requests for this IGN — finish one first.",
@@ -89,11 +206,6 @@ export async function POST(req: Request) {
   // truth), group by their bot, reject if any instance is already reserved
   // by another open per-instance withdraw, and write the rows with
   // instance_ids_json set.
-  if (parsed.vault) {
-    const me = sessionUser(db, req);
-    if (!me) return json({ error: "Log in to use your vault." }, { status: 401 });
-    return await handleVaultWithdraw(parsed, db, me.userId);
-  }
   if (parsed.instanceIds) {
     return await handleInstanceWithdraw(parsed, db);
   }
@@ -129,16 +241,14 @@ export async function POST(req: Request) {
   const relevantIds: Set<string> = parsed.potion
     ? new Set([POTION_IDS[parsed.potion.stat].normal, POTION_IDS[parsed.potion.stat].greater])
     : new Set(counts.keys());
-  // Counted from the per-instance view rather than the per-type totals, so
-  // an item somebody owns (personal storage, whichever bot holds it) is not
-  // stock the fragmenter may hand out.
-  const owned = ownedInstanceIds(db);
+  // Counted from the per-instance view rather than the per-type totals.
+  // Communism accounts are not pool stock: communism is taken from item by
+  // item, never by type.
   const inventoryFromPyrelay = new Map<string, Map<string, number>>();
   const onCharacter = new Map<string, number>();
   for (const [botGuid, slots] of Object.entries(poolResp.data.instances ?? {})) {
-    if (!isPoolBot(meta[botGuid], parsed.seasonal)) continue;
+    if (!isPoolBot(meta[botGuid], parsed.seasonal) || isCommunismBot(meta[botGuid])) continue;
     for (const info of Object.values(slots)) {
-      if (owned.has(info.instanceId)) continue;
       onCharacter.set(botGuid, (onCharacter.get(botGuid) ?? 0) + 1);
       if (!relevantIds.has(info.itemId)) continue;
       let m = inventoryFromPyrelay.get(botGuid);
@@ -156,11 +266,11 @@ export async function POST(req: Request) {
   // item by item. Per bot no more than the character's slots can hold in
   // one trade, what it already carries included.
   for (const [botGuid, list] of Object.entries(poolResp.data.stored ?? {})) {
-    if (meta[botGuid]?.suspended) continue;
+    if (meta[botGuid]?.suspended || isCommunismBot(meta[botGuid])) continue;
     let room = capacityOf(poolResp.data, botGuid) - (onCharacter.get(botGuid) ?? 0);
     for (const s of storedFor(poolResp.data, botGuid, parsed.seasonal)) {
       if (room <= 0) break;
-      if (s.where.kind === "char" || !relevantIds.has(s.itemId) || owned.has(s.instanceId)) continue;
+      if (s.where.kind === "char" || !relevantIds.has(s.itemId)) continue;
       let m = inventoryFromPyrelay.get(botGuid);
       if (!m) {
         m = new Map();
@@ -171,6 +281,10 @@ export async function POST(req: Request) {
     }
     void list;
   }
+  // Advanced management on the pool: a bulk potion withdraw counts each
+  // account's whole stock of the stat, other characters included, and is
+  // served account by account (advancedPotionTrades).
+  const advancedStock = parsed.potion && advancedForPool(false) ? accountPotions(poolResp.data, parsed.seasonal, relevantIds) : null;
 
   // Single transaction: per-IGN cap, total stock check, fragmentation across
   // bots, and N inserts under one group_id. Two concurrent submitters can't
@@ -181,11 +295,11 @@ export async function POST(req: Request) {
     const openCount = (
       db
         .prepare(
-          "SELECT COUNT(*) AS n FROM withdraw_requests WHERE ign_lower = ? AND status IN ('pending','claimed') AND group_id IS NOT NULL",
+          "SELECT COUNT(DISTINCT group_id) AS n FROM withdraw_requests WHERE ign_lower = ? AND status IN ('pending','claimed') AND group_id IS NOT NULL",
         )
         .get(parsed.ignLower) as { n: number }
     ).n;
-    if (openCount >= MAX_OPEN_WITHDRAWS) {
+    if (openCount >= maxOpenWithdraws()) {
       return { kind: "err" as const, status: 429, error: "Too many open withdraw requests for this IGN — finish one first." };
     }
 
@@ -210,13 +324,14 @@ export async function POST(req: Request) {
     const INVENTORY_REFRESH_WINDOW_MS = 10_000;
     const openRows = db
       .prepare(
-        `SELECT items_json, target_bot_guid FROM withdraw_requests
+        `SELECT items_json, target_bot_guid, instance_ids_json FROM withdraw_requests
          WHERE status IN ('pending','claimed')
             OR (status = 'fulfilled' AND updated_at >= ?)`,
       )
       .all(Date.now() - INVENTORY_REFRESH_WINDOW_MS) as {
       items_json: string;
       target_bot_guid: string | null;
+      instance_ids_json: string | null;
     }[];
     for (const row of openRows) {
       let parsedItems: ItemReq[];
@@ -263,15 +378,68 @@ export async function POST(req: Request) {
     // potions that are spoken for, and the fragmenter would then reject the
     // whole request with a confusing "only 0 available" — instead of just
     // filling what's genuinely free and saying so.
-    let potionFragments: { botGuid: string; items: ItemReq[] }[] | null = null;
-    if (parsed.potion) {
+    let potionFragments: Trade[] | null = null;
+    if (parsed.potion && advancedStock) {
+      // What other requests count on, account by account: a picked copy is
+      // taken out where it sits; a count of a type comes off the played
+      // character and its containers, where a by-type row is served from.
+      // Copies something else has spoken for (a meeting, a hand-over) stay put.
+      const spoken = reservedInstanceIds(db, { openOffers: false });
+      for (const a of advancedStock.values()) for (const ch of a.chars.values()) ch.copies = ch.copies.filter((c) => !spoken.has(c.instanceId));
+      for (const row of openRows) {
+        const a = row.target_bot_guid ? advancedStock.get(row.target_bot_guid) : undefined;
+        if (!a) continue;
+        try {
+          if (row.instance_ids_json !== null) {
+            const named = JSON.parse(row.instance_ids_json) as unknown;
+            if (!Array.isArray(named)) continue;
+            for (const id of named.map(String)) {
+              const w = a.where.get(id);
+              if (!w) continue;
+              if (w.charId === null) a.primary.set(w.itemId, Math.max(0, (a.primary.get(w.itemId) ?? 0) - 1));
+              else {
+                const ch = a.chars.get(w.charId);
+                if (ch) ch.copies = ch.copies.filter((c) => c.instanceId !== id);
+              }
+            }
+          } else {
+            const items = JSON.parse(row.items_json) as ItemReq[];
+            if (!Array.isArray(items)) continue;
+            for (const it of items) if (relevantIds.has(it.itemId)) a.primary.set(it.itemId, Math.max(0, (a.primary.get(it.itemId) ?? 0) - it.qty));
+          }
+        } catch {
+          // a malformed row promises nothing
+        }
+      }
+      const { plan, trades } = advancedPotionTrades(parsed.potion.points, advancedStock, POTION_IDS[parsed.potion.stat], (botGuid) => capacityOf(poolResp.data, botGuid));
+      if (plan.pointsFilled === 0) {
+        return {
+          kind: "err" as const,
+          status: 409,
+          error:
+            `No ${STAT_LABELS[parsed.potion.stat]} potions are available in the ` +
+            `${parsed.seasonal ? "seasonal" : "non-seasonal"} pool right now.`,
+        };
+      }
+      potionPlan = plan;
+      potionFragments = trades;
+      counts.clear();
+      for (const [itemId, qty] of Object.entries(plan.items)) counts.set(itemId, qty);
+      console.log(
+        `[withdraw] bulk potion ${parsed.potion.stat} (advanced) want=${parsed.potion.points} ` +
+        `accounts=${advancedStock.size} -> ${trades.length} trade(s) ` +
+        `${JSON.stringify(plan.items)} filled=${plan.pointsFilled} ` +
+        `short=${plan.shortfall} over=${plan.overshoot}`,
+      );
+    } else if (parsed.potion) {
       const ids = POTION_IDS[parsed.potion.stat];
       const botStock = [...inventoryByBot.entries()].map(([botGuid, inv]) => ({
         botGuid,
         normal: Math.max(0, inv.get(ids.normal) ?? 0),
         greater: Math.max(0, inv.get(ids.greater) ?? 0),
       }));
-      const plan = planPotionWithdraw(parsed.potion.points, botStock, ids);
+      // Each bot's own trade slots per trade (8, 16 or 24): fewer, fuller trades.
+      const plan = planPotionWithdraw(parsed.potion.points, botStock, ids, (botGuid) => capacityOf(poolResp.data, botGuid));
       if (plan.pointsFilled === 0) {
         return {
           kind: "err" as const,
@@ -326,7 +494,7 @@ export async function POST(req: Request) {
           .join("|")})`)
         .join(" ")}]`,
     );
-    const result = potionFragments
+    const result: { ok: true; fragments: Trade[] } | { ok: false; missing: ItemReq[] } = potionFragments
       ? { ok: true as const, fragments: potionFragments }
       : fragmentWithdraw(request, bots);
     if (!result.ok) {
@@ -356,22 +524,33 @@ export async function POST(req: Request) {
         seasonal, created_at, updated_at)
        VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
     );
+    // A trade of copies on another character of the account (advanced
+    // potion withdraws): pinned to those copies, so the fleet logs the
+    // account in as that character for it.
+    const pickedStmt = db.prepare(
+      `INSERT INTO withdraw_requests
+       (ign, ign_lower, server, items_json, status, group_id, target_bot_guid,
+        instance_ids_json, seasonal, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
+    );
     const childIds: number[] = [];
     for (const frag of result.fragments) {
       const fragJson = JSON.stringify(
         [...frag.items].sort((a, b) => a.itemId.localeCompare(b.itemId)),
       );
-      const r = insertStmt.run(
-        parsed.ign,
-        parsed.ignLower,
-        parsed.server,
-        fragJson,
-        groupId,
-        frag.botGuid,
-        parsed.seasonal ? 1 : 0,
-        now,
-        now,
-      );
+      const r = frag.instanceIds
+        ? pickedStmt.run(parsed.ign, parsed.ignLower, parsed.server, fragJson, groupId, frag.botGuid, JSON.stringify(frag.instanceIds), parsed.seasonal ? 1 : 0, now, now)
+        : insertStmt.run(
+            parsed.ign,
+            parsed.ignLower,
+            parsed.server,
+            fragJson,
+            groupId,
+            frag.botGuid,
+            parsed.seasonal ? 1 : 0,
+            now,
+            now,
+          );
       childIds.push(Number(r.lastInsertRowid));
     }
     console.log(
@@ -388,12 +567,16 @@ export async function POST(req: Request) {
       tradeCount: result.fragments.length,
       childIds,
       potionPlan,
+      picked: result.fragments.flatMap((f) => f.instanceIds ?? []),
     };
   }).immediate();
 
   if (tx.kind === "err") {
     return json({ error: tx.error }, { status: tx.status });
   }
+  notifyPendingChange();
+  // Copies picked off other characters: the node's open offers naming them go, as for a pick in the grid.
+  if (tx.picked.length) void swaps()?.withdrawOffersNaming(tx.picked, `a withdraw for ${parsed.ign} took its items`).catch((e) => console.error("[withdraw] withdrawing offers failed:", e));
   return json({
     ok: true,
     groupId: tx.groupId,
@@ -441,22 +624,20 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
     // scoring needs it recorded on the transaction row.
     enchants: number;
     /** In the account's storage rather than on the character: the fleet fetches it first. A character's id when on another character. */
-    stored: { kind: string; charId: number | null; label: string } | null;
+    stored: { kind: string; charId: number | null; label: string; capacity: number | null } | null;
   };
   const instRows: InstRow[] = [];
   const meta = poolResp.data.botMeta ?? {};
-  const owned = ownedInstanceIds(db);
   const onCharacter = new Map<string, number>();
   for (const [botGuid, slots] of Object.entries(poolResp.data.instances ?? {})) {
     // Hard gate, not just display: an instanceId on a bot of the other pool
-    // is held by a character this player can't trade. Skipping it here makes
-    // the request 409 as "no longer available" even if the id was forged into
-    // the request body — the UI's pool tab is a convenience, this is the
-    // enforcement.
-    if (!isPoolBot(meta[botGuid], parsed.seasonal)) continue;
+    // is held by a character this player can't trade, and a communism pick
+    // comes off a communism account only (a pool pick never does). Skipping
+    // it here makes the request 409 as "no longer available" even if the id
+    // was forged into the request body — the UI's tabs are a convenience,
+    // this is the enforcement.
+    if (!isPoolBot(meta[botGuid], parsed.seasonal) || isCommunismBot(meta[botGuid]) !== parsed.communism) continue;
     for (const info of Object.values(slots)) {
-      // Personal property is not pool stock, whichever bot holds it.
-      if (owned.has(info.instanceId)) continue;
       onCharacter.set(botGuid, (onCharacter.get(botGuid) ?? 0) + 1);
       if (instanceIds.includes(info.instanceId)) {
         instRows.push({
@@ -473,15 +654,15 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
   // serves whichever side the account has a character for, the spoils
   // chest only the non-seasonal side, another character its own side).
   for (const [botGuid] of Object.entries(poolResp.data.stored ?? {})) {
-    if (meta[botGuid]?.suspended) continue;
+    if (meta[botGuid]?.suspended || isCommunismBot(meta[botGuid]) !== parsed.communism) continue;
     for (const s of storedFor(poolResp.data, botGuid, parsed.seasonal)) {
-      if (owned.has(s.instanceId) || !instanceIds.includes(s.instanceId)) continue;
+      if (!instanceIds.includes(s.instanceId)) continue;
       instRows.push({
         instance_id: s.instanceId,
         bot_guid: botGuid,
         item_id: s.itemId,
         enchants: (s.enchantments ?? []).length,
-        stored: { kind: s.where.kind, charId: s.where.kind === "char" ? s.where.charId : null, label: whereLabel(s.where) },
+        stored: { kind: s.where.kind, charId: s.where.kind === "char" ? s.where.charId : null, label: whereLabel(s.where), capacity: s.where.kind === "char" ? s.where.capacity ?? 8 : null },
       });
     }
   }
@@ -495,24 +676,36 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
     );
   }
 
+  // Copies of each type per bot that a by-type withdraw could draw on: the
+  // played character's and the containers' (not another character's, which
+  // by-type rows never reach), counted the way the by-type branch counts them.
+  const stockByBot = new Map<string, Map<string, number>>();
+  const bump = (g: string, id: string) => {
+    let m = stockByBot.get(g);
+    if (!m) stockByBot.set(g, (m = new Map()));
+    m.set(id, (m.get(id) ?? 0) + 1);
+  };
+  for (const [botGuid, slots] of Object.entries(poolResp.data.instances ?? {})) for (const info of Object.values(slots)) bump(botGuid, info.itemId);
+  for (const botGuid of Object.keys(poolResp.data.stored ?? {})) for (const st of storedFor(poolResp.data, botGuid, parsed.seasonal)) if (st.where.kind !== "char") bump(botGuid, st.itemId);
+
   // One trade is one character: what a bot hands over must all be reachable
-  // by the character it will play. Items on two characters of one account,
-  // or on another character plus the played one, cannot go together; and a
-  // fetch has only the character's slots to land in.
-  {
-    const perBot = new Map<string, InstRow[]>();
-    for (const r of instRows) perBot.set(r.bot_guid, [...(perBot.get(r.bot_guid) ?? []), r]);
-    for (const [botGuid, rows] of perBot) {
-      const chars = new Set(rows.filter((r) => r.stored?.charId != null).map((r) => r.stored!.charId));
-      const played = rows.some((r) => r.stored === null);
-      if (chars.size > 1 || (chars.size === 1 && played)) {
-        const name = ITEM_BY_ID.get(rows[0].item_id)?.name ?? rows[0].item_id;
-        return json({ error: `${name} and another pick are on different characters of the same account — one trade carries one character's items. Withdraw them separately.` }, { status: 409 });
-      }
-      const cap = capacityOf(poolResp.data, botGuid);
-      if (rows.length > cap) {
-        return json({ error: `${meta[botGuid]?.ign || "That account"} can hand over at most ${cap} items in one trade (its character's slots). Pick fewer from it.` }, { status: 409 });
-      }
+  // by the character it plays. Picks on several characters of one account
+  // become a trade per character, one after another: the fleet serves a
+  // player's rows in order and logs the account in as each character in
+  // turn (Dispatcher.applyCharSwitches). The played character's trade goes
+  // first, with anything fetched from the account's containers onto it.
+  // Each trade has only its character's slots to land in.
+  const trades = new Map<string, InstRow[]>();
+  for (const r of instRows) {
+    const key = `${r.bot_guid}|${r.stored?.charId != null ? `c${r.stored.charId}` : "played"}`;
+    trades.set(key, [...(trades.get(key) ?? []), r]);
+  }
+  for (const rows of trades.values()) {
+    const botGuid = rows[0].bot_guid;
+    // Picks on another character: that character plays the trade, so its slots bound it.
+    const cap = rows[0].stored?.charId != null ? rows[0].stored.capacity ?? 8 : capacityOf(poolResp.data, botGuid);
+    if (rows.length > cap) {
+      return json({ error: `${meta[botGuid]?.ign || "That account"} can hand over at most ${cap} items in one trade (its character's slots). Pick fewer from it.` }, { status: 409 });
     }
   }
 
@@ -537,23 +730,17 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
     );
   }
 
-  // Group instances by bot — one fragment per bot.
-  const byBot = new Map<string, InstRow[]>();
-  for (const r of instRows) {
-    const list = byBot.get(r.bot_guid) ?? [];
-    list.push(r);
-    byBot.set(r.bot_guid, list);
-  }
+  // One fragment per trade: per bot, and per character of that bot.
 
   const tx = db.transaction(() => {
     const openCount = (
       db
         .prepare(
-          "SELECT COUNT(*) AS n FROM withdraw_requests WHERE ign_lower = ? AND status IN ('pending','claimed') AND group_id IS NOT NULL",
+          "SELECT COUNT(DISTINCT group_id) AS n FROM withdraw_requests WHERE ign_lower = ? AND status IN ('pending','claimed') AND group_id IS NOT NULL",
         )
         .get(parsed.ignLower) as { n: number }
     ).n;
-    if (openCount >= MAX_OPEN_WITHDRAWS) {
+    if (openCount >= maxOpenWithdraws()) {
       return {
         kind: "err" as const,
         status: 429,
@@ -568,30 +755,27 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
       return { kind: "err" as const, status: 429, error: allowance.error };
     }
 
-    // Check none of these instances are already reserved by another
-    // open per-instance withdraw. We look for instance_id substring match
-    // in instance_ids_json — fine for the small open-request set we keep.
-    const reservedRows = db
-      .prepare(
-        `SELECT instance_ids_json FROM withdraw_requests
-         WHERE status IN ('pending','claimed') AND instance_ids_json IS NOT NULL`,
-      )
-      .all() as { instance_ids_json: string }[];
-    const reserved = new Set<string>();
-    for (const r of reservedRows) {
-      try {
-        const arr = JSON.parse(r.instance_ids_json);
-        if (Array.isArray(arr)) for (const id of arr) reserved.add(String(id));
-      } catch {
-        // ignore malformed json on the open row — it'll get cancelled by sweep
-      }
-    }
+    // Check none of these instances are already spoken for: another open
+    // per-instance withdraw, a meeting under way, a hand-over on its way
+    // (lib/reservations.ts). An open offer does not hold its items back:
+    // the withdraw wins, and the offers naming them are withdrawn below.
+    const reserved = reservedInstanceIds(db, { openOffers: false });
     const collision = instanceIds.find((id) => reserved.has(id));
     if (collision) {
       return {
         kind: "err" as const,
         status: 409,
-        error: "One of those items was just reserved by someone else. Refresh and try again.",
+        error: "One of those items is spoken for (an open withdraw, a trade under way, or a hand-over). Refresh and try again.",
+      };
+    }
+    // A by-type withdraw promises copies of a type on a bot without naming
+    // them: a pick must leave enough copies for every open row on that bot.
+    const short = picksOverCommitted(db, instRows, stockByBot);
+    if (short) {
+      return {
+        kind: "err" as const,
+        status: 409,
+        error: `Every ${ITEM_BY_ID.get(short)?.name ?? short} on that account is already promised to an open withdraw. Refresh and try again.`,
       };
     }
 
@@ -600,14 +784,18 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
     const insertStmt = db.prepare(
       `INSERT INTO withdraw_requests
        (ign, ign_lower, server, items_json, status, group_id, target_bot_guid,
-        instance_ids_json, seasonal, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
+        instance_ids_json, seasonal, communism, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
     );
     const childIds: number[] = [];
-    // Sort bots for deterministic fragment order across retries.
-    const botGuids = [...byBot.keys()].sort();
-    for (const botGuid of botGuids) {
-      const rows = byBot.get(botGuid)!;
+    // A deterministic order across retries: bots by id, each bot's played character first, then its other characters.
+    const keys = [...trades.keys()].sort((a, b) => {
+      const [ga, ca] = a.split("|"), [gb, cb] = b.split("|");
+      return ga.localeCompare(gb) || Number(cb === "played") - Number(ca === "played") || ca.localeCompare(cb, undefined, { numeric: true });
+    });
+    for (const key of keys) {
+      const rows = trades.get(key)!;
+      const botGuid = rows[0].bot_guid;
       // items_json entries keep the legacy {itemId, qty} keys (coverage
       // checks and the bot's offer builder read only those) but split by
       // enchant count, so two entries CAN share an itemId — the fulfill
@@ -635,6 +823,7 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
         botGuid,
         instanceJson,
         parsed.seasonal ? 1 : 0,
+        parsed.communism ? 1 : 0,
         now,
         now,
       );
@@ -643,7 +832,7 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
     return {
       kind: "ok" as const,
       groupId,
-      tradeCount: botGuids.length,
+      tradeCount: keys.length,
       childIds,
     };
   }).immediate();
@@ -651,7 +840,11 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
   if (tx.kind === "err") {
     return json({ error: tx.error }, { status: tx.status });
   }
-  const fetched = instRows.filter((r) => r.stored).length;
+  notifyPendingChange();
+  // The node's open offers naming these items go: the withdraw has them now.
+  void swaps()?.withdrawOffersNaming(instanceIds, `a withdraw for ${parsed.ign} took its items`).catch((e) => console.error("[withdraw] withdrawing offers failed:", e));
+  // Container picks are fetched onto the character first; picks on another character are not (the account logs in as it).
+  const fetched = instRows.filter((r) => r.stored && r.stored.charId == null).length;
   return json({
     ok: true,
     groupId: tx.groupId,
@@ -662,89 +855,3 @@ async function handleInstanceWithdraw(parsed: WithdrawReq, db: Database.Database
   });
 }
 
-// Personal storage: the player takes their own items back. Each named
-// instance must be theirs and not already on its way; rows are pinned to
-// whichever bot the tracker sees holding the item (the vault bot once the
-// fleet has packed it there, a pool bot while it is still in transit). No
-// operator cap and no ledger — it is their property, not a draw on the pool.
-async function handleVaultWithdraw(parsed: WithdrawReq, db: Database.Database, userId: number) {
-  const instanceIds = parsed.instanceIds!;
-  const owned = db
-    .prepare(`SELECT instance_id, item_id, enchants, seasonal FROM vault_items WHERE user_id = ? AND instance_id IN (${instanceIds.map(() => "?").join(",")})`)
-    .all(userId, ...instanceIds) as { instance_id: string; item_id: string; enchants: number; seasonal: number }[];
-  if (owned.length !== instanceIds.length) {
-    return json({ error: "One of those items isn't in your vault any more. Refresh and try again." }, { status: 409 });
-  }
-  // The two vaults are on bots of different pools; one trade serves one.
-  if (owned.some((r) => r.seasonal !== owned[0].seasonal)) {
-    return json({ error: "Withdraw from one vault at a time — seasonal and non-seasonal items ride different bots." }, { status: 400 });
-  }
-  const poolResp = await pyrelay.pool();
-  if (!poolResp.ok) {
-    return json({ error: "Bot service unavailable — try again in a minute." }, { status: 503 });
-  }
-  const meta = poolResp.data.botMeta ?? {};
-  const holder = new Map<string, string>();
-  for (const [botGuid, slots] of Object.entries(poolResp.data.instances ?? {})) {
-    for (const info of Object.values(slots)) if (instanceIds.includes(info.instanceId)) holder.set(info.instanceId, botGuid);
-  }
-  const missing = instanceIds.find((id) => !holder.has(id));
-  if (missing) {
-    return json({ error: "One of those items is on a bot the fleet can't reach right now. Try again later." }, { status: 409 });
-  }
-  const wrongServer = instanceIds.find((id) => {
-    const m = meta[holder.get(id)!];
-    return !!m && m.online && (m.server ?? "") !== parsed.server;
-  });
-  if (wrongServer) {
-    return json({ error: "One of those items is on a bot that is busy on another server right now. Try again in a minute." }, { status: 409 });
-  }
-  const byBot = new Map<string, { instance_id: string; item_id: string; enchants: number; seasonal: number }[]>();
-  for (const r of owned) {
-    const g = holder.get(r.instance_id)!;
-    const list = byBot.get(g) ?? [];
-    list.push(r);
-    byBot.set(g, list);
-  }
-
-  const tx = db.transaction(() => {
-    const openCount = (
-      db
-        .prepare("SELECT COUNT(*) AS n FROM withdraw_requests WHERE ign_lower = ? AND status IN ('pending','claimed') AND group_id IS NOT NULL")
-        .get(parsed.ignLower) as { n: number }
-    ).n;
-    if (openCount >= MAX_OPEN_WITHDRAWS) {
-      return { kind: "err" as const, status: 429, error: "Too many open withdraw requests for this IGN — finish one first." };
-    }
-    const reserved = reservedInstanceIds(db);
-    if (instanceIds.some((id) => reserved.has(id))) {
-      return { kind: "err" as const, status: 409, error: "One of those items is already in an open withdraw of yours." };
-    }
-    const groupId = crypto.randomUUID();
-    const now = Date.now();
-    const insertStmt = db.prepare(
-      `INSERT INTO withdraw_requests
-       (ign, ign_lower, server, items_json, status, group_id, target_bot_guid, instance_ids_json, seasonal, vault_user_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const childIds: number[] = [];
-    for (const botGuid of [...byBot.keys()].sort()) {
-      const rows = byBot.get(botGuid)!;
-      const counts = new Map<string, { itemId: string; qty: number; enchants: number }>();
-      for (const r of rows) {
-        const key = `${r.item_id}:${r.enchants}`;
-        const cur = counts.get(key);
-        if (cur) cur.qty += 1;
-        else counts.set(key, { itemId: r.item_id, qty: 1, enchants: r.enchants });
-      }
-      const itemsJson = JSON.stringify([...counts.values()].sort((a, b) => a.itemId.localeCompare(b.itemId) || a.enchants - b.enchants));
-      const res = insertStmt.run(parsed.ign, parsed.ignLower, parsed.server, itemsJson, groupId, botGuid, JSON.stringify(rows.map((r) => r.instance_id).sort()), rows[0].seasonal ? 1 : 0, userId, now, now);
-      childIds.push(Number(res.lastInsertRowid));
-    }
-    return { kind: "ok" as const, groupId, childIds };
-  }).immediate();
-  if (tx.kind === "err") return json({ error: tx.error }, { status: tx.status });
-  // Nothing to release yet (the rows are open), but keep the bookkeeping honest.
-  releaseVaultBotIfEmpty(db, userId);
-  return json({ ok: true, groupId: tx.groupId, tradeCount: tx.childIds.length, requestIds: tx.childIds, vault: true });
-}

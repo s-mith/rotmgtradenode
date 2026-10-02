@@ -205,6 +205,17 @@ export class InventoryTracker {
     this.pendingTransfer.set(botGuid, list);
   }
 
+  /** What is on its way to each bot and has not landed yet (a move, a switch of character, a fetch), while it is still waited for. */
+  expected(): Map<string, Instance[]> {
+    const now = Date.now();
+    const out = new Map<string, Instance[]>();
+    for (const [g, notes] of this.pendingTransfer) {
+      const live = notes.filter((n) => now - n.at <= TRANSFER_TTL_MS).map((n) => n.inst);
+      if (live.length) out.set(g, live);
+    }
+    return out;
+  }
+
   /** A move to `toGuid` did not happen: forget the instances promised to it. */
   cancelTransfer(toGuid: string, instanceIds?: string[]): void {
     const notes = this.pendingTransfer.get(toGuid);
@@ -239,7 +250,12 @@ export class InventoryTracker {
       const slot = Number(s);
       counts[itemId] = (counts[itemId] ?? 0) + 1;
       const prev = prevSlots[slot];
-      if (prev && prev.itemId === itemId) {
+      // The same slot holding the same kind of item with the same enchantments
+      // is the same physical item. A different enchant record in that slot is
+      // another copy that landed there (a swap of X for an X enchanted
+      // otherwise fills the slot the given one left): it gets its own id,
+      // so refs and picks never point at the wrong copy.
+      if (prev && prev.itemId === itemId && sameEnchants(prev.enchantments, enchantments)) {
         next[slot] = { instanceId: prev.instanceId, itemId, enchantments: [...enchantments], capturedAt: prev.capturedAt ?? now };
       } else {
         const moved = this.consumeTransfer(botGuid, itemId, enchantments);
@@ -272,12 +288,20 @@ export class InventoryTracker {
 
   removeBot(botGuid: string): void {
     for (const i of Object.values(this.instances.get(botGuid) ?? {})) if (this.holder.get(i.instanceId) === botGuid) this.holder.delete(i.instanceId);
-    const changed = this.items.delete(botGuid) || this.capacity.delete(botGuid) || this.instances.delete(botGuid) || this.igns.delete(botGuid);
+    // Every map, not `||`-chained: the first true would skip the rest and leave a ghost with instances but no counts (live 2026-09-22).
+    const gone = [this.items.delete(botGuid), this.capacity.delete(botGuid), this.instances.delete(botGuid), this.igns.delete(botGuid), this.verified.delete(botGuid)];
     this.pendingTransfer.delete(botGuid);
-    if (changed) {
+    if (gone.some(Boolean)) {
       this.rev++;
       this.requestSave(true);
     }
+  }
+  /** Drop every bot not in `keep` (the roster): what a removal that did not finish, or an older build, left behind. Returns the guids dropped. */
+  pruneTo(keep: ReadonlySet<string>): string[] {
+    const known = new Set<string>([...this.items.keys(), ...this.capacity.keys(), ...this.instances.keys(), ...this.igns.keys()]);
+    const dropped = [...known].filter((g) => !keep.has(g));
+    for (const g of dropped) this.removeBot(g);
+    return dropped;
   }
 
   recordIgn(botGuid: string, ign: string): void {
@@ -384,6 +408,9 @@ export class InventoryTracker {
   }
 }
 
+function sameEnchants(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
 function sameCounts(a: Record<string, number> | undefined, b: Record<string, number>): boolean {
   if (!a) return Object.keys(b).length === 0;
   const ka = Object.keys(a);

@@ -531,7 +531,7 @@ export function fragmentation(inventories: Inventories, opts: TargetOptions = {}
   for (const stat of POTION_STATS) {
     const ids = POTION_IDS[stat];
     const stock = Object.entries(pool).map(([botGuid, inv]) => ({ botGuid, normal: inv[ids.normal] ?? 0, greater: inv[ids.greater] ?? 0 }));
-    const plan = planPotionWithdraw(16, stock, ids);
+    const plan = planPotionWithdraw(16, stock, ids, cap);
     tradesFor16[stat] = plan.pointsFilled >= 16 ? plan.fragments.length : null;
   }
   return { buckets, score: items ? weighted / items : 1, tradesFor16, items, potions, bots, emptyBots, couldBeEmpty };

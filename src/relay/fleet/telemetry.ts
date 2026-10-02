@@ -15,7 +15,7 @@ import type { InventoryTracker } from "./inventoryTracker";
 export const TELEMETRY_FLUSH_MS = Number(process.env.TELEMETRY_FLUSH_SECONDS ?? 60) * 1000;
 const MAX_QUEUE = 500;
 
-export type Lane = "idle" | "owner-trade" | "swap" | "commons" | "tutorial-walk" | "unknown";
+export type Lane = "idle" | "owner-trade" | "swap" | "communism" | "unknown";
 
 export interface BanReport {
   /** sha256(salt + email), base64url. */

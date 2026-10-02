@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
+import OwnInternet from "@/client/shared/OwnInternet";
+import ProxyEditor from "@/client/shared/ProxyEditor";
 
-// Proxies: the exit IPs your accounts log in through, one account per host
-// at a time. Paste a list, save, done. With "proxy only" on (the default),
-// nothing logs in from this computer's own connection: no proxies listed
-// means no logins, which is the point.
+// Proxies: the addresses your accounts log in through, one account per host
+// at a time. Paste a list (the shared editor checks it line by line and
+// tests it), save, done. Unless the owner allows their own internet (a
+// confirmed choice), nothing logs in from this computer's own connection:
+// no proxies listed means no logins, which is the point.
 
 type ProxyRow = { host: string; port: number; type: 4 | 5; username: string; password: string; enabled: boolean; ok: number; fail: number; benched: boolean; benchedUntil: number | null; inUse: boolean; usedBy: string | null };
 type Payload = {
-  source: { urlConfigured: boolean; file: string | null; loadedFrom: "url" | "file" | "none"; fetchedAt: number | null; lastError: string | null; refreshing: boolean };
   capacity: number | null;
   inUse: number;
   required: boolean;
@@ -20,7 +22,6 @@ const POLL_MS = 5000;
 
 export default function ProxiesTab({ password }: { password: string }) {
   const [data, setData] = useState<Payload | null>(null);
-  const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,8 +37,6 @@ export default function ProxiesTab({ password }: { password: string }) {
       }
       setError("");
       setData(body as Payload);
-      // Seed the paste box once; never overwrite what the owner is typing.
-      setText((t) => (t === null ? (body as Payload).text : t));
     } catch (e) {
       setError(String(e));
     }
@@ -63,7 +62,6 @@ export default function ProxiesTab({ password }: { password: string }) {
       }
       setData(res as Payload);
       if (res.saved) setNotice(res.saved.error ? `Saved ${res.saved.count} proxies (${res.saved.error})` : `Saved ${res.saved.count} proxies.`);
-      if (typeof body.text === "string") setText((res as Payload).text);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -76,35 +74,26 @@ export default function ProxiesTab({ password }: { password: string }) {
   return (
     <section>
       <p style={{ color: "var(--muted, #999)", fontSize: 13, marginBottom: 12, maxWidth: 720 }}>
-        Every login goes out through one of these, one account per exit IP at a time. Paste one proxy per line as{" "}
-        <code>host:port</code> or <code>host:port:user:pass</code> (SOCKS5; prefix <code>socks4://</code> for SOCKS4). The list is saved in the node&apos;s
-        data folder and never sent anywhere.
+        Your bots log in to the game through these, one bot per proxy at a time. Paste the list your proxy seller gave you; most formats
+        work, and each line shows whether the node understood it. The list stays on this computer.
       </p>
       {error && <p style={{ color: "var(--bad)" }}>{error}</p>}
       {notice && <p style={{ color: "var(--good, #5aa86a)", fontSize: 13 }}>{notice}</p>}
 
-      <textarea
-        value={text ?? ""}
-        onChange={(e) => setText(e.target.value)}
-        placeholder={"1.2.3.4:1080:user:pass\n5.6.7.8:1080"}
-        spellCheck={false}
-        style={{ width: "100%", minHeight: 160, fontFamily: "monospace", fontSize: 12, padding: 8, background: "var(--panel)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 6 }}
-      />
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
-        <button disabled={busy || text === null} onClick={() => void post({ text: text ?? "" })}>Save list</button>
-        <button className="nav-link" disabled={busy || text === (data?.text ?? "")} onClick={() => setText(data?.text ?? "")}>revert</button>
-        {data && (
-          <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13, marginLeft: 12 }}>
-            <input type="checkbox" checked={data.required} disabled={busy} onChange={(e) => void post({ required: e.target.checked })} />
-            proxy only: never log in from this computer&apos;s own connection
-          </label>
-        )}
-      </div>
+      <ProxyEditor onSaved={() => void load()} />
+
+      {data && (
+        <div className="ui-card" style={{ marginTop: 16 }}>
+          <h3 style={{ fontSize: 15, margin: "0 0 8px" }}>Your own internet</h3>
+          <p className="ui-note" style={{ marginTop: 0 }}>Used only when no proxy is listed, and then for one bot at a time.</p>
+          <OwnInternet allowed={!data.required} onChange={() => void load()} />
+        </div>
+      )}
       {data && data.required && rows.length === 0 && (
-        <p style={{ color: "var(--bad)", fontSize: 13, marginTop: 8 }}>No proxies listed and &ldquo;proxy only&rdquo; is on: no account can log in until you paste some.</p>
+        <p style={{ color: "var(--bad)", fontSize: 13, marginTop: 8 }}>No proxies yet, and your own internet is not allowed: no bot can log in until you add proxies or allow your own internet.</p>
       )}
       {data && !data.required && rows.length === 0 && (
-        <p style={{ color: "var(--warn, #d2a24c)", fontSize: 13, marginTop: 8 }}>No proxies listed: accounts will log in from this computer&apos;s own IP.</p>
+        <p style={{ color: "var(--warn, #d2a24c)", fontSize: 13, marginTop: 8 }}>No proxies listed: bots log in from this computer&apos;s own internet, one at a time.</p>
       )}
 
       {data && rows.length > 0 && (
@@ -113,7 +102,6 @@ export default function ProxiesTab({ password }: { password: string }) {
             <span><strong>{enabled}</strong> of {rows.length} enabled · {data.inUse} in use{data.capacity !== null && <> · up to {data.capacity} accounts online</>}</span>
             <button className="nav-link" disabled={busy} onClick={() => void post({ host: null, enabled: true })}>enable all</button>
             <button className="nav-link" disabled={busy} onClick={() => void post({ host: null, enabled: false })}>disable all</button>
-            {data.source.urlConfigured && <button className="nav-link" disabled={busy} onClick={() => void post({ refresh: true })}>re-download from PROXIES_URL</button>}
           </div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ fontSize: 13 }}>

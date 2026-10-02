@@ -1,6 +1,5 @@
 import { json } from "@/server/http";
 import { getDb } from "@/lib/db";
-import { clientIp, rateLimit } from "@/lib/ratelimit";
 import { sweepStaleRequests } from "@/lib/timeouts";
 import { cancelOpenRequests } from "@/lib/cancelCode";
 import { sessionFromRequest } from "@/lib/session";
@@ -10,13 +9,9 @@ import { sessionFromRequest } from "@/lib/session";
 // given (the In Flight panel's per-request button), else all of them. No code
 // challenge — the session already proves control of the character (that's
 // what the old whispered cancel code was standing in for). Acts only on the
-// session's own IGN.
+// session's own IGN. Not rate-limited: a cancel only ever closes the player's
+// own requests, and making those is limited already.
 export async function POST(req: Request) {
-  const ip = clientIp(req);
-  if (!rateLimit(`cancel:${ip}`, 5, 5 / 60)) {
-    return json({ error: "Too many requests" }, { status: 429 });
-  }
-
   const session = sessionFromRequest(req);
   if (!session) {
     return json({ error: "Log in to cancel your requests." }, { status: 401 });

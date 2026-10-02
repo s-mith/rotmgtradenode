@@ -5,8 +5,7 @@ import type Database from "better-sqlite3";
 import { presence } from "../../lib/fleetPresence";
 import { serverUsage } from "../../lib/serverUsage";
 import * as queue from "../../lib/queue";
-import { listVaultsForFleet, noteVaultMoved } from "../../lib/vault";
-import { ApiStats, type ApiResult, type Assignment, type FleetVault, type ItemQty, type PendingDeposit, type PendingWithdraw, type PoolRoom, type ReceivedInstance, type ServerUsageReport, type SiteApi, type SwapResult } from "./siteApi";
+import { ApiStats, type ApiResult, type Assignment, type HeartbeatReport, type ItemQty, type PendingDeposit, type PendingWithdraw, type PoolRoom, type ReceivedInstance, type ServerUsageReport, type SiteApi, type SwapResult } from "./siteApi";
 
 export class LocalSiteApi implements SiteApi {
   readonly timeoutMs = 1000;
@@ -27,15 +26,15 @@ export class LocalSiteApi implements SiteApi {
     }
   }
 
-  async heartbeat(p: { botGuid: string; alias: string; ign: string; server: string; freeSlots: number; status: "idle" | "busy" | "offline"; seasonal: boolean }): Promise<ApiResult> {
+  async heartbeat(p: HeartbeatReport): Promise<ApiResult> {
     presence.report(p);
     return { ok: true };
   }
   async claimDeposit(botGuid: string, freeSlots?: number, preferRequestId?: number | null): Promise<ApiResult<{ assignment: Assignment | null }>> {
     return this.run("claim-deposit", () => ({ assignment: queue.claimDeposit(this.db(), botGuid, freeSlots, preferRequestId) }));
   }
-  async claimWithdraw(botGuid: string, inventory: ItemQty[], instanceIds: string[]): Promise<ApiResult<{ assignment: Assignment | null }>> {
-    return this.run("claim-withdraw", () => ({ assignment: queue.claimWithdraw(this.db(), botGuid, inventory, instanceIds) }));
+  async claimWithdraw(botGuid: string, inventory: ItemQty[], instanceIds: string[], heldItems?: Record<string, string>): Promise<ApiResult<{ assignment: Assignment | null }>> {
+    return this.run("claim-withdraw", () => ({ assignment: queue.claimWithdraw(this.db(), botGuid, inventory, instanceIds, heldItems) }));
   }
   async fulfillDeposit(botGuid: string, requestId: number, items: ItemQty[], units?: { itemId: string; enchants: number }[] | null, instances?: ReceivedInstance[] | null): Promise<ApiResult> {
     return this.run("fulfill", () => ({ ...queue.fulfillDeposit(this.db(), botGuid, requestId, items, units?.length ? units : null, instances?.length ? instances : null) }));
@@ -43,9 +42,10 @@ export class LocalSiteApi implements SiteApi {
   async fulfillWithdraw(botGuid: string, requestId: number, items: ItemQty[], instanceIds: string[] = []): Promise<ApiResult> {
     return this.run("withdraw-fulfill", () => ({ ...queue.fulfillWithdraw(this.db(), botGuid, requestId, items, instanceIds) }));
   }
-  async registerPool(readyCount: number, room?: PoolRoom): Promise<ApiResult> {
+  async registerPool(readyCount: number, room?: PoolRoom, onlineCap?: number): Promise<ApiResult> {
     presence.setReadyCount(readyCount);
     if (room) presence.setPoolRoom(room);
+    if (onlineCap !== undefined) presence.setOnlineCap(onlineCap);
     return { ok: true };
   }
   async reportServerUsage(servers: ServerUsageReport[] | null, error?: string): Promise<ApiResult> {
@@ -56,22 +56,28 @@ export class LocalSiteApi implements SiteApi {
   async unclaim(botGuid: string, requestId: number, kind: "deposit" | "withdraw"): Promise<ApiResult<{ unclaimed?: boolean }>> {
     return this.run("unclaim", () => ({ unclaimed: queue.unclaim(this.db(), botGuid, requestId, kind) }));
   }
-  async giveUp(botGuid: string, requestId: number, kind: "deposit" | "withdraw"): Promise<ApiResult<{ cancelled?: boolean }>> {
-    return this.run("give-up", () => ({ cancelled: queue.giveUp(this.db(), botGuid, requestId, kind) }));
+  async giveUp(botGuid: string, requestId: number, kind: "deposit" | "withdraw", why?: string): Promise<ApiResult<{ cancelled?: boolean }>> {
+    return this.run("give-up", () => ({ cancelled: queue.giveUp(this.db(), botGuid, requestId, kind, why) }));
   }
-  async listPending(): Promise<ApiResult<{ withdraws: PendingWithdraw[]; deposits: PendingDeposit[]; vaultBots: string[] }>> {
+  async cancel(botGuid: string | null, requestId: number, kind: "deposit" | "withdraw", why: string): Promise<ApiResult<{ cancelled?: boolean }>> {
+    return this.run("cancel", () => ({ cancelled: queue.cancelRequest(this.db(), botGuid, requestId, kind, why) }));
+  }
+  async listPending(): Promise<ApiResult<{ withdraws: PendingWithdraw[]; deposits: PendingDeposit[] }>> {
     return this.run("list-pending", () => queue.listPending(this.db()));
   }
-  async listVaults(): Promise<ApiResult<{ vaults: FleetVault[] }>> {
-    return this.run("list-vaults", () => ({ vaults: listVaultsForFleet(this.db()) }));
-  }
-  async vaultMoved(instanceIds: string[], botGuid: string): Promise<ApiResult<{ moved?: number }>> {
-    return this.run("vault-moved", () => ({ moved: noteVaultMoved(this.db(), instanceIds, botGuid) }));
+  onPendingChange(cb: () => void): () => void {
+    return queue.onPendingChange(cb);
   }
   async reportSwap(botGuid: string, requestId: number, result: SwapResult): Promise<ApiResult> {
     return this.run("swap-report", () => ({ ...queue.reportSwap(this.db(), botGuid, requestId, result) }));
   }
-  async swapReceived(_botGuid: string, requestId: number, vaultUserId: number, instances: ReceivedInstance[]): Promise<ApiResult> {
-    return this.run("swap-received", () => ({ attached: queue.attachSwapReceived(this.db(), requestId, vaultUserId, instances) }));
+  async noteSwap(botGuid: string, requestId: number, event: string, detail?: unknown): Promise<ApiResult> {
+    return this.run("swap-note", () => {
+      queue.noteSwap(this.db(), requestId, event, botGuid, detail);
+      return {};
+    });
+  }
+  async swapRowOpen(requestId: number): Promise<ApiResult<{ open: boolean; deadlineAt?: number | null }>> {
+    return this.run("swap-row-open", () => queue.swapRowState(this.db(), requestId));
   }
 }

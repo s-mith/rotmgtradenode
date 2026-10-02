@@ -7,8 +7,8 @@ import type { CharList } from "../../realm/api";
 const cl: CharList = {
   nextCharId: 20, maxNumChars: 5, charIds: [12, 14], seasonal: true, tutorialDone: true, hasBackpack: true, backpackSlots: 8,
   chars: [
-    { id: 12, objectType: 782, level: 1, seasonal: true, dead: false, backpackSlots: 8, hasBackpack: true, equipment: [] },
-    { id: 14, objectType: 782, level: 20, seasonal: false, dead: false, backpackSlots: 16, hasBackpack: true, equipment: [] },
+    { id: 12, objectType: 782, level: 1, seasonal: true, dead: false, backpackSlots: 8, hasBackpack: true, quickslots: [], equipment: [] },
+    { id: 14, objectType: 782, level: 20, seasonal: false, dead: false, backpackSlots: 16, hasBackpack: true, quickslots: [], equipment: [] },
   ],
 };
 

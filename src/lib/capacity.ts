@@ -35,7 +35,8 @@ export function totalPoolSlots(
  * The most free trade slots any one of these bots has — what the biggest
  * single trade could take right now. 16 needs an empty bot with a backpack.
  * A fallback for a pool read without the fleet's own answer (`room` on the
- * payload), which also knows about holds, standby posts and lockouts.
+ * payload), which also knows about holds, the login desk, lockouts and the
+ * roomier characters an account would switch to.
  */
 export function largestFreeSlots(
   botGuids: string[],
@@ -82,8 +83,8 @@ export function filterBotsByPool(
   return trackerBotGuids.filter((g) => (meta[g]?.seasonal !== false) === wantSeasonal);
 }
 
-// How many more items the pool could physically accept for `seasonal` right
-// now. This runs inside the deposit-fulfill transaction, so it is answered
+// How many more items the pool (or, with `communism`, communism accounts)
+// could physically accept for `seasonal` right now. This runs inside the deposit-fulfill transaction, so it is answered
 // from memory: the fleet reports its free slots per pool — every account on
 // the roster, online or not — each supervise pass (presence.poolRoom), and
 // the in-flight reservation comes from the deposit queue.
@@ -106,24 +107,51 @@ export function poolRoomForDeposits(
   seasonal: 0 | 1,
   excludeDepositId?: number,
   justReceived = 0,
+  communism = false,
 ): number {
-  const reported = presence.poolRoom(seasonal === 1);
+  const reported = presence.poolRoom(seasonal === 1, communism);
   const free =
     reported !== null
       ? Math.max(0, reported - justReceived)
       : presence
           .online()
-          .filter((b) => (b.seasonal ? 1 : 0) === seasonal)
+          .filter((b) => (b.seasonal ? 1 : 0) === seasonal && !!b.communism === communism)
           .reduce((a, b) => a + b.freeSlots, 0);
   const committed = (
     db
       .prepare(
         `SELECT COALESCE(SUM(current_cap), 0) AS n FROM deposit_requests
-          WHERE status = 'claimed' AND seasonal = ? AND id IS NOT ?`,
+          WHERE status = 'claimed' AND seasonal = ? AND communism = ? AND id IS NOT ?`,
       )
-      .get(seasonal, excludeDepositId ?? null) as { n: number }
+      .get(seasonal, communism ? 1 : 0, excludeDepositId ?? null) as { n: number }
   ).n;
   return Math.max(0, free - committed);
+}
+
+/**
+ * Slots the open deposits of one pool have promised, as the deposit route
+ * counts them before it takes a new one: what each has put on the bots so
+ * far (one ledger row per item received, however far its chain across bots
+ * ran) and, while one is mid-trade, what that trade can still bring
+ * (current_cap). A pending deposit that has not traded yet promises nothing:
+ * its declared size is only an upper bound. `seasonal` null counts both
+ * halves. The capacity readout counts the same, so the pool page never says
+ * "full" while the route would still take a deposit.
+ */
+export function committedDepositSlots(db: Database.Database, o: { seasonal: 0 | 1 | null; communism: boolean }): number {
+  return (
+    db
+      .prepare(
+        `SELECT COALESCE(SUM(
+           (SELECT COALESCE(SUM(t.qty), 0) FROM transactions t
+             WHERE t.kind = 'deposit' AND t.request_id = dr.id)
+           + CASE WHEN dr.status = 'claimed' THEN COALESCE(dr.current_cap, 0) ELSE 0 END
+         ), 0) AS n
+         FROM deposit_requests dr
+         WHERE dr.status IN ('pending','claimed') AND dr.communism = ?${o.seasonal === null ? "" : " AND dr.seasonal = ?"}`,
+      )
+      .get(...(o.seasonal === null ? [o.communism ? 1 : 0] : [o.communism ? 1 : 0, o.seasonal])) as { n: number }
+  ).n;
 }
 
 // Effective bot count for capacity math: the larger of the live count and
@@ -133,4 +161,24 @@ export function effectiveBotCount(_db: Database.Database, liveBotCount: number):
   const reported = presence.readyCount();
   if (reported === null || reported < 0) return liveBotCount;
   return Math.max(liveBotCount, reported);
+}
+
+/**
+ * Room on one side of the seasonal split held by pool accounts that play the
+ * other side but have living characters on this one (they log in as one to
+ * take a deposit here): how many such accounts, their slots, and what fills them.
+ */
+export function acrossRoomFor(
+  acrossRoom: Record<string, { seasonal: boolean; slots: number; used: number }> | undefined,
+  side: "seasonal" | "nonseasonal",
+  skip: (botGuid: string) => boolean = () => false,
+): { bots: number; slots: number; used: number } {
+  const out = { bots: 0, slots: 0, used: 0 };
+  for (const [g, r] of Object.entries(acrossRoom ?? {})) {
+    if (r.seasonal !== (side === "seasonal") || skip(g)) continue;
+    out.bots++;
+    out.slots += r.slots;
+    out.used += r.used;
+  }
+  return out;
 }

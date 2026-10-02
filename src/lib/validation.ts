@@ -1,6 +1,6 @@
-import { DEPOSIT_SIZES, isDepositSize } from "./depositSizes";
+import { MAX_TRADE_SLOTS, isDepositSize } from "./depositSizes";
 import { ITEM_BY_ID } from "./catalog";
-import { nodeTakes } from "./itemPolicy";
+import { nodeTakes, takesFor } from "./itemPolicy";
 import { SERVER_SET, DEPOSIT_ONLY_SERVERS } from "./servers";
 import { isPotionStat, type PotionStat } from "./potionPlan";
 
@@ -32,28 +32,30 @@ export type DepositReq = {
   slots: number;
   /** What the player said they are bringing, if they said. */
   items?: { itemId: string; qty: number }[];
-  /** Into the player's personal storage rather than the pool. */
-  vault: boolean;
+  /** Into communism accounts rather than the pool. */
+  communism: boolean;
 };
 
-export const MAX_DECLARED_ITEMS = 64;
+/** A deposit is one trade: what it declares can fill at most one bot's trade slots. */
+export const MAX_DECLARED_ITEMS = MAX_TRADE_SLOTS;
 
 /**
  * Optional "what I'm bringing" on a deposit: [{itemId, qty}] over catalog ids.
  * A hint for routing, never a limit on what the trade accepts. Undefined when
  * absent; an error only when it is present and malformed.
  */
-export function parseDeclaredItems(v: unknown): Result<{ items?: { itemId: string; qty: number }[] }> {
+export function parseDeclaredItems(v: unknown, communism = false): Result<{ items?: { itemId: string; qty: number }[] }> {
+  const takes = takesFor(communism);
   if (v === undefined || v === null) return { ok: true };
   if (!Array.isArray(v)) return err("items must be a list of {itemId, qty}");
-  if (v.length > 16) return err("items: at most 16 entries");
+  if (v.length > MAX_TRADE_SLOTS) return err(`items: at most ${MAX_TRADE_SLOTS} entries`);
   const merged = new Map<string, number>();
   let total = 0;
   for (const raw of v) {
     if (!raw || typeof raw !== "object") return err("items must be a list of {itemId, qty}");
     const { itemId, qty } = raw as { itemId?: unknown; qty?: unknown };
     if (typeof itemId !== "string" || !ITEM_BY_ID.has(itemId)) return err(`Unknown item: ${String(itemId)}`);
-    if (!nodeTakes(itemId)) return err(`${ITEM_BY_ID.get(itemId)!.name} is not taken on this node`);
+    if (!takes(itemId)) return err(`${ITEM_BY_ID.get(itemId)!.name} is not taken ${communism ? "into communism" : "on this node"}`);
     const n = qty === undefined ? 1 : Number(qty);
     if (!Number.isInteger(n) || n < 1 || n > MAX_DECLARED_ITEMS) return err(`items: qty for ${itemId} must be 1-${MAX_DECLARED_ITEMS}`);
     merged.set(itemId, (merged.get(itemId) ?? 0) + n);
@@ -70,34 +72,31 @@ export function parseDepositRequest(body: {
   slots?: unknown;
   itemCount?: unknown;
   items?: unknown;
-  vault?: unknown;
+  communism?: unknown;
 }): Result<DepositReq> {
   const i = checkIgn(body.ign);
   if (!i.ok) return i;
   const s = checkServer(body.server);
   if (!s.ok) return s;
-  const declared = parseDeclaredItems(body.items);
+  const declared = parseDeclaredItems(body.items, body.communism === true);
   if (!declared.ok) return declared;
-  // The trade size is one of the two shapes a bot comes in: 8 free slots
-  // (an empty bot) or 16 (an empty bot with a backpack). A deposit is one
-  // trade of that size, so this is what the player can hand over, not an
-  // estimate. `itemCount` is the old declared upper bound; a caller still
-  // sending it gets the smallest shape that fits it. Nothing at all: 8, or
-  // 16 when the declared list needs it.
+  // The trade size: as many items as the player brings, 1 to one bot's whole
+  // inventory. A deposit is one trade of that size, so a bot with that much
+  // room meets them. `itemCount` is the old name for it; nothing at all
+  // means the declared list's total, else 8.
   const declaredTotal = declared.items?.reduce((a, it) => a + it.qty, 0);
   let slots: number;
   if (body.slots !== undefined && body.slots !== null) {
     slots = Number(body.slots);
-    if (!isDepositSize(slots)) return err(`slots must be ${DEPOSIT_SIZES.join(" or ")}`);
+    if (!isDepositSize(slots)) return err(`slots must be 1-${MAX_TRADE_SLOTS}`);
   } else if (body.itemCount !== undefined && body.itemCount !== null) {
     const n = Number(body.itemCount);
-    if (!Number.isInteger(n) || n < 1 || n > 64) return err("Item count must be 1-64");
-    slots = n <= 8 ? 8 : n <= 16 ? 16 : 24;
+    if (!Number.isInteger(n) || n < 1) return err("Item count must be a whole number of at least 1");
+    slots = Math.min(n, MAX_TRADE_SLOTS);
   } else {
-    const t = declaredTotal ?? 0;
-    slots = t > 16 ? 24 : t > 8 ? 16 : 8;
+    slots = declaredTotal ? Math.min(declaredTotal, MAX_TRADE_SLOTS) : 8;
   }
-  return { ok: true, ign: i.ign, ignLower: i.ignLower, server: s.server, slots, vault: body.vault === true, ...(declared.items ? { items: declared.items } : {}) };
+  return { ok: true, ign: i.ign, ignLower: i.ignLower, server: s.server, slots, communism: body.communism === true, ...(declared.items ? { items: declared.items } : {}) };
 }
 
 export type BulkPotionReq = {
@@ -105,11 +104,9 @@ export type BulkPotionReq = {
   points: number;
 };
 
-// Bulk potion withdraws are sized in STAT POINTS, and a max-out can easily be
-// 20-50 points, so they aren't subject to MAX_PER_WITHDRAW — the fragmenter
-// splits them across as many bots and trades as it takes. This ceiling is only
-// a sanity bound on a hand-typed number.
-const MAX_POTION_POINTS = 250;
+// Bulk potion withdraws are sized in STAT POINTS: the fragmenter splits them
+// across as many bots and trades as it takes, and fills only what the pool
+// actually has free, so the pool's stock is the limit.
 
 export type WithdrawReq = {
   ign: string;
@@ -128,11 +125,16 @@ export type WithdrawReq = {
   // legacy aggregate flow (item type only, any matching instance).
   instanceIds: string[] | null;
   itemIds: string[] | null;
-  /** Out of the player's personal storage (per-instance only). */
-  vault: boolean;
+  /** Out of communism accounts (per-instance only). */
+  communism: boolean;
 };
 
-const MAX_PER_WITHDRAW = 4;
+// A pool withdraw has no count limit of its own: picks must exist in the pool
+// (the route checks each id), each bot's share is bounded by its character's
+// trade slots, and the bot hands over in as many windows as the player's
+// inventory has room for (chunking). The pool's stock is the limit.
+/** A communism withdraw takes up to a character's eight slots in one meeting. */
+export const MAX_PER_COMMUNISM_WITHDRAW = 8;
 
 export function parseWithdrawRequest(body: {
   ign?: unknown;
@@ -142,14 +144,14 @@ export function parseWithdrawRequest(body: {
   instanceIds?: unknown;
   potionStat?: unknown;
   potionPoints?: unknown;
-  vault?: unknown;
+  communism?: unknown;
 }): Result<WithdrawReq> {
   const i = checkIgn(body.ign);
   if (!i.ok) return i;
   const s = checkServer(body.server);
   if (!s.ok) return s;
   const seasonal = body.seasonal === undefined ? true : Boolean(body.seasonal);
-  const vault = body.vault === true;
+  const communism = body.communism === true;
   // Deposit-only realms. Checked here rather than per-mode so it covers the
   // aggregate, per-instance AND bulk-potion flows in one place.
   if (DEPOSIT_ONLY_SERVERS.has(s.server)) {
@@ -162,13 +164,11 @@ export function parseWithdrawRequest(body: {
   // modes so a request carrying potionStat is never mistaken for an empty
   // itemIds list.
   if (body.potionStat !== undefined || body.potionPoints !== undefined) {
-    if (vault) return err("Personal storage is withdrawn item by item");
+    if (communism) return err("Communism is withdrawn item by item");
     if (!isPotionStat(body.potionStat)) return err("Pick a stat to max");
     const points = Number(body.potionPoints);
     if (!Number.isInteger(points) || points < 1)
       return err("Stat points must be a whole number of at least 1");
-    if (points > MAX_POTION_POINTS)
-      return err(`Max ${MAX_POTION_POINTS} stat points per request`);
     return {
       ok: true,
       ign: i.ign,
@@ -178,13 +178,14 @@ export function parseWithdrawRequest(body: {
       potion: { stat: body.potionStat, points },
       instanceIds: null,
       itemIds: null,
-      vault: false,
+      communism: false,
     };
   }
 
   if (Array.isArray(body.instanceIds) && body.instanceIds.length > 0) {
-    if (body.instanceIds.length > MAX_PER_WITHDRAW)
-      return err(`Max ${MAX_PER_WITHDRAW} items per withdraw`);
+    if (communism && body.instanceIds.length > MAX_PER_COMMUNISM_WITHDRAW)
+      return err(`Max ${MAX_PER_COMMUNISM_WITHDRAW} items per communism withdraw`);
+    if (new Set(body.instanceIds).size !== body.instanceIds.length) return err("The same item is picked twice");
     const instanceIds: string[] = [];
     for (const raw of body.instanceIds) {
       // Pyrelay mints UUID hex (32 chars) but we allow any sensible token
@@ -202,14 +203,13 @@ export function parseWithdrawRequest(body: {
       potion: null,
       instanceIds,
       itemIds: null,
-      vault,
+      communism,
     };
   }
 
-  if (vault) return err("Pick the items to withdraw from your vault");
+  if (communism) return err("Pick the items to take from communism");
   if (!Array.isArray(body.itemIds) || body.itemIds.length === 0)
     return err("Pick at least 1 item");
-  if (body.itemIds.length > MAX_PER_WITHDRAW) return err(`Max ${MAX_PER_WITHDRAW} items per withdraw`);
   const itemIds: string[] = [];
   for (const raw of body.itemIds) {
     if (typeof raw !== "string" || !ITEM_BY_ID.has(raw))
@@ -225,7 +225,7 @@ export function parseWithdrawRequest(body: {
     potion: null,
     instanceIds: null,
     itemIds,
-    vault: false,
+    communism: false,
   };
 }
 

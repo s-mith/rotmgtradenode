@@ -1,7 +1,7 @@
 // Parsers for the read-only account calls, against bodies shaped like the
 // live ones captured 2026-09-07 (docs/relay/BACKPACKS.md §0).
 import { describe, expect, it } from "vitest";
-import { backpackDays, isBadCredentials, parseCalendar, parseCharListDetail, parseSeasonInfo, parseServers } from "../api";
+import { backpackDays, isBadCredentials, parseAccountDump, parseCalendar, parseCharListDetail, parseQuickslots, parseSeasonInfo, parseServers } from "../api";
 
 const CHAR_LIST = `<Chars nextCharId="2" maxNumChars="1"><Char id="1"><ObjectType>782</ObjectType><Seasonal>False</Seasonal><Level>7</Level><Exp>2167</Exp><CurrentFame>2</CurrentFame><Equipment>2711,2606,2652,-1,-1,-1,-1,-1,-1,-1,-1,-1</Equipment><PCStats>x</PCStats><Dead>False</Dead><BackpackSlots>8</BackpackSlots><Has3Quickslots>0</Has3Quickslots></Char><Char id="3"><ObjectType>804</ObjectType><Seasonal>True</Seasonal><Level>1</Level><Dead>True</Dead><BackpackSlots>0</BackpackSlots></Char><Account><Name>Foo</Name><MaxNumChars>1</MaxNumChars></Account><Servers></Servers></Chars>`;
 
@@ -24,8 +24,8 @@ describe("parseCharListDetail", () => {
     expect(d.nextCharId).toBe(2);
     expect(d.maxNumChars).toBe(1);
     expect(d.chars).toEqual([
-      { id: 1, objectType: 782, level: 7, seasonal: false, dead: false, backpackSlots: 8, hasBackpack: true, equipment: [2711, 2606, 2652, -1, -1, -1, -1, -1, -1, -1, -1, -1] },
-      { id: 3, objectType: 804, level: 1, seasonal: true, dead: true, backpackSlots: 0, hasBackpack: false, equipment: [] },
+      { id: 1, objectType: 782, level: 7, seasonal: false, dead: false, backpackSlots: 8, hasBackpack: true, quickslots: [], equipment: [2711, 2606, 2652, -1, -1, -1, -1, -1, -1, -1, -1, -1] },
+      { id: 3, objectType: 804, level: 1, seasonal: true, dead: true, backpackSlots: 0, hasBackpack: false, quickslots: [], equipment: [] },
     ]);
   });
   it("rejects a body that is not a char list", () => {
@@ -99,5 +99,79 @@ describe("isBadCredentials", () => {
     expect(isBadCredentials("<Error>WebChangePasswordDialog.passwordError</Error>")).toBe(true);
     expect(isBadCredentials("<Error>Account in use (5 seconds until timeout)</Error>")).toBe(false);
     expect(isBadCredentials(CHAR_LIST)).toBe(false);
+  });
+});
+
+// An account snapshot shaped like the one Realm serves account tools (docs/relay/STORAGE.md "The account snapshot"):
+// copy ids after `#`, per-character and account-level ItemData records. Records: entries from byte 3, LE uint16, 0xFFFD ends,
+// 0xFFFE locked, 0xFFFF empty. rec(17) = 00 5402 1100 feff ffff fdff; rec(17, 3) has two ids; NONE = 00 5402 fdff.
+const rec = (...ids: number[]): string => {
+  const b = Buffer.alloc(3 + 2 * 4);
+  b[0] = 0; b.writeUInt16LE(596, 1);
+  const entries = [...ids, 0xfffe, 0xffff, 0xfffd].slice(0, 4);
+  entries.forEach((e, i) => b.writeUInt16LE(e, 3 + 2 * i));
+  return b.toString("base64url") + "=";
+};
+const SNAPSHOT = `<Chars nextCharId="5" maxNumChars="3">
+<Char id="1"><ObjectType>782</ObjectType><Seasonal>False</Seasonal><Level>20</Level><Equipment>596#c-a,-1,2652,-1,596#c-b,596,596,-1,-1,-1,-1,-1</Equipment><Dead>False</Dead><BackpackSlots>0</BackpackSlots>
+<UniqueItemInfo><ItemData type="596" id="c-b">${rec(17, 3)}</ItemData><ItemData type="596">${rec(21)}</ItemData><ItemData type="596" id="c-a">${rec(5)}</ItemData></UniqueItemInfo></Char>
+<Char id="2"><ObjectType>804</ObjectType><Seasonal>True</Seasonal><Level>1</Level><Equipment>-1,-1,-1,-1,2652,-1,-1,-1,-1,-1,-1,-1</Equipment><Dead>False</Dead>
+<Pet id="7" type="1"><UniqueItemInfo><ItemData type="2652">${rec(99)}</ItemData></UniqueItemInfo><Abilities><Ability/></Abilities></Pet><Account><Name>Foo</Name></Account>
+<UniqueItemInfo><ItemData type="2652">${rec(2)}</ItemData></UniqueItemInfo><BackpackSlots>8</BackpackSlots></Char>
+<Char id="3"><ObjectType>800</ObjectType><Dead>True</Dead><BackpackSlots>0</BackpackSlots></Char>
+<Account><Name>Foo</Name>
+<Vault><Chest>2652#v-1,-1,-1,-1,-1,-1,-1,-1</Chest><Chest>596,596,-1,-1,-1,-1,-1,-1</Chest></Vault>
+<MaterialStorage><Chest>-1,-1,-1,-1,-1,-1,-1,-1</Chest></MaterialStorage>
+<Gifts>596,2652</Gifts><TemporaryGifts>-1</TemporaryGifts><Potions>2652,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1</Potions>
+<UniqueItemInfo><ItemData type="2652" id="v-1">${rec(8)}</ItemData><ItemData type="596">${rec(9)}</ItemData><ItemData type="2652">${rec(10)}</ItemData></UniqueItemInfo>
+<UniqueGiftItemInfo><ItemData type="596">${rec()}</ItemData></UniqueGiftItemInfo>
+</Account></Chars>`;
+
+describe("parseAccountDump", () => {
+  it("joins each record to its slot by copy id, else by type in order, once; containers come from the Account block", () => {
+    const d = parseAccountDump(SNAPSHOT);
+    expect(d).toMatchObject({ nextCharId: 5, maxNumChars: 3, records: 8 });
+    expect(d.sections.sort()).toEqual(["Account/Gifts", "Account/MaterialStorage", "Account/Potions", "Account/TemporaryGifts", "Account/UniqueGiftItemInfo", "Account/UniqueItemInfo", "Account/Vault", "Char/UniqueItemInfo"]);
+    const c1 = d.chars[0];
+    expect(c1).toMatchObject({ id: 1, objectType: 782, backpackSlots: 0, equipment: [596, -1, 2652, -1, 596, 596, 596, -1, -1, -1, -1, -1] });
+    // Slot 0 and 4 name copies: exact records. Slot 5 has no copy id: the one loose 596 record. Slot 6: nothing left, so no record.
+    expect(c1.slots.map((s) => [s.type, s.copyId, s.enchantments])).toEqual([
+      [596, "c-a", [5]], [-1, null, null], [2652, null, null], [-1, null, null], [596, "c-b", [17, 3]], [596, null, [21]], [596, null, null],
+      [-1, null, null], [-1, null, null], [-1, null, null], [-1, null, null], [-1, null, null],
+    ]);
+    // The pet's block inside <Pet> is the pet's, not the character's: slot 4 gets the character's own record.
+    expect(d.chars[1].slots.map((s) => s.enchantments)).toEqual([null, null, null, null, [2], null, null, null, null, null, null, null]);
+    expect(d.chars[2]).toMatchObject({ dead: true, slots: [] });
+    // The account-level pool serves the vault first (exact then loose), then the potions; the gift chest has its own.
+    expect(d.vault.map((chest) => chest.map((s) => s.enchantments))).toEqual([[[8], null, null, null, null, null, null, null], [[9], null, null, null, null, null, null, null]]);
+    expect(d.potions[0]).toEqual({ type: 2652, copyId: null, enchantments: [10] });
+    expect(d.gifts.map((s) => s.enchantments)).toEqual([[], null]);
+    expect(d.temporaryGifts).toEqual([{ type: -1, copyId: null, enchantments: null }]);
+    expect(d.materialStorage[0].every((s) => s.type === -1)).toBe(true);
+  });
+  it("reads a plain char list as a snapshot with nothing extra", () => {
+    const d = parseAccountDump(CHAR_LIST);
+    expect(d.chars.length).toBeGreaterThan(0);
+    expect(d).toMatchObject({ records: 0, sections: [], vault: [], gifts: [], potions: [] });
+    expect(() => parseAccountDump("<Error>nope</Error>")).toThrow(/not a char list/);
+  });
+});
+
+
+describe("parseAccountDump seasonal storage", () => {
+  it("notes any seasonal-side storage tag the account block carries, by name, so the first seasonal snapshot shows its shape", () => {
+    const xml = `<Chars nextCharId="3" maxNumChars="5"><Char id="1"><ObjectType>782</ObjectType><Seasonal>True</Seasonal><Equipment>-1,-1,-1,-1,2588</Equipment><Account><Name>A</Name></Account></Char><Account><Name>A</Name><Vault><Chest>-1</Chest></Vault><SeasonalVault><Chest>2588</Chest></SeasonalVault><Gifts></Gifts></Account></Chars>`;
+    const d = parseAccountDump(xml);
+    expect(d.chars[0].seasonal).toBe(true);
+    expect(d.maxNumChars).toBe(5);
+    expect(d.sections).toEqual(expect.arrayContaining(["Account/Vault", "Account/Gifts", "Account/SeasonalVault"]));
+  });
+});
+
+describe("quickslots in the character list", () => {
+  it("reads type|count per slot, -1|0 for an empty one", () => {
+    expect(parseQuickslots("2594|1,-1|0")).toEqual([{ type: 2594, count: 1 }, { type: -1, count: 0 }]);
+    expect(parseQuickslots("2594|6,2595|3,-1|0")).toHaveLength(3);
+    expect(parseQuickslots(null)).toEqual([]);
   });
 });

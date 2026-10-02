@@ -6,19 +6,21 @@ import type Database from "better-sqlite3";
 import { pyrelay } from "./devauth";
 import { presence } from "./fleetPresence";
 
-export type WithdrawGroupTrade = { requestId: number; status: string; botIgn: string | null };
+export type WithdrawGroupTrade = { requestId: number; status: string; botIgn: string | null; endReason?: string | null };
 export type WithdrawGroupStatus = {
   groupId: string;
   groupStatus: "in-flight" | "fulfilled" | "partial" | "cancelled";
   tradeCount: number;
   trades: WithdrawGroupTrade[];
+  /** Why the group's trades that ended unfulfilled ended (the first such reason), else null. */
+  endReason: string | null;
 };
 
 export async function withdrawGroupStatus(db: Database.Database, groupId: string): Promise<WithdrawGroupStatus | null> {
   const rows = (
     db
-      .prepare("SELECT id, status, claimed_by, target_bot_guid FROM withdraw_requests WHERE group_id = ? ORDER BY id ASC")
-      .all(groupId) as { id: number; status: string; claimed_by: string | null; target_bot_guid: string | null }[]
+      .prepare("SELECT id, status, claimed_by, target_bot_guid, end_reason FROM withdraw_requests WHERE group_id = ? ORDER BY id ASC")
+      .all(groupId) as { id: number; status: string; claimed_by: string | null; target_bot_guid: string | null; end_reason: string | null }[]
   ).map((r) => ({ ...r, bot_ign: presence.ignFor(r.claimed_by) || null, target_bot_ign: presence.ignFor(r.target_bot_guid) || null }));
   if (rows.length === 0) return null;
 
@@ -38,6 +40,7 @@ export async function withdrawGroupStatus(db: Database.Database, groupId: string
   const trades = rows.map((r) => ({
     requestId: r.id,
     status: r.status,
+    ...(r.status === "cancelled" && r.end_reason ? { endReason: r.end_reason } : {}),
     botIgn:
       r.bot_ign ??
       r.target_bot_ign ??
@@ -51,5 +54,6 @@ export async function withdrawGroupStatus(db: Database.Database, groupId: string
   else if (counts.fulfilled === rows.length) groupStatus = "fulfilled";
   else if (counts.fulfilled > 0) groupStatus = "partial";
   else groupStatus = "cancelled";
-  return { groupId, groupStatus, tradeCount: rows.length, trades };
+  const endReason = rows.find((r) => r.status === "cancelled" && r.end_reason)?.end_reason ?? null;
+  return { groupId, groupStatus, tradeCount: rows.length, trades, endReason };
 }

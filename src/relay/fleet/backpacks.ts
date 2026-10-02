@@ -1,43 +1,51 @@
 // Backpacks for the fleet (docs/relay/BACKPACKS.md).
 //
-// Two routines share one per-account state file:
+// A backpack is the daily-login calendar's reward: claimed in the game from
+// the Daily Quest Room, it lands in the gift chest of the claiming
+// character's side; used from a chest onto a character, it gives that
+// character 16 trade slots. Nothing here uses one by itself (the automatic
+// plan-and-chore of 2026-09-07 was removed on 2026-09-22): the owner works
+// from the Accounts tab, one account at a time.
 //
-//  - The AUDIT is HTTP only, no game login: char/list (does this character
-//    carry a backpack, is it seasonal, is it dead), the daily-login calendar
-//    (which backpack days are reached and unclaimed), and the season clock.
-//    It is what the operator looks at to decide when to run the chore.
+//  - The per-account JOBS (startClaim, startConsume) are the two halves of
+//    that trip, each its own login: claimBackpackDays (the quest room, one
+//    claim per reached day) and applyBackpackFromChest (the Vault, USEITEM out
+//    of the gift, vault or spoils chest, confirmed).
 //
-//  - The LOGIN PASS brings each account into the Nexus once per UTC day and
-//    logs straight back out. The calendar only advances on days the account
-//    logged in (owner, 2026-09-07), so the backpack day (day 2 this month)
-//    needs logins on that many distinct days before the month resets. Bots
-//    the dispatcher wakes for trades count on their own; this covers the rest.
+//  - The DAILY LOGIN brings an account that still has a backpack day ahead
+//    into the Nexus once per UTC day and straight out, since the calendar only
+//    advances on days the account logged in. Bots the dispatcher wakes count on
+//    their own; accounts with nothing ahead are left alone.
 //
-//  - The CHORE logs a bot in and drives it, for real, through the steps the
-//    proxy proved on the wire: claim the calendar's backpack days from the
-//    Daily Quest Room, walk to the Vault Portal, read the Gift Chest from
-//    VAULTINFO, and (when the policy says so) use a Backpack straight out of
-//    the chest onto the character. `dry` mode does the read-only part of the
-//    trip and logs what `live` would do.
+//  - The CALENDAR is the same for every account; only the counters are per
+//    account. Its layout is read once per cycle (the monthly reset) by
+//    whichever account reads first (BackpackStore.noteCalendar) and handed to
+//    the others with counters at zero (syncCycle); a new account reads once
+//    on add for its own counters. From there each day's first login moves
+//    the counters along locally (noteLogin), a backpack day shows as reached
+//    the day the counter gets to it, and the claim re-reads the real
+//    calendar in the quest room anyway.
 //
-// Both are sweep-shaped (see sweeps.ts): a small concurrency, one account at
-// a time per worker, every step bounded by a timeout so a stuck account ends
-// cleanly. Accounts under the chore are held away from the dispatcher.
+// One per-account state file (BackpackStore). Every step is bounded by a
+// timeout so a stuck account ends cleanly. A job or a daily login waits for
+// its account to be free and borrows it from the dispatcher the way a
+// storage trip does (borrow.ts), holding it away from the dispatcher meanwhile.
+import { onlineCapFor } from "./constants";
 import fs from "node:fs";
 import path from "node:path";
 import type { GameClient } from "../client/gameClient";
 import type { AnyPacket } from "../protocol/packets";
 import type { WorldPos } from "../protocol/data";
-import { captureChatter, dist, enterVault, inWorld, NEXUS_MAP, nextPacket, sleep, VAULT_MAP, VAULT_PORTAL_TYPE, waitFor, walkTo } from "./vaultTrip";
+import { captureChatter, dist, enterVault, inWorld, NEXUS_MAP, nextPacket, sleep, VAULT_MAP, VAULT_PORTAL_TYPE, waitFor, walkTo, type VaultView } from "./vaultTrip";
 import {
   BACKPACK_ITEM_TYPE, backpackDays, clientTokenFor, fetchCalendar, getAccessToken, getCharListDetail, getSeasonInfo,
   type Calendar, type CharListDetail, type ClaimType, type SeasonInfo,
 } from "../realm/api";
-import { parseProxyList, type Proxy } from "../net/proxy";
+import type { Proxy } from "../net/proxy";
 import type { BotAccount } from "./botPool";
-import { bringUp, BringUpRefused, retireSuspended, takeDown } from "./bringUp";
-import { deleteChar } from "../realm/api";
-import { snapshotInventory, sweepAccount, type SweepDeps } from "./sweeps";
+import { borrowAccount, BUSY_RETRY_MS } from "./borrow";
+import { bringUp, BringUpRefused, refusalPasses, takeDown } from "./bringUp";
+import type { SweepDeps } from "./sweeps";
 
 export { VAULT_PORTAL_TYPE, GIFT_CHEST_TYPE, NEXUS_MAP, VAULT_MAP, walkTo } from "./vaultTrip";
 /** Map names as MAPINFO reports them (proxy log, 2026-09-06). */
@@ -90,14 +98,14 @@ export interface AccountBackpackState {
   /** char/list BackpackSlots: 0, 8 or 16 (the upgraded backpack). */
   backpackSlots?: number | null;
   maxNumChars: number | null;
-  /** Calendar position on the two tracks. */
+  /** Calendar position on the two tracks: from the cycle's one read, then moved along locally by each day's login (noteLogin). */
   nonconCurDay: number | null;
   conCurDay: number | null;
   backpackDays: BackpackDayState[];
+  /** "YYYY-MM" (Realm's clock) of the calendar cycle `backpackDays` and the counters describe; a new cycle means one new read. */
+  calendarMonth?: string | null;
   /** Backpacks in the Gift Chest at the last vault visit; null until visited. */
   banked: number | null;
-  /** Item count on the character at the last vault visit (trade slots only). */
-  held: number | null;
   lastAuditAt: number | null;
   lastVaultAt: number | null;
   /** "YYYY-MM:track:day" of every claim the chore confirmed. */
@@ -107,23 +115,20 @@ export interface AccountBackpackState {
   /** "YYYY-MM-DD" (UTC) of the days this service logged the account in this month; reset on month change. */
   loginDays: string[];
   lastError: string | null;
-  /** Epoch seconds of the last structural failure (scheduler cooldown of 24 h). */
+  /** Epoch seconds of the last structural failure (the daily login leaves the account alone for 24 h). */
   lastErrorAt: number | null;
-  lastChoreAt: number | null;
   /** Epoch seconds of the last audit attempt (failures back off a day). */
   lastAuditTriedAt: number | null;
-  lastRecycleAt: number | null;
-  /** Structural chore failures this month ("YYYY-MM"); three put the account on the operator's list. */
-  choreAttemptsMonth: string | null;
-  choreAttempts: number;
   manual: boolean;
+  /** The last per-account job the console started (claim a backpack day, use a backpack on a character) and how it went. */
+  lastJob?: { kind: "claim" | "consume"; charId: number | null; at: number; ok: boolean; summary: string } | null;
 }
 
 function emptyState(acc: BotAccount): AccountBackpackState {
   return {
     alias: acc.alias, guid: acc.guid, botGuid: acc.botGuid, charId: null, seasonal: null, dead: null, hasBackpack: null, maxNumChars: null,
-    nonconCurDay: null, conCurDay: null, backpackDays: [], banked: null, held: null, lastAuditAt: null, lastVaultAt: null, claimed: [], lastLoginAt: null, loginDays: [], lastError: null,
-    lastErrorAt: null, lastChoreAt: null, lastAuditTriedAt: null, lastRecycleAt: null, choreAttemptsMonth: null, choreAttempts: 0, manual: false,
+    nonconCurDay: null, conCurDay: null, backpackDays: [], banked: null, lastAuditAt: null, lastVaultAt: null, claimed: [], lastLoginAt: null, loginDays: [], lastError: null,
+    lastErrorAt: null, lastAuditTriedAt: null, manual: false,
   };
 }
 
@@ -155,67 +160,7 @@ export function observeVerifyLogin(obs: Observed, prev: { nonconCurDay: number |
   else if (out.verifyLoginNo >= 10) out.verifyCountsAsLogin = false;
   return out;
 }
-/** Transient failures retry in a later batch without penalty; anything else counts against the account. */
-export function isTransientError(error: string): boolean {
-  return /inactive|network|timed out|kick|bring-up|no free proxy|login-locked|not in view|online or busy|logins paused|no verdict|did not lead/i.test(error);
-}
-/** Fold a chore trip's outcome into the account's retry accounting. */
-export function noteChoreOutcome(st: AccountBackpackState, ok: boolean, error: string | null, nowMs: number): void {
-  const month = monthKey(nowMs / 1000);
-  if (st.choreAttemptsMonth !== month) {
-    st.choreAttemptsMonth = month;
-    st.choreAttempts = 0;
-    st.manual = false;
-  }
-  st.lastChoreAt = Math.floor(nowMs / 1000);
-  if (ok) {
-    st.lastError = null;
-    st.lastErrorAt = null;
-    return;
-  }
-  st.lastError = error;
-  if (error && !isTransientError(error)) {
-    st.lastErrorAt = Math.floor(nowMs / 1000);
-    st.choreAttempts++;
-    if (st.choreAttempts >= 3) st.manual = true;
-  }
-}
-/** Days of the month still usable (today counts); null without a month clock. */
-export function daysToReset(clocks: Clocks, nowMs: number): number | null {
-  if (clocks.monthResetsAt === null) return null;
-  return Math.max(0, Math.ceil((clocks.monthResetsAt - nowMs / 1000) / 86_400));
-}
-/**
- * The login lane's targets (docs §5.3): accounts that would be picks if their
- * backpack day were reached, and can still reach it before the reset.
- * Tightest slack first, then biggest holders. Pure.
- */
-export function loginTargets(
-  rows: { st: AccountBackpackState; held: number; poolDeficit: number; vaultBot: boolean }[],
-  clocks: Clocks,
-  nowMs: number,
-  batch: number,
-): AccountBackpackState[] {
-  const today = dayKey(nowMs / 1000);
-  const left = daysToReset(clocks, nowMs);
-  const out: { st: AccountBackpackState; slack: number; held: number }[] = [];
-  for (const r of rows) {
-    const st = r.st;
-    if (st.hasBackpack !== false || st.dead || st.manual) continue;
-    if (!(r.vaultBot || r.poolDeficit > 0)) continue;
-    if (st.loginDays.includes(today)) continue;
-    if (st.nonconCurDay === null) continue;
-    const cur = st.nonconCurDay;
-    const day = st.backpackDays.find((d) => d.track === "nonconsecutive" && !d.claimable && d.quantity > 0 && d.day > cur);
-    if (!day) continue;
-    const needed = day.day - cur;
-    if (left !== null && needed > left) continue;
-    out.push({ st, slack: left === null ? needed : left - needed, held: r.held });
-  }
-  out.sort((a, b) => a.slack - b.slack || b.held - a.held);
-  return out.slice(0, batch).map((x) => x.st);
-}
-/** Whether the scheduler may pick this account for a trip right now. */
+/** Whether the daily login may pick this account right now: not marked manual, alive, no structural failure in the last day. */
 export function eligibleForTrip(st: AccountBackpackState, nowMs: number, allowDead = false): boolean {
   if (st.manual) return false;
   if (st.dead && !allowDead) return false;
@@ -228,11 +173,69 @@ export function noteLogin(st: AccountBackpackState, nowMs: number): void {
   const day = dayKey(nowMs / 1000);
   st.lastLoginAt = Math.floor(nowMs / 1000);
   if (st.loginDays.length && !st.loginDays[0].startsWith(day.slice(0, 7))) st.loginDays = [];
-  if (!st.loginDays.includes(day)) st.loginDays.push(day);
+  if (st.loginDays.includes(day)) return;
+  const yesterday = dayKey(nowMs / 1000 - 86_400);
+  const consecutive = st.loginDays.includes(yesterday);
+  st.loginDays.push(day);
+  // The calendar is read once a cycle; each day's first login moves its counters along by itself (owner, 2026-09-23).
+  if (st.calendarMonth && st.calendarMonth === monthKey(nowMs / 1000) && st.nonconCurDay !== null) {
+    st.nonconCurDay += 1;
+    st.conCurDay = consecutive && st.conCurDay !== null ? st.conCurDay + 1 : 1;
+  }
+}
+/** Whether the calendar wants reading: never read, or read for an earlier cycle than the one Realm's clock is in now. */
+export function calendarDue(st: AccountBackpackState, nowMs: number): boolean {
+  return st.lastAuditAt === null || !st.calendarMonth || st.calendarMonth !== monthKey(nowMs / 1000);
+}
+/** The backpack days reached on their track (the cycle's read said so, or the counter has moved up to them since) and not yet claimed. */
+export function reachedBackpackDays(st: AccountBackpackState): BackpackDayState[] {
+  const cur: Record<ClaimType, number | null> = { nonconsecutive: st.nonconCurDay, consecutive: st.conCurDay };
+  return st.backpackDays.filter((d) => {
+    if (d.quantity <= 0) return false;
+    const c = cur[d.track];
+    // The counter rule needs a read that recorded the days already claimed (calendarMonth is set by such a read).
+    const reached = d.claimable || (!!st.calendarMonth && c !== null && d.day <= c);
+    return reached && !st.claimed.includes(`${st.calendarMonth ?? ""}:${d.track}:${d.day}`);
+  });
+}
+/**
+ * The calendar is one and the same for every account; only the counters
+ * are per account. At a new cycle an account whose state is last cycle's
+ * takes the node's layout for this cycle and starts its counters from zero
+ * (one for each track if it already logged in today), no read of its own.
+ * True when it did.
+ */
+export function syncCycle(st: AccountBackpackState, layout: { month: string; days: BackpackDayState[] } | null, nowMs: number): boolean {
+  const month = monthKey(nowMs / 1000);
+  if (!layout || layout.month !== month || st.calendarMonth === month) return false;
+  const today = dayKey(nowMs / 1000);
+  const loggedToday = st.loginDays.includes(today);
+  st.backpackDays = layout.days.map((d) => ({ ...d, claimable: false }));
+  st.nonconCurDay = loggedToday ? 1 : 0;
+  st.conCurDay = loggedToday ? 1 : 0;
+  st.calendarMonth = month;
+  st.lastAuditAt = nowMs;
+  return true;
 }
 /** Whether this account still needs a login today (UTC) to advance the calendar. */
 export function needsLoginToday(st: AccountBackpackState, nowMs: number): boolean {
   return !st.loginDays.includes(dayKey(nowMs / 1000));
+}
+/**
+ * The nearest backpack day still ahead on either track: reached days are
+ * claimable (or claimed, and then below the track's counter), so a day above
+ * the counter is one more login per day away. null when nothing is ahead, or
+ * the calendar was never read.
+ */
+export function pendingBackpackDay(st: AccountBackpackState): { track: ClaimType; day: number; current: number; quantity: number } | null {
+  const cur: Record<ClaimType, number | null> = { nonconsecutive: st.nonconCurDay, consecutive: st.conCurDay };
+  let best: { track: ClaimType; day: number; current: number; quantity: number } | null = null;
+  for (const d of st.backpackDays) {
+    const c = cur[d.track];
+    if (c === null || d.quantity <= 0 || d.day <= c) continue;
+    if (!best || d.day - c < best.day - best.current) best = { track: d.track, day: d.day, current: c, quantity: d.quantity };
+  }
+  return best;
 }
 
 /** Fold a char/list body into the state. The single character (MaxNumChars is 1 on these accounts) is the bot's. */
@@ -250,94 +253,17 @@ export function applyCalendar(st: AccountBackpackState, cal: Calendar, now: numb
   st.nonconCurDay = cal.nonconsecutiveDay;
   st.conCurDay = cal.consecutiveDay;
   st.backpackDays = backpackDays(cal).map((d) => ({ track: d.track, day: d.day.day, quantity: d.day.quantity, claimable: d.claimable }));
+  st.calendarMonth = monthKey(cal.serverTime);
+  // A reached day the calendar offers no key for was claimed already: remembered, so the local count never shows it again.
+  const cur: Record<ClaimType, number> = { nonconsecutive: cal.nonconsecutiveDay, consecutive: cal.consecutiveDay };
+  for (const d of st.backpackDays) {
+    const key = `${st.calendarMonth}:${d.track}:${d.day}`;
+    if (!d.claimable && d.day <= cur[d.track] && !st.claimed.includes(key)) st.claimed.push(key);
+  }
   st.lastAuditAt = now;
 }
 export const monthKey = (epochSeconds: number): string => new Date(epochSeconds * 1000).toISOString().slice(0, 7);
 
-// --- policy ---------------------------------------------------------------------------
-
-export interface ChorePolicy {
-  /** Use a banked Backpack on the character when it has none. */
-  equip: boolean;
-}
-export interface Decision {
-  /** Reached, unclaimed backpack days to claim now. */
-  claim: BackpackDayState[];
-  /** Whether to apply a backpack from the chest (needs the vault visit's count). */
-  equip: boolean;
-  reasons: string[];
-}
-/** What the chore should do for one account. Pure. `banked` is the Gift Chest count if known. */
-export function decide(st: AccountBackpackState, policy: ChorePolicy, banked: number | null = st.banked): Decision {
-  const reasons: string[] = [];
-  const claim = st.backpackDays.filter((d) => d.claimable);
-  if (claim.length) reasons.push(`claim ${claim.map((d) => `${d.track} day ${d.day} (${d.quantity}x)`).join(", ")}`);
-  let equip = false;
-  if (!policy.equip) reasons.push("equip off: bank only");
-  else if (st.hasBackpack) reasons.push("character already has a backpack");
-  else if (banked === null) reasons.push("equip once the chest count is known");
-  else if (banked + claim.reduce((n, d) => n + d.quantity, 0) <= 0) reasons.push("nothing banked to equip");
-  else {
-    equip = true;
-    reasons.push("equip a banked backpack");
-  }
-  return { claim, equip, reasons };
-}
-
-/**
- * The owner's disposability rule (BACKPACKS.md §5): an empty character with
- * no backpack is disposable; a non-seasonal one is disposable while a
- * Backpack sits in the Gift Chest. Never decides anything by itself.
- */
-export function isDisposable(st: AccountBackpackState, heldItems: number): boolean {
-  if (heldItems > 0) return false;
-  if (st.hasBackpack === false) return true;
-  return st.seasonal === false && (st.banked ?? 0) > 0;
-}
-
-// --- demand-driven claim planning -------------------------------------------------------
-//
-// Backpacks are claimed as needed, per pool (owner, 2026-09-07): a claim is
-// made on the account's current character and lands in that seasonality's
-// Gift Chest, so claiming ahead of need pins the backpack to a side. The
-// plan asks for just enough backpack bots per pool that the pool's whole
-// stock fits on them, plus a buffer, and picks the accounts that hold the
-// most (consolidation gathers stock onto the biggest holders anyway).
-
-export interface PlanRow {
-  botGuid: string;
-  alias: string;
-  seasonal: boolean;
-  /** Items the bot holds (trade slots). */
-  held: number;
-  /** 16 once a backpack is on the character, else 8. */
-  capacity: number;
-  /** A backpack day is reached and unclaimed this month. */
-  claimable: boolean;
-  /** Spares in this side's Gift Chest (equip needs no claim). */
-  banked: number;
-  /** Somebody's personal-storage bot: the vault lane, not the pool's stock. */
-  vaultBot: boolean;
-  /** Not manual, not dead, not cooling down, not online for trading. */
-  eligible: boolean;
-}
-export interface PoolPlan {
-  pool: "seasonal" | "nonseasonal" | "vaults";
-  bots: number;
-  stock: number;
-  /** Items of headroom planned for, and how they were derived. */
-  bufferItems: number;
-  bufferMode: "growth" | "fraction";
-  gainPerDay: number | null;
-  horizonDays: number;
-  backpackBots: number;
-  /** Bots the stock needs at 16 slots each, with the buffer. */
-  needBots: number;
-  deficit: number;
-  /** Accounts without a backpack whose day is claimable, biggest holders first. */
-  candidates: number;
-  picks: { botGuid: string; alias: string; held: number }[];
-}
 export const BACKPACK_SLOTS = 16;
 /** A bot's trade slots as the audit knows them: 8, 16 with a backpack, 24 with the upgraded one. */
 export function capacityOf(st: { hasBackpack: boolean | null; backpackSlots?: number | null }): number {
@@ -345,96 +271,12 @@ export function capacityOf(st: { hasBackpack: boolean | null; backpackSlots?: nu
   return (st.backpackSlots ?? 8) > 8 ? 24 : 16;
 }
 
-export interface PlanOptions {
-  /** Fallback headroom as a fraction of the stock (0.2 = 20%) when no growth measurement exists. */
-  buffer?: number;
-  /** Measured net items gained per day per pool (rolling average); null/undefined = unknown. */
-  gainPerDay?: { seasonal: number | null; nonseasonal: number | null };
-  /** Days of growth to plan for (until the next chance to claim, i.e. the month reset). */
-  horizonDays?: number;
-}
-/**
- * How many accounts to claim (and equip) on, per pool. Pure. Headroom is the
- * pool's measured growth over the horizon when known (owner: "a rolling
- * average of how many items we gain per day"), else `buffer` x stock.
- */
-export function planClaims(rows: PlanRow[], opts: PlanOptions = {}): { seasonal: PoolPlan; nonseasonal: PoolPlan; vaults: PoolPlan } {
-  const buffer = Math.max(0, opts.buffer ?? 0.2);
-  const horizonDays = Math.max(1, opts.horizonDays ?? 7);
-  const one = (pool: "seasonal" | "nonseasonal"): PoolPlan => {
-    const mine = rows.filter((r) => !r.vaultBot && r.seasonal === (pool === "seasonal"));
-    const stock = mine.reduce((n, r) => n + r.held, 0);
-    const backpackBots = mine.filter((r) => r.capacity >= BACKPACK_SLOTS).length;
-    const gain = opts.gainPerDay?.[pool] ?? null;
-    const bufferMode: PoolPlan["bufferMode"] = gain === null ? "fraction" : "growth";
-    const bufferItems = Math.ceil(gain === null ? stock * buffer : Math.max(0, gain) * horizonDays);
-    const needBots = stock + bufferItems > 0 ? Math.ceil((stock + bufferItems) / BACKPACK_SLOTS) : 0;
-    const deficit = Math.max(0, needBots - backpackBots);
-    // Spares already banked come first (no claim spent), then the biggest holders.
-    const candidates = mine.filter((r) => r.capacity < BACKPACK_SLOTS && r.eligible && (r.claimable || r.banked > 0)).sort((a, b) => Number(b.banked > 0) - Number(a.banked > 0) || b.held - a.held || (a.alias < b.alias ? -1 : 1));
-    return {
-      pool, bots: mine.length, stock, bufferItems, bufferMode, gainPerDay: gain, horizonDays, backpackBots, needBots, deficit, candidates: candidates.length,
-      picks: candidates.slice(0, deficit).map((r) => ({ botGuid: r.botGuid, alias: r.alias, held: r.held })),
-    };
-  };
-  // Vault lane (docs §3): a vault bot's slots are a user's storage size; every one without a backpack is a pick.
-  const vaults = rows.filter((r) => r.vaultBot);
-  const vaultCands = vaults.filter((r) => r.capacity < BACKPACK_SLOTS && r.eligible && (r.claimable || r.banked > 0)).sort((a, b) => b.held - a.held || (a.alias < b.alias ? -1 : 1));
-  const vaultPlan: PoolPlan = {
-    pool: "vaults", bots: vaults.length, stock: vaults.reduce((n, r) => n + r.held, 0), bufferItems: 0, bufferMode: "fraction", gainPerDay: null, horizonDays: 0,
-    backpackBots: vaults.filter((r) => r.capacity >= BACKPACK_SLOTS).length, needBots: vaults.length, deficit: vaultCands.length, candidates: vaultCands.length,
-    picks: vaultCands.map((r) => ({ botGuid: r.botGuid, alias: r.alias, held: r.held })),
-  };
-  return { seasonal: one("seasonal"), nonseasonal: one("nonseasonal"), vaults: vaultPlan };
-}
-
-/**
- * The account to fit with a backpack for a waiting 16-slot deposit in
- * `seasonal`'s pool: empty (so it becomes a 16-free bot the moment the
- * backpack is on), not somebody's vault, free for a trip, and with a spare
- * banked in the Gift Chest (equip only — the quickest) or a claimable day
- * (claim, then equip). Pure; null when nothing qualifies.
- */
-export function orderCandidate(rows: PlanRow[], seasonal: boolean): PlanRow | null {
-  let best: PlanRow | null = null;
-  for (const r of rows) {
-    if (r.vaultBot || r.seasonal !== seasonal || !r.eligible || r.capacity >= BACKPACK_SLOTS || r.held > 0) continue;
-    if (!(r.banked > 0 || r.claimable)) continue;
-    if (!best || (r.banked > 0 && best.banked <= 0) || (r.banked > 0 === best.banked > 0 && r.alias < best.alias)) best = r;
-  }
-  return best;
-}
-
-// --- store -----------------------------------------------------------------------------
-
-export interface StockSample {
-  /** "YYYY-MM-DD" (UTC). */
-  day: string;
-  seasonal: number;
-  nonseasonal: number;
-}
-/** Days of samples kept for the rolling average. */
-export const STOCK_SAMPLE_DAYS = 30;
-export const GAIN_WINDOW_DAYS = 7;
-
-/** Net items gained per day over the last `windowDays` of samples (first to last sample in the window); null with fewer than two days. Pure. */
-export function gainPerDay(samples: StockSample[], pool: "seasonal" | "nonseasonal", today: string, windowDays = GAIN_WINDOW_DAYS): number | null {
-  const dayNum = (d: string): number => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10))) / 86_400_000;
-  const cutoff = dayNum(today) - windowDays;
-  const win = samples.filter((s) => dayNum(s.day) >= cutoff).sort((a, b) => (a.day < b.day ? -1 : 1));
-  if (win.length < 2) return null;
-  const first = win[0];
-  const last = win[win.length - 1];
-  const days = dayNum(last.day) - dayNum(first.day);
-  if (days <= 0) return null;
-  return (last[pool] - first[pool]) / days;
-}
-
 export class BackpackStore {
   private readonly accounts = new Map<string, AccountBackpackState>();
   private season: (SeasonInfo & { fetchedAt: number }) | null = null;
   private serverTime: number | null = null;
-  private samples: StockSample[] = [];
+  /** This cycle's calendar layout, the same for every account: which days pay backpacks. From the first read of the cycle. */
+  private calendar: { month: string; days: BackpackDayState[]; readAt: number } | null = null;
   /** Season id every account was already marked non-seasonal for (the automatic rollover ran). */
   private rolledSeasonId: string | null = null;
   observed: Observed = emptyObserved();
@@ -442,11 +284,11 @@ export class BackpackStore {
   constructor(private readonly file: string) {
     try {
       if (fs.existsSync(file)) {
-        const raw = JSON.parse(fs.readFileSync(file, "utf8")) as { accounts?: Record<string, AccountBackpackState>; season?: Clocks["season"]; serverTime?: number | null; samples?: StockSample[]; rolledSeasonId?: string | null; observed?: Observed };
+        const raw = JSON.parse(fs.readFileSync(file, "utf8")) as { accounts?: Record<string, AccountBackpackState>; season?: Clocks["season"]; serverTime?: number | null; calendar?: unknown; rolledSeasonId?: string | null; observed?: Observed };
         for (const [g, st] of Object.entries(raw.accounts ?? {})) this.accounts.set(g, st);
         this.season = raw.season ?? null;
         this.serverTime = raw.serverTime ?? null;
-        this.samples = Array.isArray(raw.samples) ? raw.samples : [];
+        this.calendar = raw.calendar && typeof raw.calendar === "object" ? (raw.calendar as { month: string; days: BackpackDayState[]; readAt: number }) : null;
         this.rolledSeasonId = typeof raw.rolledSeasonId === "string" ? raw.rolledSeasonId : null;
         if (raw.observed && typeof raw.observed === "object") this.observed = { ...emptyObserved(), ...(raw.observed as Partial<Observed>) };
       }
@@ -466,11 +308,31 @@ export class BackpackStore {
   all(): AccountBackpackState[] {
     return [...this.accounts.values()];
   }
+  /** Drop the rows of accounts no longer on the roster (`keep`: bot guids). Returns how many went. */
+  pruneTo(keep: ReadonlySet<string>): number {
+    let n = 0;
+    for (const g of [...this.accounts.keys()]) {
+      if (keep.has(g)) continue;
+      this.accounts.delete(g);
+      n++;
+    }
+    if (n) this.requestSave();
+    return n;
+  }
   clocks(): Clocks {
     return deriveClocks(this.serverTime, this.season);
   }
   noteServerTime(t: number): void {
     this.serverTime = t;
+  }
+  /** One account's calendar read is the cycle's layout for everyone. */
+  noteCalendar(cal: Calendar, now: number): void {
+    this.calendar = { month: monthKey(cal.serverTime), days: backpackDays(cal).map((d) => ({ track: d.track, day: d.day.day, quantity: d.day.quantity, claimable: false })), readAt: now };
+    this.serverTime = cal.serverTime;
+  }
+  /** The layout read for this cycle, if any (syncCycle hands it to accounts whose state is last cycle's). */
+  calendarLayout(): { month: string; days: BackpackDayState[] } | null {
+    return this.calendar ? { month: this.calendar.month, days: this.calendar.days } : null;
   }
   noteSeason(s: SeasonInfo, now: number): void {
     this.season = { ...s, fetchedAt: now };
@@ -486,19 +348,6 @@ export class BackpackStore {
   }
   seasonFresh(now: number, maxAgeMs = 3_600_000): boolean {
     return !!this.season && now - this.season.fetchedAt < maxAgeMs;
-  }
-  /** Record today's stock per pool (one sample per UTC day, the latest wins); keeps STOCK_SAMPLE_DAYS days. */
-  noteStock(day: string, seasonal: number, nonseasonal: number): void {
-    this.samples = this.samples.filter((s) => s.day !== day);
-    this.samples.push({ day, seasonal, nonseasonal });
-    this.samples.sort((a, b) => (a.day < b.day ? -1 : 1));
-    if (this.samples.length > STOCK_SAMPLE_DAYS) this.samples = this.samples.slice(-STOCK_SAMPLE_DAYS);
-  }
-  stockSamples(): StockSample[] {
-    return [...this.samples];
-  }
-  gainPerDay(pool: "seasonal" | "nonseasonal", today: string): number | null {
-    return gainPerDay(this.samples, pool, today);
   }
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   /** Save soon (10 s), coalescing the per-account writes of a run; `save()` flushes now. */
@@ -518,33 +367,13 @@ export class BackpackStore {
     try {
       fs.mkdirSync(path.dirname(this.file), { recursive: true });
       const tmp = `${this.file}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({ accounts: Object.fromEntries(this.accounts), season: this.season, serverTime: this.serverTime, samples: this.samples, rolledSeasonId: this.rolledSeasonId, observed: this.observed }, null, 2));
+      fs.writeFileSync(tmp, JSON.stringify({ accounts: Object.fromEntries(this.accounts), season: this.season, serverTime: this.serverTime, calendar: this.calendar, rolledSeasonId: this.rolledSeasonId, observed: this.observed }, null, 2));
       fs.renameSync(tmp, this.file);
     } catch (e) {
       console.log(`backpacks: failed to write ${this.file}: ${String(e)}`);
     }
   }
-  summary(nowMs = Date.now()): { accounts: number; audited: number; withBackpack: number; seasonal: number; dead: number; claimableDays: number; claimableBackpacks: number; banked: number; vaultVisited: number; loggedToday: number } {
-    const out = { accounts: 0, audited: 0, withBackpack: 0, seasonal: 0, dead: 0, claimableDays: 0, claimableBackpacks: 0, banked: 0, vaultVisited: 0, loggedToday: 0 };
-    for (const st of this.accounts.values()) {
-      out.accounts++;
-      if (!needsLoginToday(st, nowMs)) out.loggedToday++;
-      if (st.lastAuditAt !== null) out.audited++;
-      if (st.hasBackpack) out.withBackpack++;
-      if (st.seasonal) out.seasonal++;
-      if (st.dead) out.dead++;
-      for (const d of st.backpackDays) {
-        if (!d.claimable) continue;
-        out.claimableDays++;
-        out.claimableBackpacks += d.quantity;
-      }
-      if (st.banked !== null) {
-        out.vaultVisited++;
-        out.banked += st.banked;
-      }
-    }
-    return out;
-  }
+
 }
 
 // --- audit (HTTP only) --------------------------------------------------------------
@@ -570,53 +399,35 @@ export interface RunState {
 }
 const freshRun = (): RunState => ({ running: false, mode: null, startedAt: null, finishedAt: null, total: 0, done: 0, ok: 0, failed: 0, skipped: 0, current: [], stoppedReason: null, lastErrors: [], suspended: 0, claimed: 0, equipped: 0 });
 
-const AUDIT_CONCURRENCY = Number(process.env.BACKPACK_AUDIT_CONCURRENCY ?? 4);
-const AUDIT_STAGGER_MS = Number(process.env.BACKPACK_AUDIT_STAGGER_MS ?? 1500);
-
-export interface BackpackServiceOptions {
-  sd: SweepDeps;
-  store: BackpackStore;
-  /** Guids the dispatcher must leave alone while the chore drives them. */
-  holds: Set<string>;
-  now?: () => number;
-  /**
-   * Exit for the audit's HTTP calls, in place of the login pool. The login
-   * pool keys exclusivity by host (one exit IP per bot), which a rotating
-   * gateway like Webshare's backbone (one host, thousands of usernames)
-   * collapses to a single slot; the audit only needs many distinct exits,
-   * not exclusive ones.
-   */
-  auditProxy?: () => Proxy | null;
-  /** Bots that are somebody's personal storage (from the dispatcher). */
-  vaultBots?: () => Set<string>;
+/** A per-account job from the Accounts tab: `waiting` says why it has not started yet (the account is busy), null once it runs. */
+export interface BackpackJob {
+  kind: "claim" | "consume";
+  charId: number | null;
+  since: number;
+  waiting: string | null;
 }
 
-/** Round-robin over a Webshare-style list (`host:port:user:pass` per line); null when the file is missing or empty. */
-export function auditProxiesFromFile(file: string | undefined, log: (l: string) => void): (() => Proxy | null) | undefined {
-  if (!file) return undefined;
-  let list: Proxy[] = [];
-  try {
-    list = parseProxyList(fs.readFileSync(file, "utf8"));
-  } catch (e) {
-    log(`backpacks: audit proxies file ${file} unreadable (${String(e)}) — the audit will use the login pool`);
-    return undefined;
-  }
-  if (!list.length) return undefined;
-  log(`backpacks: ${list.length} audit proxies from ${file}`);
-  let i = 0;
-  return () => list[i++ % list.length];
+export interface BackpackServiceOptions {
+  /** A Vault view a job read as a character of `seasonal`'s side (storage keeps that side's containers current from it). */
+  onVaultView?: (acc: BotAccount, view: VaultView, seasonal: boolean | null) => void;
+  /** A backpack was applied to `charId` (storage marks the character's slots). */
+  onBackpackApplied?: (acc: BotAccount, charId: number) => void;
+  sd: SweepDeps;
+  store: BackpackStore;
+  /** Guids the dispatcher must leave alone while a job drives them. */
+  holds: Set<string>;
+  /** Ask the dispatcher to let go of an idle online bot (it disconnects it); false when the bot is busy. */
+  release?: (acc: BotAccount) => boolean;
+  now?: () => number;
 }
 
 export class BackpackService {
-  readonly audit: RunState = freshRun();
-  readonly chore: RunState = freshRun();
   /** Write the state file now (shutdown). */
   flush(): void {
     this.o.store.save();
   }
   /** What this service is doing with an account right now, by account guid — the label the Inventories tab shows. */
   private readonly activity = new Map<string, string>();
-  private auditCancel = false;
   private choreCancel = false;
   private readonly now: () => number;
 
@@ -626,11 +437,7 @@ export class BackpackService {
   private log(line: string): void {
     this.o.sd.deps.log(line);
   }
-  status(): { clocks: Clocks; summary: ReturnType<BackpackStore["summary"]>; audit: RunState; chore: RunState; observed: Observed } {
-    const snap = (r: RunState): RunState => ({ ...r, current: [...r.current], lastErrors: [...r.lastErrors] });
-    return { clocks: this.o.store.clocks(), summary: this.o.store.summary(this.now()), audit: snap(this.audit), chore: snap(this.chore), observed: { ...this.o.store.observed } };
-  }
-  /** Settled calibration: an HTTP audit advances the login-day counter (docs §5.3, §9.1). */
+  /** Settled calibration: an HTTP read advances the login-day counter (the old notes' §9.1). */
   verifyCountsAsLogin(): boolean {
     return this.o.store.observed.verifyCountsAsLogin === true;
   }
@@ -646,124 +453,8 @@ export class BackpackService {
     if (n) this.log(`backpacks: seeded ${n} bot capacit${n === 1 ? "y" : "ies"} from the audit state`);
     return n;
   }
-  /** The demand-driven claim plan from the audit's rows, the tracker's holdings and each bot's capacity. */
   clocks(): Clocks {
     return this.o.store.clocks();
-  }
-  /** One plan row per usable account, with the account and its state attached for the lanes. */
-  private planRows(nowMs: number): { row: PlanRow; acc: BotAccount; st: AccountBackpackState; busy: boolean }[] {
-    const { store, sd } = this.o;
-    const vaultBots = this.o.vaultBots?.() ?? new Set<string>();
-    const out: { row: PlanRow; acc: BotAccount; st: AccountBackpackState; busy: boolean }[] = [];
-    for (const acc of sd.pool.every()) {
-      if (acc.suspended) continue;
-      const st = store.for(acc);
-      const cap = st.hasBackpack === true ? Math.max(BACKPACK_SLOTS, capacityOf(st)) : sd.tracker.capacityFor(acc.botGuid);
-      const busy = !!(acc.client && acc.client.active) || acc.assignedRequestId !== null || acc.inUse;
-      out.push({
-        acc, st, busy,
-        row: {
-          botGuid: acc.botGuid, alias: acc.alias, seasonal: st.seasonal ?? acc.seasonalOrDefault,
-          held: sd.tracker.heldCount(acc.botGuid), capacity: cap, claimable: st.backpackDays.some((d) => d.claimable),
-          banked: st.banked ?? 0, vaultBot: vaultBots.has(acc.botGuid), eligible: !busy && eligibleForTrip(st, nowMs),
-        },
-      });
-    }
-    return out;
-  }
-  // --- orders: a waiting 16-slot deposit with no bot to send ----------------------
-  // The dispatcher places one per pool half and renews it every pass while
-  // the deposit waits; an order nobody renews lapses. The scheduler serves
-  // open orders ahead of every other lane, one trip each.
-  private readonly orders = new Map<"seasonal" | "nonseasonal", { since: number; renewedAt: number; trips: number }>();
-  /** Place or renew the order for `seasonal`'s pool. True when it is new. */
-  orderBackpackBot(seasonal: boolean, nowMs = this.now()): boolean {
-    const key = seasonal ? "seasonal" : "nonseasonal";
-    const cur = this.orders.get(key);
-    if (cur) {
-      cur.renewedAt = nowMs;
-      return false;
-    }
-    this.orders.set(key, { since: nowMs, renewedAt: nowMs, trips: 0 });
-    return true;
-  }
-  /** Pool halves with an order still being renewed. */
-  openOrders(nowMs = this.now()): ("seasonal" | "nonseasonal")[] {
-    for (const [k, o] of [...this.orders]) if (nowMs - o.renewedAt > ORDER_TTL_MS || o.trips >= ORDER_MAX_TRIPS) this.orders.delete(k);
-    return [...this.orders.keys()];
-  }
-  /** Whether an empty account could be fitted with a backpack for `seasonal`'s pool right now. */
-  canMakeBackpackBot(seasonal: boolean, nowMs = this.now()): boolean {
-    return orderCandidate(this.planRows(nowMs).map((r) => r.row), seasonal) !== null;
-  }
-  /** One account per open order, to trip now with equip on. Counts the trip against the order. */
-  orderPicks(nowMs: number, batch: number): string[] {
-    const rows = this.planRows(nowMs).map((r) => r.row);
-    const byBot = new Map(this.o.sd.pool.every().map((a) => [a.botGuid, a.guid]));
-    const out: string[] = [];
-    for (const half of this.openOrders(nowMs)) {
-      const pick = orderCandidate(rows, half === "seasonal");
-      const guid = pick ? byBot.get(pick.botGuid) : undefined;
-      if (!guid) continue;
-      this.orders.get(half)!.trips++;
-      out.push(guid);
-      if (out.length >= batch) break;
-    }
-    return out;
-  }
-
-  /** Guids the chore lane should trip now: vault picks first, then the pools' picks, up to `batch`. */
-  chorePicks(settings: { buffer: number }, nowMs: number, batch: number): string[] {
-    const p = this.planFrom(this.planRows(nowMs), settings.buffer, nowMs);
-    const byBot = new Map(this.o.sd.pool.every().map((a) => [a.botGuid, a.guid]));
-    return [...p.vaults.picks, ...p.nonseasonal.picks, ...p.seasonal.picks].map((x) => byBot.get(x.botGuid)).filter((g): g is string => !!g).slice(0, batch);
-  }
-  /** Guids for the targeted login lane (docs §5.3). */
-  auditPicks(settings: { auditStaleDays: number }, nowMs: number, batch: number): string[] {
-    const cutoff = nowMs / 1000 - settings.auditStaleDays * 86_400;
-    const out: string[] = [];
-    for (const acc of this.o.sd.pool.every()) {
-      if (acc.suspended) continue;
-      const st = this.o.store.for(acc);
-      const stale = st.lastAuditAt === null || (st.lastAuditAt / 1000 < cutoff && (st.lastLoginAt ?? 0) < cutoff);
-      const triedRecently = st.lastAuditTriedAt !== null && nowMs / 1000 - st.lastAuditTriedAt < 86_400 && (st.lastAuditAt === null || st.lastAuditAt / 1000 < st.lastAuditTriedAt);
-      if (stale && !triedRecently) out.push(acc.guid);
-      if (out.length >= batch) break;
-    }
-    return out;
-  }
-  /** Accounts with a claimable backpack day that nothing else picked (a manual fallback). */
-  backstopPicks(batch: number): string[] {
-    const out: string[] = [];
-    for (const acc of this.o.sd.pool.every()) {
-      if (acc.suspended) continue;
-      const st = this.o.store.for(acc);
-      if (st.manual || !st.backpackDays.some((d) => d.claimable)) continue;
-      if (acc.client?.active || acc.assignedRequestId !== null) continue;
-      out.push(acc.guid);
-      if (out.length >= batch) break;
-    }
-    return out;
-  }
-  private planFrom(rowsWithState: { row: PlanRow }[], buffer: number, nowMs: number): ReturnType<typeof planClaims> {
-    const { store } = this.o;
-    const rows = rowsWithState.map((r) => r.row);
-    const today = dayKey(nowMs / 1000);
-    const stock = { seasonal: 0, nonseasonal: 0 };
-    for (const r of rows) if (!r.vaultBot) stock[r.seasonal ? "seasonal" : "nonseasonal"] += r.held;
-    store.noteStock(today, stock.seasonal, stock.nonseasonal);
-    const clocks = store.clocks();
-    // Growth until new claims become possible again: the reset, then the next backpack day (assume 2).
-    const horizonDays = clocks.monthResetsAt ? Math.min(35, Math.max(1, Math.ceil((clocks.monthResetsAt - nowMs / 1000) / 86_400) + 2)) : GAIN_WINDOW_DAYS;
-    const gains = { seasonal: store.gainPerDay("seasonal", today), nonseasonal: store.gainPerDay("nonseasonal", today) };
-    return planClaims(rows, { buffer, gainPerDay: gains, horizonDays });
-  }
-  plan(buffer?: number): ReturnType<typeof planClaims> & { buffer: number; rows: number; samples: StockSample[] } {
-    const { store } = this.o;
-    const b = buffer ?? 0.2;
-    const nowMs = this.now();
-    const rows = this.planRows(nowMs);
-    return { ...this.planFrom(rows, b, nowMs), buffer: b, rows: rows.length, samples: store.stockSamples() };
   }
   /** A bot the dispatcher (or anything else) brought into the world today: counts as that day's login. */
   noteLogin(acc: BotAccount): void {
@@ -771,9 +462,10 @@ export class BackpackService {
   }
   private readonly calendarInFlight = new Set<string>();
   /**
-   * Every successful bring-up (docs §5.5): char/list was just read, so the
-   * row learns backpack/seasonal for free, the day counts as a login, and
-   * once a day the 3 KB calendar is fetched with the session's own token.
+   * Every successful bring-up: char/list was just read, so the row learns
+   * backpack/seasonal for free, the day counts as a login (and moves the
+   * counters), and when the calendar is due (never read, or a new cycle) it is
+   * fetched with the session's own token.
    */
   onLogin(acc: BotAccount, client: GameClient): void {
     const { store, sd } = this.o;
@@ -782,16 +474,16 @@ export class BackpackService {
     if (client.charHasBackpack !== null) st.hasBackpack = client.charHasBackpack;
     if (client.charSeasonal !== null) st.seasonal = client.charSeasonal;
     st.charId = client.charId >= 0 ? client.charId : st.charId;
+    syncCycle(st, store.calendarLayout(), nowMs);
     noteLogin(st, nowMs);
     if (st.hasBackpack !== null) sd.tracker.noteCapacity(acc.botGuid, capacityOf(st));
-    const fresh = st.lastAuditAt !== null && nowMs - st.lastAuditAt < 20 * 3_600_000;
-    if (!fresh && client.token && !this.calendarInFlight.has(acc.guid)) {
+    if (calendarDue(st, nowMs) && client.token && !this.calendarInFlight.has(acc.guid)) {
       this.calendarInFlight.add(acc.guid);
       void fetchCalendar(client.token, client.proxy)
         .then((cal) => {
           if (!cal.ok) return;
           applyCalendar(st, cal.value, this.now());
-          store.noteServerTime(cal.value.serverTime);
+          store.noteCalendar(cal.value, this.now());
         })
         .catch(() => {})
         .finally(() => {
@@ -806,55 +498,381 @@ export class BackpackService {
   activityOf(guid: string): string | null {
     return this.activity.get(guid) ?? null;
   }
+
+  // Per-account jobs (the Accounts tab's buttons) --------------------------------------
+  // The chore trip in two halves, each its own login: claiming the reached
+  // backpack day(s) as the played character, and using a backpack from a
+  // chest on one named character. Each is taken at once and runs when the
+  // account is free (queueJob); the outcome lands in the account's lastJob
+  // and the roster shows the job, waiting or running, meanwhile.
+
+  private readonly jobs = new Map<string, BackpackJob>();
+  /** The job on `guid` right now, waiting for the account or running, if any. */
+  jobOf(guid: string): BackpackJob | null {
+    return this.jobs.get(guid) ?? null;
+  }
+  /** What the roster shows about an account's backpacks: reached days, the next one ahead, today's login, the last job. */
+  viewFor(acc: BotAccount, nowMs = this.now()): { claimable: number; claimableDays: { track: ClaimType; day: number; quantity: number }[]; pending: ReturnType<typeof pendingBackpackDay>; calendarAt: number | null; loginToday: boolean; job: BackpackJob | null; lastJob: AccountBackpackState["lastJob"] } {
+    const st = this.o.store.for(acc);
+    syncCycle(st, this.o.store.calendarLayout(), nowMs);
+    const days = reachedBackpackDays(st).map((d) => ({ track: d.track, day: d.day, quantity: d.quantity }));
+    return { claimable: days.reduce((n, d) => n + d.quantity, 0), claimableDays: days, pending: pendingBackpackDay(st), calendarAt: st.lastAuditAt, loginToday: !needsLoginToday(st, nowMs), job: this.jobOf(acc.guid), lastJob: st.lastJob ?? null };
+  }
+  /**
+   * Claim the account's reached backpack day(s): one login, the Daily Quest
+   * Room, log out. The reward lands in the gift chest of the side of the
+   * character that claims, so the caller names the character (`charId`,
+   * from the roster's character list); without one the played character
+   * claims.
+   */
+  startClaim(acc: BotAccount, charId?: number): { ok: true } | { ok: false; error: string } {
+    const why = this.refusal(acc);
+    if (why) return { ok: false, error: why };
+    const st = this.o.store.for(acc);
+    if (!reachedBackpackDays(st).length) return { ok: false, error: "no backpack day is reached on this account's calendar" };
+    this.queueJob(acc, { kind: "claim", charId: charId ?? null }, `claiming a backpack day${charId !== undefined ? ` as character #${charId}` : ""}`, () => this.claimJob(acc, charId));
+    return { ok: true };
+  }
+  /** Use a backpack from a chest on character `charId`: one login as it, the Vault, USEITEM, log out. */
+  startConsume(acc: BotAccount, charId: number): { ok: true } | { ok: false; error: string } {
+    const why = this.refusal(acc);
+    if (why) return { ok: false, error: why };
+    this.queueJob(acc, { kind: "consume", charId }, `using a backpack on character #${charId}`, () => this.consumeJob(acc, charId));
+    return { ok: true };
+  }
+  /** Why a job cannot even be queued: one is on the account already, or the account can never log in. A busy account is waited for instead. */
+  private refusal(acc: BotAccount): string | null {
+    if (this.jobs.has(acc.guid)) return "a backpack job is already on this account";
+    if (acc.suspended) return "the account is suspended";
+    return null;
+  }
+  /**
+   * A job from the Accounts tab: taken at once, one per account, and run
+   * when the account is free (whenFree), however long it stays busy; the
+   * console can take it back while it waits (cancelWaiting).
+   */
+  private queueJob(acc: BotAccount, job: { kind: "claim" | "consume"; charId: number | null }, label: string, run: () => Promise<"again" | void>): void {
+    const entry: BackpackJob = { ...job, since: this.now(), waiting: null };
+    this.jobs.set(acc.guid, entry);
+    void this.whenFree(acc, label, run, { waiting: (why) => { entry.waiting = why; }, wanted: () => this.jobs.get(acc.guid) === entry })
+      .then(() => {
+        if (this.jobs.get(acc.guid) === entry) return;
+        this.log(`backpacks: ${acc.alias}: ${job.kind} job taken back before it ran`);
+      })
+      .catch((e) => this.log(`backpacks: ${acc.alias}: ${job.kind} job raised: ${String(e)}`))
+      .finally(() => {
+        if (this.jobs.get(acc.guid) !== entry) return;
+        this.jobs.delete(acc.guid);
+        this.setActivity(acc.guid, null);
+      });
+  }
+  /** Take back the account's job while it waits for the account; one already running goes on. */
+  cancelWaiting(acc: BotAccount): { ok: true } | { ok: false; error: string } {
+    const job = this.jobs.get(acc.guid);
+    if (!job) return { ok: false, error: "no backpack job on this account" };
+    if (job.waiting === null) return { ok: false, error: "the job is running now; it cannot be taken back" };
+    this.jobs.delete(acc.guid);
+    this.setActivity(acc.guid, null);
+    return { ok: true };
+  }
+  /**
+   * Run `run` on the account once it is free, as a queued character job
+   * waits for it (storage.ts): borrowed from the dispatcher like a storage
+   * trip (an idle bot at the desk is let go, a login under way finishes, a
+   * login cooldown or a pause is waited out) and, while something else has
+   * it (a trade, another trip) or `run` says "again" (its login was held, or
+   * every proxy host carries a bot), looked at again every BUSY_RETRY_MS for
+   * as long as that lasts. `wanted`, asked before each try, drops a job no
+   * longer needed.
+   */
+  private async whenFree(acc: BotAccount, label: string, run: () => Promise<"again" | void>, o: { waiting?: (why: string | null) => void; wanted?: () => boolean } = {}): Promise<void> {
+    const { sd, holds } = this.o;
+    for (;;) {
+      if (o.wanted && !o.wanted()) return;
+      let why: string | null = acc.assignedRequestId !== null || acc.inUse ? "the account is busy" : holds.has(acc.guid) ? "another job has the account" : null;
+      if (!why) {
+        const lent = await borrowAccount(acc, { sd, holds, release: this.o.release, activity: (l) => this.setActivity(acc.guid, l && `${label}: ${l}`), now: this.now });
+        if (lent.ok) {
+          // Taken back while the account was being borrowed: not run after all.
+          if (o.wanted && !o.wanted()) {
+            lent.giveBack();
+            return;
+          }
+          o.waiting?.(null);
+          let again: "again" | void;
+          try {
+            again = await run();
+          } finally {
+            lent.giveBack();
+          }
+          if (again !== "again") return;
+          why = "its login was held back (logins paused or locked, or every proxy host carrying a bot)";
+        } else why = lent.why;
+      }
+      if (o.wanted && !o.wanted()) return;
+      o.waiting?.(why);
+      this.setActivity(acc.guid, `${label}: queued, waiting for the account (${why})`);
+      await sleep(BUSY_RETRY_MS);
+    }
+  }
+  private async claimJob(acc: BotAccount, charId?: number): Promise<"again" | void> {
+    const { sd, store } = this.o;
+    const st = store.for(acc);
+    const T = TIMEOUTS;
+    this.setActivity(acc.guid, `claiming a backpack day${charId !== undefined ? ` as character #${charId}` : ""}: logging in`);
+    const steps: string[] = [];
+    let ok = false;
+    let client: GameClient | null = null;
+    try {
+      try {
+        client = await (sd.deps.bringUp ?? bringUp)(sd.deps, acc, acc.info.server ?? "USSouth3", charId !== undefined ? { charId } : {});
+      } catch (e) {
+        // Logins held or every proxy host in use: the job waits on, not a failure.
+        if (!refusalPasses(e)) throw e;
+        return "again";
+      }
+      if (charId !== undefined && client.charId !== charId) throw new Error(`the game loaded character #${client.charId} instead of #${charId}`);
+      await waitFor(client, () => inWorld(client!, NEXUS_MAP), T.inWorldMs, "the Nexus");
+      await sleep(T.settleMs);
+      steps.push(`in the Nexus as ${client.playerData.name} (${client.charSeasonal ? "seasonal" : "non-seasonal"} character #${client.charId})`);
+      const cal = await fetchCalendar(client.token, client.proxy);
+      if (!cal.ok) throw new Error(`calendar ${cal.error.kind}`);
+      applyCalendar(st, cal.value, this.now());
+      store.noteCalendar(cal.value, this.now());
+      const claim = st.backpackDays.filter((d) => d.claimable);
+      if (!claim.length) throw new Error("no backpack day is reached on the calendar");
+      const r = await claimBackpackDays(client, st, T, (l) => this.log(`backpacks: ${acc.alias}: ${l}`), (l) => this.setActivity(acc.guid, `claiming a backpack day: ${l}`), this.now);
+      steps.push(...r.steps);
+      if (!r.claimed.length) throw new Error("no claim went through");
+      // The reward lands in the gift chest of the side the character is on.
+      steps.push(`${r.claimed.reduce((n, d) => n + d.quantity, 0)} backpack(s) now in the ${client.charSeasonal ? "seasonal" : "non-seasonal"} gift chest`);
+      noteLogin(st, this.now());
+      ok = true;
+    } catch (e) {
+      steps.push(`FAILED: ${e instanceof BringUpRefused ? `bring-up ${e.verdict}: ` : ""}${(e as Error).message}`);
+    } finally {
+      if (client) takeDown(sd.deps, acc, "backpack day claimed");
+      this.setActivity(acc.guid, null);
+    }
+    st.lastJob = { kind: "claim", charId: charId ?? null, at: this.now(), ok, summary: steps.join(" | ") };
+    st.lastError = ok ? null : st.lastJob.summary;
+    this.log(`backpacks: ${acc.alias}: claim job: ${st.lastJob.summary}`);
+    store.requestSave();
+  }
+  private async consumeJob(acc: BotAccount, charId: number): Promise<"again" | void> {
+    const { sd, store } = this.o;
+    const st = store.for(acc);
+    const T = TIMEOUTS;
+    this.setActivity(acc.guid, `using a backpack on character #${charId}: logging in`);
+    const steps: string[] = [];
+    let ok = false;
+    let client: GameClient | null = null;
+    try {
+      try {
+        client = await (sd.deps.bringUp ?? bringUp)(sd.deps, acc, acc.info.server ?? "USSouth3", { charId });
+      } catch (e) {
+        // Logins held or every proxy host in use: the job waits on, not a failure.
+        if (!refusalPasses(e)) throw e;
+        return "again";
+      }
+      if (client.charId !== charId) throw new Error(`the game loaded character #${client.charId} instead of #${charId}`);
+      await waitFor(client, () => inWorld(client!, NEXUS_MAP), T.inWorldMs, "the Nexus");
+      await sleep(T.settleMs);
+      const side = client.charSeasonal;
+      steps.push(`in the Nexus as ${client.playerData.name} (${side ? "seasonal" : "non-seasonal"} character #${charId}${client.hasBackpack ? ", has a backpack" : ""})`);
+      this.setActivity(acc.guid, `using a backpack on character #${charId}: walking to the Vault`);
+      const view = await enterVault(client, T, (l) => this.log(`backpacks: ${acc.alias}: ${l}`));
+      const r = await applyBackpackFromChest(client, view, T, (l) => this.log(`backpacks: ${acc.alias}: ${l}`), (l) => this.setActivity(acc.guid, `using a backpack on character #${charId}: ${l}`));
+      steps.push(...r.steps);
+      // What this side's containers hold now, the used backpack gone, for storage's view of them.
+      try {
+        this.o.onVaultView?.(acc, r.view, side);
+      } catch (e) {
+        this.log(`backpacks: ${acc.alias}: storage did not take the vault view: ${String(e)}`);
+      }
+      if (!r.applied) throw new Error(r.error ?? "the backpack was not applied");
+      if (charId === (st.charId ?? acc.info.charId ?? null) || charId === client.charId && side === st.seasonal) {
+        // The played character: the row and the tracker's slot count follow.
+        if (charId === (st.charId ?? -1)) {
+          st.hasBackpack = true;
+          st.backpackSlots = Math.max(8, st.backpackSlots ?? 0);
+          sd.tracker.noteCapacity(acc.botGuid, capacityOf(st));
+        }
+      }
+      if (side === st.seasonal && st.banked !== null) st.banked = Math.max(0, r.view.gift.slots.filter((t) => t === BACKPACK_ITEM_TYPE).length);
+      try {
+        this.o.onBackpackApplied?.(acc, charId);
+      } catch (e) {
+        this.log(`backpacks: ${acc.alias}: storage did not note the backpack: ${String(e)}`);
+      }
+      ok = true;
+    } catch (e) {
+      steps.push(`FAILED: ${e instanceof BringUpRefused ? `bring-up ${e.verdict}: ` : ""}${(e as Error).message}`);
+    } finally {
+      if (client) takeDown(sd.deps, acc, "backpack used");
+      this.setActivity(acc.guid, null);
+    }
+    st.lastJob = { kind: "consume", charId, at: this.now(), ok, summary: steps.join(" | ") };
+    st.lastError = ok ? null : st.lastJob.summary;
+    this.log(`backpacks: ${acc.alias}: consume job (character #${charId}): ${st.lastJob.summary}`);
+    store.requestSave();
+  }
+
+  // The daily login -------------------------------------------------------------------
+  // The calendar only advances on days the account logs in. An account with a
+  // backpack day still ahead gets one login a day (a look at the Nexus and
+  // straight out) on days nothing else brought it into the world; an account
+  // with nothing ahead is left alone.
+
+  private dailyTimer: ReturnType<typeof setInterval> | null = null;
+  private dailyBusy = false;
+  /** Accounts that need today's login to move a backpack day closer: not yet in the world today, a backpack day ahead, no backpack job on them (its login counts). A busy one is waited for (dailyLoginOne). */
+  dailyLoginPicks(nowMs = this.now()): BotAccount[] {
+    const out: BotAccount[] = [];
+    for (const acc of this.o.sd.pool.every()) {
+      if (acc.suspended) continue;
+      const st = this.o.store.for(acc);
+      syncCycle(st, this.o.store.calendarLayout(), nowMs);
+      if (!needsLoginToday(st, nowMs) || !eligibleForTrip(st, nowMs) || !pendingBackpackDay(st)) continue;
+      if (this.jobs.has(acc.guid)) continue;
+      out.push(acc);
+    }
+    return out;
+  }
+  /** Start the daily pass: a check every `everyMs`, the first one soon after start. */
+  startDailyLogins(everyMs = DAILY_LOGIN_EVERY_MS, firstMs = DAILY_LOGIN_FIRST_MS): void {
+    if (this.dailyTimer) return;
+    const tick = () => void this.dailyLoginPass();
+    setTimeout(tick, firstMs).unref?.();
+    this.dailyTimer = setInterval(tick, everyMs);
+    this.dailyTimer.unref?.();
+  }
+  stopDailyLogins(): void {
+    if (this.dailyTimer) clearInterval(this.dailyTimer);
+    this.dailyTimer = null;
+  }
+  /**
+   * How many daily logins run at once: one per exit IP the proxy list has
+   * switched on (onlineCapFor: DIRECT_ONLINE_BOTS without a list), or the
+   * BACKPACK_LOGIN_CONCURRENCY override. Each login claims its own exit, so
+   * more workers than hosts would only wait.
+   */
+  private loginConcurrency(): number {
+    if (LOGIN_CONCURRENCY_OVERRIDE !== null) return LOGIN_CONCURRENCY_OVERRIDE;
+    return Math.max(1, onlineCapFor(this.o.sd.deps.proxies.exclusiveCapacity()));
+  }
+  /** One pass over dailyLoginPicks, one per exit IP at a time. */
+  async dailyLoginPass(): Promise<{ picked: number; ok: number; failed: number; skipped: number }> {
+    const out = { picked: 0, ok: 0, failed: 0, skipped: 0 };
+    if (this.dailyBusy) return out;
+    this.dailyBusy = true;
+    try {
+      const picks = this.dailyLoginPicks();
+      out.picked = picks.length;
+      if (!picks.length) return out;
+      this.log(`backpacks: daily login for ${picks.length} account(s) with a backpack day ahead`);
+      const run = freshRun();
+      await this.each(run, () => false, picks, this.loginConcurrency(), LOGIN_STAGGER_MS, (acc) => this.dailyLoginOne(acc));
+      out.ok = run.ok;
+      out.failed = run.failed;
+      out.skipped = run.skipped;
+      this.log(`backpacks: daily login done — ${run.ok} ok, ${run.failed} failed, ${run.skipped} skipped`);
+      return out;
+    } finally {
+      this.dailyBusy = false;
+      this.o.store.requestSave();
+    }
+  }
+  /**
+   * One account's daily login, once the account is free (whenFree): a busy,
+   * online, paused or locked account is waited for rather than skipped. One
+   * brought into the world meanwhile by something else (a trade, a trip, a
+   * backpack job) needs no login of its own.
+   */
+  private async dailyLoginOne(acc: BotAccount): Promise<"ok" | "failed" | "skipped"> {
+    const st = this.o.store.for(acc);
+    let verdict: "ok" | "failed" | "skipped" = "skipped";
+    await this.whenFree(acc, "daily login for the backpack calendar", async () => {
+      verdict = await this.dailyLogin(acc);
+    }, { wanted: () => needsLoginToday(st, this.now()) && !this.jobs.has(acc.guid) });
+    return verdict;
+  }
+  private async dailyLogin(acc: BotAccount): Promise<"ok" | "failed" | "skipped"> {
+    const { sd, store } = this.o;
+    const st = store.for(acc);
+    this.setActivity(acc.guid, "daily login for the backpack calendar");
+    let client: GameClient | null = null;
+    try {
+      client = await (sd.deps.bringUp ?? bringUp)(sd.deps, acc, acc.info.server ?? "USSouth3");
+      await waitFor(client, () => inWorld(client!, NEXUS_MAP), TIMEOUTS.inWorldMs, "the Nexus");
+      syncCycle(st, store.calendarLayout(), this.now());
+      noteLogin(st, this.now());
+      if (calendarDue(st, this.now())) {
+        const cal = await fetchCalendar(client.token, client.proxy);
+        if (cal.ok) {
+          applyCalendar(st, cal.value, this.now());
+          store.noteCalendar(cal.value, this.now());
+        }
+      }
+      const next = pendingBackpackDay(st);
+      this.log(`backpacks: ${acc.alias}: daily login done${next ? `; ${next.track} day ${next.day} pays ${next.quantity} backpack(s), the counter is at ${next.current}` : "; nothing ahead now"}${reachedBackpackDays(st).length ? " — a backpack day is reached: claim it from the Accounts tab" : ""}`);
+      st.lastError = null;
+      return "ok";
+    } catch (e) {
+      const verdict = e instanceof BringUpRefused ? e.verdict : "failed";
+      st.lastError = `daily login: ${verdict === "failed" ? (e as Error).message : verdict}`;
+      if (verdict === "failed") st.lastErrorAt = Math.floor(this.now() / 1000);
+      return verdict === "failed" ? "failed" : "skipped";
+    } finally {
+      if (client) takeDown(sd.deps, acc, "daily login done");
+      this.setActivity(acc.guid, null);
+      store.requestSave();
+    }
+  }
+
+  /**
+   * Reads with a token somebody else already has (the storage read's): the
+   * character list every time; the calendar once per cycle (calendarDue),
+   * which for a new account is its first read. The daily logins move the
+   * counters along from there.
+   */
+  async refreshFromToken(acc: BotAccount, token: string, proxy: Proxy | null): Promise<void> {
+    const { store, sd } = this.o;
+    const st = store.for(acc);
+    const now = this.now();
+    try {
+      const cl = await getCharListDetail(token, proxy);
+      if (cl.ok) {
+        applyCharList(st, cl.value, now, acc.info.charId ?? null);
+        if (st.hasBackpack !== null) sd.tracker.noteCapacity(acc.botGuid, capacityOf(st));
+      }
+      syncCycle(st, store.calendarLayout(), now);
+      if (!calendarDue(st, now)) return;
+      const cal = await fetchCalendar(token, proxy);
+      if (cal.ok) {
+        // Calibration (the old notes' §9.1): does an HTTP-only visit advance the login-day counter?
+        const before = { nonconCurDay: st.nonconCurDay, lastAuditAt: st.lastAuditAt, lastLoginAt: st.lastLoginAt };
+        const obs = observeVerifyLogin(store.observed, before, cal.value.nonconsecutiveDay, now);
+        if (obs.verifyCountsAsLogin !== store.observed.verifyCountsAsLogin) this.log(`backpacks: calibration — an HTTP read ${obs.verifyCountsAsLogin ? "DOES" : "does NOT"} count as a login day (${obs.verifyLoginYes} yes / ${obs.verifyLoginNo} no)`);
+        store.observed = obs;
+        applyCalendar(st, cal.value, now);
+        store.noteCalendar(cal.value, now);
+        if (store.observed.verifyCountsAsLogin === true) noteLogin(st, now);
+      } else this.log(`backpacks: ${acc.alias}: calendar not read with the snapshot's token: ${cal.error.kind}`);
+      if (!store.seasonFresh(now)) {
+        const s = await getSeasonInfo(token, proxy);
+        if (s.ok) store.noteSeason(s.value, now);
+      }
+    } finally {
+      store.requestSave();
+    }
+  }
   private setActivity(guid: string, label: string | null): void {
     if (label === null) this.activity.delete(guid);
     else this.activity.set(guid, label);
   }
 
   // Runs ---------------------------------------------------------------------------
-
-  startAudit(opts: { limit?: number; guids?: string[]; unauditedOnly?: boolean } = {}): RunState {
-    if (this.audit.running) throw new Error("a backpack audit is already running");
-    this.auditCancel = false;
-    Object.assign(this.audit, freshRun(), { running: true, mode: "audit", startedAt: this.now() / 1000 });
-    void this.runAudit(opts);
-    return { ...this.audit };
-  }
-  cancelAudit(): boolean {
-    if (!this.audit.running) return false;
-    this.auditCancel = true;
-    return true;
-  }
-  startChore(opts: { mode: "dry" | "live"; limit?: number; guids?: string[]; equip?: boolean; plan?: boolean; buffer?: number }): RunState {
-    if (this.chore.running) throw new Error("a backpack chore is already running");
-    if (opts.plan) {
-      // Claim as needed: only the accounts the plan picks, and equip them.
-      const p = this.plan(opts.buffer);
-      const picked = [...p.seasonal.picks, ...p.nonseasonal.picks].map((x) => x.botGuid);
-      opts = { ...opts, equip: true, guids: picked };
-      this.log(`backpacks: plan (headroom ${p.nonseasonal.bufferMode === "growth" ? `${p.nonseasonal.gainPerDay?.toFixed(1)}/day x ${p.nonseasonal.horizonDays}d` : `${p.buffer * 100}% of stock`}) — seasonal stock ${p.seasonal.stock} on ${p.seasonal.bots} bots, ${p.seasonal.backpackBots} with backpacks, need ${p.seasonal.needBots}, claiming on ${p.seasonal.picks.length}; non-seasonal stock ${p.nonseasonal.stock} on ${p.nonseasonal.bots} bots, ${p.nonseasonal.backpackBots} with backpacks, need ${p.nonseasonal.needBots}, claiming on ${p.nonseasonal.picks.length}`);
-      if (!picked.length) throw new Error("the plan picks no account: every pool's stock already fits on its backpack bots");
-    }
-    this.choreCancel = false;
-    Object.assign(this.chore, freshRun(), { running: true, mode: opts.mode, startedAt: this.now() / 1000 });
-    void this.runChore(opts);
-    return { ...this.chore };
-  }
-  cancelChore(): boolean {
-    if (!this.chore.running) return false;
-    this.choreCancel = true;
-    return true;
-  }
-  /** Log every account that has not been in the world today into the Nexus once (and straight out), so the calendar counts the day. */
-  private pick(opts: { limit?: number; guids?: string[] }): BotAccount[] {
-    let accounts = this.o.sd.pool.every().filter((a) => !a.suspended);
-    if (opts.guids?.length) {
-      const want = new Set(opts.guids);
-      accounts = accounts.filter((a) => want.has(a.guid) || want.has(a.botGuid) || want.has(a.alias));
-    }
-    if (opts.limit && opts.limit > 0) accounts = accounts.slice(0, opts.limit);
-    return accounts;
-  }
 
   /** A worker pool over `accounts`, bounded by `concurrency`, staggered, cancellable. */
   private async each(run: RunState, cancelled: () => boolean, accounts: BotAccount[], concurrency: number, stagger: number, one: (acc: BotAccount) => Promise<"ok" | "failed" | "skipped">): Promise<void> {
@@ -896,196 +914,16 @@ export class BackpackService {
     this.o.store.for(acc).lastError = error;
   }
 
-  // Audit ---------------------------------------------------------------------------
-
-  private async runAudit(opts: { limit?: number; guids?: string[]; unauditedOnly?: boolean }): Promise<void> {
-    const { store } = this.o;
-    try {
-      let accounts = this.pick({ guids: opts.guids });
-      if (opts.unauditedOnly) accounts = accounts.filter((a) => store.for(a).lastAuditAt === null);
-      if (opts.limit && opts.limit > 0) accounts = accounts.slice(0, opts.limit);
-      this.log(`backpacks: auditing ${accounts.length} account(s) over HTTP, <= ${AUDIT_CONCURRENCY} at once`);
-      await this.each(this.audit, () => this.auditCancel, accounts, AUDIT_CONCURRENCY, AUDIT_STAGGER_MS, (acc) => this.auditOne(acc));
-    } finally {
-      try {
-        this.plan();
-      } catch { /* sampling only */ }
-      store.save();
-      this.audit.running = false;
-      this.audit.finishedAt = this.now() / 1000;
-      this.audit.current = [];
-      const s = store.summary();
-      this.log(`backpacks: audit done — ${this.audit.ok} ok, ${this.audit.failed} failed, ${this.audit.skipped} skipped (${this.audit.suspended} suspended, retired); ${s.withBackpack} character(s) with a backpack, ${s.claimableBackpacks} backpack(s) claimable on ${s.claimableDays} day(s)${this.audit.stoppedReason ? ` (${this.audit.stoppedReason})` : ""}`);
-    }
-  }
-
-  /** A token for read-only calls: the live session's when the bot is online, else a fresh login through a pool proxy. */
-  private async tokenFor(acc: BotAccount): Promise<{ token: string; proxy: Proxy | null; release: () => void } | { skip: string }> {
-    const { deps } = this.o.sd;
-    const c = acc.client;
-    if (c && c.active && c.isReady && c.token) return { token: c.token, proxy: c.proxy, release: () => {} };
-    if (deps.gate.pausedRemainingMs() > 0) return { skip: "logins paused" };
-    if (deps.gate.lockoutRemainingMs(acc.guid) > 0) return { skip: "login-locked" };
-    if (!acc.info.guid || (!acc.info.password && !acc.info.secret)) return { skip: "no credentials" };
-    let proxy: Proxy | null = null;
-    let release = () => {};
-    if (this.o.auditProxy) proxy = this.o.auditProxy();
-    else if (deps.proxies.configured) {
-      const key = `audit:${acc.guid}`;
-      proxy = deps.proxies.claim(key);
-      if (!proxy) return { skip: "no free proxy" };
-      release = () => deps.proxies.release(key);
-    }
-    const auth = await getAccessToken({ guid: acc.info.guid, password: acc.info.password, secret: acc.info.secret }, clientTokenFor(acc.info.guid, acc.info.password ?? acc.info.secret ?? ""), proxy);
-    if (!auth.ok) {
-      release();
-      const e = auth.error;
-      if (e.kind === "attempt-limit") deps.gate.noteAttemptLimit(acc.guid, e.lockoutSeconds);
-      else if (e.kind === "account-in-use") deps.gate.noteCooldown(acc.guid, e.seconds, "account in use (audit)");
-      else if (e.kind === "suspended") deps.pool.markSuspended(acc.guid);
-      throw new Error(`auth ${e.kind}${"detail" in e ? `: ${e.detail}` : "body" in e ? ` :: ${String(e.body).slice(0, 160).replace(/\s+/g, " ")}` : ""} via ${proxy?.host ?? "direct"}`);
-    }
-    deps.gate.noteLoginSuccess();
-    return { token: auth.value, proxy, release };
-  }
-
-  private async auditOne(acc: BotAccount): Promise<"ok" | "failed" | "skipped"> {
-    const { store } = this.o;
-    const st = store.for(acc);
-    st.lastAuditTriedAt = Math.floor(this.now() / 1000);
-    const t = await this.tokenFor(acc);
-    if ("skip" in t) {
-      st.lastError = t.skip;
-      return "skipped";
-    }
-    try {
-      const now = this.now();
-      const cl = await getCharListDetail(t.token, t.proxy);
-      if (!cl.ok && cl.error.kind === "suspended") {
-        // Realm: "This account has been suspended for breaching Terms of Service". Retire it like a failed bring-up does.
-        retireSuspended(this.o.sd.deps, acc);
-        st.lastError = "suspended";
-        this.audit.suspended++;
-        return "skipped";
-      }
-      if (!cl.ok) throw new Error(`char/list ${cl.error.kind}${"body" in cl.error ? ` :: ${String(cl.error.body).slice(0, 160).replace(/\s+/g, " ")}` : "detail" in cl.error ? ` :: ${cl.error.detail}` : ""} via ${t.proxy?.host ?? "direct"}`);
-      applyCharList(st, cl.value, now, acc.info.charId ?? null);
-      // char/list's BackpackSlots is the one capacity source that needs no game login.
-      if (st.hasBackpack !== null) this.o.sd.tracker.noteCapacity(acc.botGuid, capacityOf(st));
-      const cal = await fetchCalendar(t.token, t.proxy);
-      if (!cal.ok) throw new Error(`calendar ${cal.error.kind}${"body" in cal.error ? ` :: ${String(cal.error.body).slice(0, 160).replace(/\s+/g, " ")}` : ""}`);
-      // Calibration (docs §9.1): did an HTTP-only visit advance the login-day counter?
-      const before = { nonconCurDay: st.nonconCurDay, lastAuditAt: st.lastAuditAt, lastLoginAt: st.lastLoginAt };
-      const obs = observeVerifyLogin(store.observed, before, cal.value.nonconsecutiveDay, now);
-      if (obs.verifyCountsAsLogin !== store.observed.verifyCountsAsLogin) this.log(`backpacks: calibration — an HTTP audit ${obs.verifyCountsAsLogin ? "DOES" : "does NOT"} count as a login day (${obs.verifyLoginYes} yes / ${obs.verifyLoginNo} no); the login lane ${obs.verifyCountsAsLogin ? "switches to HTTP" : "stays in game"}`);
-      store.observed = obs;
-      applyCalendar(st, cal.value, now);
-      if (store.observed.verifyCountsAsLogin === true) noteLogin(st, now);
-      store.noteServerTime(cal.value.serverTime);
-      if (!store.seasonFresh(now)) {
-        const s = await getSeasonInfo(t.token, t.proxy);
-        if (s.ok) store.noteSeason(s.value, now);
-        else this.log(`backpacks: season/seasonInfo failed (${s.error.kind}) — keeping the cached clock`);
-      }
-      st.lastError = null;
-      return "ok";
-    } finally {
-      t.release();
-    }
-  }
-
-  // Chore ---------------------------------------------------------------------------
-
-  private async runChore(opts: { mode: "dry" | "live"; limit?: number; guids?: string[]; equip?: boolean }): Promise<void> {
-    const { store } = this.o;
-    const policy: ChorePolicy = { equip: opts.equip ?? false };
-    try {
-      const accounts = this.pick(opts);
-      this.log(`backpacks: ${opts.mode} chore over ${accounts.length} account(s), <= ${CHORE_CONCURRENCY} at once, equip=${policy.equip}`);
-      await this.each(this.chore, () => this.choreCancel, accounts, CHORE_CONCURRENCY, CHORE_STAGGER_MS, (acc) => this.choreOne(acc, opts.mode, policy));
-    } finally {
-      store.save();
-      this.chore.running = false;
-      this.chore.finishedAt = this.now() / 1000;
-      this.chore.current = [];
-      this.log(`backpacks: ${opts.mode} chore done — ${this.chore.ok} ok, ${this.chore.failed} failed, ${this.chore.skipped} skipped${this.chore.stoppedReason ? ` (${this.chore.stoppedReason})` : ""}`);
-    }
-  }
-
-  private async choreOne(acc: BotAccount, mode: "dry" | "live", policy: ChorePolicy): Promise<"ok" | "failed" | "skipped"> {
-    const { sd, store, holds } = this.o;
-    const st = store.for(acc);
-    const c = acc.client;
-    if ((c && c.active) || acc.assignedRequestId !== null || acc.inUse) {
-      st.lastError = "online or busy";
-      return "skipped";
-    }
-    if (sd.deps.gate.lockoutRemainingMs(acc.guid) > 0 || sd.deps.gate.pausedRemainingMs() > 0) {
-      st.lastError = "login-locked";
-      return "skipped";
-    }
-    holds.add(acc.guid);
-    this.setActivity(acc.guid, `backpack chore (${mode}): logging in`);
-    let client: GameClient;
-    try {
-      client = await (sd.deps.bringUp ?? bringUp)(sd.deps, acc, acc.info.server ?? "USSouth3");
-    } catch (e) {
-      holds.delete(acc.guid);
-      this.setActivity(acc.guid, null);
-      const verdict = e instanceof BringUpRefused ? e.verdict : "failed";
-      st.lastError = `bring-up ${verdict}`;
-      return verdict === "failed" ? "failed" : "skipped";
-    }
-    try {
-      const r = await runChoreTrip(client, {
-        mode, policy, state: st, log: (l) => this.log(`backpacks: ${acc.alias}: ${l}`), now: this.now,
-        onStep: (label) => this.setActivity(acc.guid, `backpack chore (${mode}): ${label}`),
-      });
-      if (client.charSeasonal !== null) sd.pool.setSeasonal(acc, client.charSeasonal);
-      const snap = snapshotInventory(client);
-      // char/list (the audit) and a confirmed equip outrank a silent stat 79.
-      const hasBp = client.hasBackpack || r.equipped || st.hasBackpack === true;
-      sd.tracker.updateFromSlots(acc.botGuid, snap.slots, hasBp ? Math.max(16, snap.capacity) : 8);
-      if (client.playerData.name) sd.tracker.recordIgn(acc.botGuid, client.playerData.name);
-      st.hasBackpack = hasBp;
-      st.held = Object.keys(snap.slots).length;
-      noteLogin(st, this.now());
-      noteChoreOutcome(st, r.ok, r.error, this.now());
-      this.chore.claimed += r.claimed.reduce((n, d) => n + d.quantity, 0);
-      if (r.equipped) this.chore.equipped++;
-      this.log(`backpacks: ${acc.alias}: ${r.summary}`);
-      return r.ok ? "ok" : "failed";
-    } finally {
-      takeDown(sd.deps, acc, "backpack chore done");
-      holds.delete(acc.guid);
-      this.setActivity(acc.guid, null);
-      store.requestSave();
-    }
-  }
 }
 
-/** An order the dispatcher stops renewing (the deposit was served or aged out) lapses after this. */
-const ORDER_TTL_MS = 5 * 60_000;
-/** Trips spent on one order before giving up on it: a bot that fails to equip twice is the lane's problem, not the player's wait. */
-const ORDER_MAX_TRIPS = 3;
-const CHORE_CONCURRENCY = Number(process.env.BACKPACK_CHORE_CONCURRENCY ?? 2);
-const RECYCLE_CONCURRENCY = Number(process.env.BACKPACK_RECYCLE_CONCURRENCY ?? 2);
-const LOGIN_CONCURRENCY = Number(process.env.BACKPACK_LOGIN_CONCURRENCY ?? 10);
-const LOGIN_STAGGER_MS = Number(process.env.BACKPACK_LOGIN_STAGGER_MS ?? 500);
-const CHORE_STAGGER_MS = Number(process.env.BACKPACK_CHORE_STAGGER_MS ?? 3000);
+const LOGIN_CONCURRENCY_OVERRIDE = process.env.BACKPACK_LOGIN_CONCURRENCY ? Math.max(1, Number(process.env.BACKPACK_LOGIN_CONCURRENCY) || 1) : null;
+const LOGIN_STAGGER_MS = Number(process.env.BACKPACK_LOGIN_STAGGER_MS ?? 3000);
+/** How often the daily-login pass looks for accounts that still need today's login, and how soon after start. */
+const DAILY_LOGIN_EVERY_MS = Number(process.env.BACKPACK_DAILY_LOGIN_EVERY_S ?? 1800) * 1000;
+const DAILY_LOGIN_FIRST_MS = Number(process.env.BACKPACK_DAILY_LOGIN_FIRST_S ?? 120) * 1000;
 
-// --- the trip itself ------------------------------------------------------------------
+// --- the two halves of a backpack trip --------------------------------------------------
 
-export interface TripOptions {
-  mode: "dry" | "live";
-  policy: ChorePolicy;
-  state: AccountBackpackState;
-  log: (line: string) => void;
-  now: () => number;
-  timeouts?: Partial<typeof TIMEOUTS>;
-  /** Called as the trip moves from phase to phase, with a short label for the operator console. */
-  onStep?: (label: string) => void;
-}
 export const TIMEOUTS = {
   inWorldMs: 30_000,
   settleMs: 2_000,
@@ -1105,173 +943,159 @@ export const TIMEOUTS = {
   chestReach: 0.6,
   useItemAttempts: 2,
 };
-export interface TripResult {
-  ok: boolean;
-  error: string | null;
-  summary: string;
+/** One claim pass: the Daily Quest Room, every reached backpack day claimed, the calendar re-read. The client stays in the quest room. */
+export interface ClaimOutcome {
   claimed: BackpackDayState[];
-  banked: number | null;
-  equipped: boolean;
+  steps: string[];
+  /** The quest room has its own Vault Portal in view (the proxy went straight through it). */
+  vaultPortalHere: boolean;
+}
+export async function claimBackpackDays(client: GameClient, state: AccountBackpackState, T: typeof TIMEOUTS, log: (l: string) => void, step: (l: string) => void, now: () => number): Promise<ClaimOutcome> {
+  const out: ClaimOutcome = { claimed: [], steps: [], vaultPortalHere: false };
+  step("going to the Daily Quest Room");
+  const arrived = nextPacket(client, "MAPINFO", T.mapChangeMs, (p) => p.name === QUEST_ROOM_MAP);
+  const roomChatter = captureChatter(client);
+  client.send("GOTOQUESTROOM", {});
+  const gotRoom = await arrived;
+  const roomHeard = roomChatter.stop();
+  if (!gotRoom) throw new Error(`GOTOQUESTROOM did not lead to the Daily Quest Room${roomHeard.length ? ` [${roomHeard.join("; ")}]` : ""}`);
+  await waitFor(client, () => inWorld(client, QUEST_ROOM_MAP), T.inWorldMs, "the Daily Quest Room");
+  await sleep(T.questRoomSettleMs);
+  // Fetched from inside the room, as the proxy did for every claim that worked.
+  const inRoom = await fetchCalendar(client.token, client.proxy);
+  if (!inRoom.ok) throw new Error(`calendar (quest room) ${inRoom.error.kind}`);
+  const days = backpackDays(inRoom.value).filter((d) => d.claimable);
+  step(`claiming ${days.length} backpack day(s)`);
+  for (const d of days) {
+    let done = false;
+    for (let attempt = 1; attempt <= T.claimAttempts && !done; attempt++) {
+      const chatter = captureChatter(client);
+      const verdict = nextPacket(client, "CLAIMREWARDRESULT", T.claimVerdictMs, (p) => p.claimKey === d.day.key);
+      client.send("CLAIMDAILYLOGINREWARD", { claimKey: d.day.key!, claimType: d.track });
+      const v = await verdict;
+      const heard = chatter.stop();
+      if (v?.success) {
+        done = true;
+        const key = `${monthKey(inRoom.value.serverTime)}:${d.track}:${d.day.day}`;
+        if (!state.claimed.includes(key)) state.claimed.push(key);
+        out.claimed.push({ track: d.track, day: d.day.day, quantity: d.day.quantity, claimable: false });
+        out.steps.push(`claimed ${d.track} day ${d.day.day} (${d.day.quantity}x backpack)`);
+      } else {
+        out.steps.push(`claim of ${d.track} day ${d.day.day} attempt ${attempt} ${v ? "refused" : "got no verdict"}${heard.length ? ` [${heard.join("; ")}]` : ""}`);
+        if (!v && attempt < T.claimAttempts) await sleep(3000);
+      }
+    }
+  }
+  const again = await fetchCalendar(client.token, client.proxy);
+  if (again.ok) applyCalendar(state, again.value, now());
+  out.vaultPortalHere = [...client.world.entities.values()].some((e) => e.type === VAULT_PORTAL_TYPE);
+  log(`claim pass: ${out.claimed.length} of ${days.length} day(s) claimed`);
+  return out;
 }
 
-/**
- * One account's trip, on an already-connected client headed for the Nexus.
- * Never throws for game-side failures: the result says how far it got.
- */
-export async function runChoreTrip(client: GameClient, o: TripOptions): Promise<TripResult> {
-  const T = { ...TIMEOUTS, ...o.timeouts };
-  const res: TripResult = { ok: false, error: null, summary: "", claimed: [], banked: null, equipped: false };
-  const steps: string[] = [];
-  const live = o.mode === "live";
-  const step = (label: string) => o.onStep?.(label);
-  try {
-    step("waiting for the Nexus");
-    await waitFor(client, () => inWorld(client, NEXUS_MAP), T.inWorldMs, "the Nexus");
-    await sleep(T.settleMs);
-    steps.push(`in the Nexus as ${client.playerData.name}${client.hasBackpack ? " (has backpack)" : ""}`);
-
-    // 1. Calendar and claims.
-    step("reading the calendar");
-    const cal = await fetchCalendar(client.token, client.proxy);
-    if (!cal.ok) throw new Error(`calendar ${cal.error.kind}`);
-    applyCalendar(o.state, cal.value, o.now());
-    const decision = decide(o.state, o.policy);
-    steps.push(decision.reasons.join("; "));
-    if (decision.claim.length) {
-      if (!live) steps.push(`dry: would claim ${decision.claim.length} day(s)`);
-      else {
-        step("going to the Daily Quest Room");
-        const arrived = nextPacket(client, "MAPINFO", T.mapChangeMs, (p) => p.name === QUEST_ROOM_MAP);
-        const roomChatter = captureChatter(client);
-        client.send("GOTOQUESTROOM", {});
-        const gotRoom = await arrived;
-        const roomHeard = roomChatter.stop();
-        if (!gotRoom) throw new Error(`GOTOQUESTROOM did not lead to the Daily Quest Room${roomHeard.length ? ` [${roomHeard.join("; ")}]` : ""}`);
-        await waitFor(client, () => inWorld(client, QUEST_ROOM_MAP), T.inWorldMs, "the Daily Quest Room");
-        await sleep(T.questRoomSettleMs);
-        // Fetched from inside the room, as the proxy did for every claim that worked.
-        const inRoom = await fetchCalendar(client.token, client.proxy);
-        if (!inRoom.ok) throw new Error(`calendar (quest room) ${inRoom.error.kind}`);
-        const days = backpackDays(inRoom.value).filter((d) => d.claimable);
-        step(`claiming ${days.length} backpack day(s)`);
-        for (const d of days) {
-          let done = false;
-          for (let attempt = 1; attempt <= T.claimAttempts && !done; attempt++) {
-            const chatter = captureChatter(client);
-            const verdict = nextPacket(client, "CLAIMREWARDRESULT", T.claimVerdictMs, (p) => p.claimKey === d.day.key);
-            client.send("CLAIMDAILYLOGINREWARD", { claimKey: d.day.key!, claimType: d.track });
-            const v = await verdict;
-            const heard = chatter.stop();
-            if (v?.success) {
-              done = true;
-              const key = `${monthKey(inRoom.value.serverTime)}:${d.track}:${d.day.day}`;
-              if (!o.state.claimed.includes(key)) o.state.claimed.push(key);
-              res.claimed.push({ track: d.track, day: d.day.day, quantity: d.day.quantity, claimable: false });
-              steps.push(`claimed ${d.track} day ${d.day.day} (${d.day.quantity}x backpack)`);
-            } else {
-              steps.push(`claim of ${d.track} day ${d.day.day} attempt ${attempt} ${v ? "refused" : "got no verdict"}${heard.length ? ` [${heard.join("; ")}]` : ""}`);
-              if (!v && attempt < T.claimAttempts) await sleep(3000);
-            }
-          }
-        }
-        const again = await fetchCalendar(client.token, client.proxy);
-        if (again.ok) applyCalendar(o.state, again.value, o.now());
-        // The quest room has its own Vault Portal (the proxy went straight through it); else back to the Nexus.
-        const here = [...client.world.entities.values()].some((e) => e.type === VAULT_PORTAL_TYPE);
-        if (!here) {
-          const back = nextPacket(client, "MAPINFO", T.mapChangeMs, (p) => p.name === NEXUS_MAP);
-          client.nexus();
-          if (!(await back)) throw new Error("did not get back to the Nexus after the quest room");
-          await waitFor(client, () => inWorld(client, NEXUS_MAP), T.inWorldMs, "the Nexus (back from the quest room)");
-          await sleep(T.settleMs);
-        } else steps.push("using the quest room's own Vault Portal");
-      }
-    }
-
-    // 2. The vault.
-    step("walking to the Vault Portal");
-    const vault = await enterVault(client, T, o.log);
-    step("reading the Gift Chest");
-    const banked = vault.gift.slots.filter((t) => t === BACKPACK_ITEM_TYPE).length;
-    o.state.banked = banked;
-    o.state.lastVaultAt = o.now();
-    res.banked = banked;
-    steps.push(`gift chest #${vault.gift.objectId}: ${banked} backpack(s) banked, ${vault.gift.slots.filter((t) => t > 0).length} item(s) total`);
-
-    // 3. Equip.
-    const after = decide(o.state, o.policy, banked);
-    if (after.equip && banked > 0) {
-      if (!live) steps.push("dry: would use a backpack from the chest");
-      else {
-        step("using a backpack from the Gift Chest");
-        const chest = client.world.entities.get(vault.gift.objectId);
-        if (!chest) throw new Error("the Gift Chest VAULTINFO named is not in view");
-        await walkTo(client, chest.pos, T.chestReach, T.walkMs, "the Gift Chest");
-        await sleep(1000);
-        const slot = vault.gift.slots.indexOf(BACKPACK_ITEM_TYPE);
-        let confirmed = "";
-        let consumed = true;
-        let lastFail = "";
-        for (let attempt = 1; attempt <= T.useItemAttempts && !confirmed; attempt++) {
-          const me = client.pos ?? chest.pos;
-          const chatter = captureChatter(client);
-          client.send("USEITEM", {
-            time: client.getTime(), slotObject: { objectId: vault.gift.objectId, slotId: slot, objectType: BACKPACK_ITEM_TYPE },
-            pos: { ...me }, useType: 0, unknownInt: 0,
-          });
-          o.log(`USEITEM backpack from chest #${vault.gift.objectId} slot ${slot} (attempt ${attempt}), ${dist(me, chest.pos).toFixed(2)} tiles from the chest at (${chest.pos.x.toFixed(1)},${chest.pos.y.toFixed(1)})`);
-          // Success shows as INVRESULT ok=true, stat 79 (not on every account),
-          // or the chest's first-page slot no longer holding a backpack; "already used" means
-          // the character had one (an earlier attempt landed); INVRESULT
-          // ok=false kind=1 is a refusal. char/list lags until the character
-          // saves, so it is only the last resort.
-          const chestSlot = () => (slot < 8 ? client.world.entities.get(vault.gift.objectId)?.inv?.[slot] : undefined);
-          const before = chestSlot();
-          const deadline = Date.now() + T.useItemMs;
-          let refused = false;
-          while (Date.now() < deadline && !confirmed && !refused) {
-            if (client.playerData.hasBackpack) confirmed = "HASBACKPACK stat";
-            // INVRESULT ok=true kind=1 answered the USEITEM that applied a backpack live (2026-09-07); stat 79 and char/list both lagged.
-            else if (chatter.seen.some((x) => x.startsWith("INVRESULT ok=true kind=1"))) confirmed = "server accepted the USEITEM (INVRESULT ok)";
-            else if (before === BACKPACK_ITEM_TYPE && chestSlot() !== BACKPACK_ITEM_TYPE) confirmed = "the chest slot emptied";
-            else if (chatter.seen.some((x) => x.includes("s.backpack_already_used"))) {
-              confirmed = "server: backpack already used (an earlier attempt landed)";
-              consumed = false;
-            } else if (chatter.seen.some((x) => x.startsWith("INVRESULT ok=false kind=1"))) refused = true;
-            else await sleep(150);
-          }
-          const heard = chatter.stop();
-          if (heard.length) o.log(`during USEITEM attempt ${attempt}: ${heard.join("; ")}`);
-          if (confirmed) break;
-          if (refused) {
-            lastFail = `the server refused the USEITEM${heard.length ? ` [${heard.join("; ")}]` : ""}`;
-            steps.push(`USEITEM attempt ${attempt}: ${lastFail}`);
-            await sleep(1500);
-            continue;
-          }
-          const cl = await getCharListDetail(client.token, client.proxy);
-          if (cl.ok && (cl.value.chars[0]?.hasBackpack ?? false)) confirmed = "char/list BackpackSlots=8";
-          else {
-            lastFail = `no HASBACKPACK, chest slot unchanged, char/list BackpackSlots ${cl.ok ? cl.value.chars[0]?.backpackSlots ?? "?" : cl.error.kind}${heard.length ? ` [${heard.join("; ")}]` : ""}`;
-            steps.push(`USEITEM attempt ${attempt}: ${lastFail}`);
-          }
-        }
-        if (!confirmed) throw new Error(`the backpack was not applied (${lastFail})`);
-        o.state.hasBackpack = true;
-        client.knownBackpack = true;
-        o.state.banked = consumed ? banked - 1 : banked;
-        res.banked = o.state.banked;
-        res.equipped = true;
-        steps.push(`backpack applied: 16 slots, confirmed by ${confirmed}`);
-      }
-    }
-    res.ok = true;
-    step("done, logging out");
-  } catch (e) {
-    res.error = (e as Error).message;
-    steps.push(`FAILED: ${res.error}`);
-    step("failed, logging out");
+/** Where a backpack sits in a Vault view: the gift chest first (where the calendar puts them), then the vault chests, then the spoils chest. */
+export function findBackpack(view: VaultView): { kind: "gift" | "vault" | "spoils"; objectId: number; slot: number } | null {
+  for (const kind of ["gift", "vault", "spoils"] as const) {
+    const slot = view[kind].slots.indexOf(BACKPACK_ITEM_TYPE);
+    if (slot !== -1 && view[kind].objectId >= 0) return { kind, objectId: view[kind].objectId, slot };
   }
-  res.summary = `${o.mode}: ${steps.join(" | ")}`;
-  return res;
+  return null;
+}
+/** Backpacks in every chest of a Vault view. */
+export function backpacksIn(view: VaultView): number {
+  return (["gift", "vault", "spoils"] as const).reduce((n, k) => n + view[k].slots.filter((t) => t === BACKPACK_ITEM_TYPE).length, 0);
+}
+const CHEST_LABEL = { gift: "Gift Chest", vault: "vault chest", spoils: "spoils chest" } as const;
+
+/** One apply: USEITEM a backpack out of a chest of `view` onto the character, confirmed. `view` comes back with the used slot emptied. */
+export interface ApplyOutcome {
+  applied: boolean;
+  /** Whether the chest slot was spent (false when the server said the character already had one). */
+  consumed: boolean;
+  error: string | null;
+  steps: string[];
+  view: VaultView;
+  /** Backpacks in the chests before the apply. */
+  banked: number;
+}
+export async function applyBackpackFromChest(client: GameClient, view: VaultView, T: typeof TIMEOUTS, log: (l: string) => void, step: (l: string) => void): Promise<ApplyOutcome> {
+  const out: ApplyOutcome = { applied: false, consumed: false, error: null, steps: [], view, banked: backpacksIn(view) };
+  const where = findBackpack(view);
+  if (!where) {
+    out.error = "no backpack in this side's chests";
+    out.steps.push(out.error);
+    return out;
+  }
+  step(`using a backpack from the ${CHEST_LABEL[where.kind]}`);
+  const chest = client.world.entities.get(where.objectId);
+  if (!chest) {
+    out.error = `the ${CHEST_LABEL[where.kind]} VAULTINFO named is not in view`;
+    out.steps.push(out.error);
+    return out;
+  }
+  await walkTo(client, chest.pos, T.chestReach, T.walkMs, `the ${CHEST_LABEL[where.kind]}`);
+  await sleep(1000);
+  let confirmed = "";
+  let consumed = true;
+  let lastFail = "";
+  for (let attempt = 1; attempt <= T.useItemAttempts && !confirmed; attempt++) {
+    const me = client.pos ?? chest.pos;
+    const chatter = captureChatter(client);
+    client.send("USEITEM", {
+      time: client.getTime(), slotObject: { objectId: where.objectId, slotId: where.slot, objectType: BACKPACK_ITEM_TYPE },
+      pos: { ...me }, useType: 0, unknownInt: 0,
+    });
+    log(`USEITEM backpack from ${CHEST_LABEL[where.kind]} #${where.objectId} slot ${where.slot} (attempt ${attempt}), ${dist(me, chest.pos).toFixed(2)} tiles from it at (${chest.pos.x.toFixed(1)},${chest.pos.y.toFixed(1)})`);
+    // Success shows as INVRESULT ok=true, stat 79 (not on every account), or
+    // the chest's first-page slot no longer holding a backpack; "already used"
+    // means the character had one (an earlier attempt landed); INVRESULT
+    // ok=false kind=1 is a refusal. char/list lags until the character saves,
+    // so it is only the last resort.
+    const chestSlot = () => (where.slot < 8 ? client.world.entities.get(where.objectId)?.inv?.[where.slot] : undefined);
+    const before = chestSlot();
+    const deadline = Date.now() + T.useItemMs;
+    let refused = false;
+    while (Date.now() < deadline && !confirmed && !refused) {
+      if (client.playerData.hasBackpack) confirmed = "HASBACKPACK stat";
+      // INVRESULT ok=true kind=1 answered the USEITEM that applied a backpack live (2026-09-07); stat 79 and char/list both lagged.
+      else if (chatter.seen.some((x) => x.startsWith("INVRESULT ok=true kind=1"))) confirmed = "server accepted the USEITEM (INVRESULT ok)";
+      else if (before === BACKPACK_ITEM_TYPE && chestSlot() !== BACKPACK_ITEM_TYPE) confirmed = "the chest slot emptied";
+      else if (chatter.seen.some((x) => x.includes("s.backpack_already_used"))) {
+        confirmed = "server: backpack already used (the character had one)";
+        consumed = false;
+      } else if (chatter.seen.some((x) => x.startsWith("INVRESULT ok=false kind=1"))) refused = true;
+      else await sleep(150);
+    }
+    const heard = chatter.stop();
+    if (heard.length) log(`during USEITEM attempt ${attempt}: ${heard.join("; ")}`);
+    if (confirmed) break;
+    if (refused) {
+      lastFail = `the server refused the USEITEM${heard.length ? ` [${heard.join("; ")}]` : ""}`;
+      out.steps.push(`USEITEM attempt ${attempt}: ${lastFail}`);
+      await sleep(1500);
+      continue;
+    }
+    const cl = await getCharListDetail(client.token, client.proxy);
+    const me2 = cl.ok ? cl.value.chars.find((c) => c.id === client.charId) ?? cl.value.chars[0] : undefined;
+    if (me2?.hasBackpack) confirmed = `char/list BackpackSlots=${me2.backpackSlots}`;
+    else {
+      lastFail = `no HASBACKPACK, chest slot unchanged, char/list BackpackSlots ${cl.ok ? me2?.backpackSlots ?? "?" : cl.error.kind}${heard.length ? ` [${heard.join("; ")}]` : ""}`;
+      out.steps.push(`USEITEM attempt ${attempt}: ${lastFail}`);
+    }
+  }
+  if (!confirmed) {
+    out.error = `the backpack was not applied (${lastFail})`;
+    out.steps.push(out.error);
+    return out;
+  }
+  client.knownBackpack = true;
+  out.applied = true;
+  out.consumed = consumed;
+  if (consumed) {
+    const slots = [...view[where.kind].slots];
+    slots[where.slot] = -1;
+    out.view = { ...view, [where.kind]: { ...view[where.kind], slots } };
+  }
+  out.steps.push(`backpack applied from the ${CHEST_LABEL[where.kind]}: 16 slots, confirmed by ${confirmed}`);
+  return out;
 }

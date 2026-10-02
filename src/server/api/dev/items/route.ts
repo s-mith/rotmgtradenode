@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   if (!auth.ok) return json({ error: auth.error }, { status: auth.status });
   const r = await pyrelay.itemPolicyGet();
   if (!r.ok) return json({ error: r.error }, { status: r.status });
-  return json({ ...r.data, catalog: CATALOG.map((c) => ({ id: c.id, name: c.name, category: c.category })) });
+  return json({ ...r.data, catalog: CATALOG.map((c) => ({ id: c.id, name: c.name, category: c.category, subtype: c.subtype ?? null })) });
 }
 
 export async function POST(req: Request) {

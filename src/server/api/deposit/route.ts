@@ -5,7 +5,6 @@ import { clientIp, rateLimit } from "@/lib/ratelimit";
 import { createDepositRequest } from "@/lib/depositRequest";
 import { sessionFromRequest } from "@/lib/session";
 import { blockMessage, depositBlock } from "@/lib/serverControls";
-import { sessionUser } from "@/lib/users";
 
 // POST /api/deposit — the website's deposit form.
 //
@@ -33,21 +32,15 @@ export async function POST(req: Request) {
   if (block) return json({ error: blockMessage(parsed.server, "deposit", block) }, { status: 403 });
 
   // Which pool the deposit is headed for — the UI's active tab. Only a
-  // matching-pool bot may claim it (seasonal chars trade seasonal players).
-  // A deposit into personal storage lands in the account's vault for that
-  // same half (My Vault has a tab per half).
-  const seasonal: 0 | 1 =
-    (body as Record<string, unknown>)?.seasonal === undefined
-      ? 1
-      : (body as Record<string, unknown>).seasonal
-        ? 1
-        : 0;
-  let vaultUserId: number | undefined;
-  if (parsed.vault) {
-    const me = sessionUser(getDb(), req);
-    if (!me) return json({ error: "Log in to use your vault." }, { status: 401 });
-    vaultUserId = me.userId;
+  // matching-pool bot may claim it (seasonal chars trade seasonal players),
+  // and the game drops trade requests across the split, so a guessed side
+  // means a bot that can never reach the player: it must be said.
+  // A communism deposit goes to a communism account of that same half.
+  const side = (body as Record<string, unknown>)?.seasonal;
+  if (typeof side !== "boolean") {
+    return json({ error: "Say which side the character is on: seasonal true or false." }, { status: 400 });
   }
+  const seasonal: 0 | 1 = side ? 1 : 0;
 
   const created = await createDepositRequest(getDb(), {
     ign: parsed.ign,
@@ -56,7 +49,7 @@ export async function POST(req: Request) {
     slots: parsed.slots,
     seasonal,
     items: parsed.items,
-    vaultUserId,
+    communism: parsed.communism,
   });
   if (!created.ok) {
     return json(

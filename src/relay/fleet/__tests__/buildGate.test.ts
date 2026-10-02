@@ -37,7 +37,7 @@ function setup(build: string, script: (c: FakeClient) => void, opts: { refuse?: 
   const log: string[] = [];
   const versions = new GameVersion({ seed: build, url: null, log: () => {} });
   const deps: FleetDeps = {
-    pool, gate, clients, log: (l) => log.push(l), proxies: ProxyPool.fromSource({ url: null, file: path.join(dir, "none.txt") }), buildVersion: build,
+    pool, gate, clients, log: (l) => log.push(l), proxies: ProxyPool.fromSource({ file: path.join(dir, "none.txt") }), buildVersion: build,
     bringUp: async (d, acc) => {
       if (opts.refuse) throw new Error("no");
       const c = new FakeClient();
@@ -104,5 +104,19 @@ describe("BuildGate", () => {
     t.bg.trust();
     expect(t.gate.holdReason).toBeNull();
     expect(t.bg.status().knownBuilds).toContain("7.0.0.6.0");
+  });
+
+  it("a canary that crosses a RECONNECT must hold the new world: the first arrival's timer does not pass it", async () => {
+    // In world at 10 ms, again at 40 ms (a RECONNECT), dropped at 70 ms: the 50 ms hold restarted at 40 never completes.
+    const t = setup("7.0.0.3.0", (c) => {
+      c.objectId = 5;
+      c.emit("inWorld", 5);
+      setTimeout(() => c.emit("inWorld", 5), 30);
+      setTimeout(() => c.emit("stopped"), 60);
+    });
+    t.bg.start();
+    const r = await t.bg.canary();
+    expect(r).toMatchObject({ ok: false, reason: "session dropped" });
+    expect(t.gate.holdReason).toMatch(/7\.0\.0\.3\.0/);
   });
 });

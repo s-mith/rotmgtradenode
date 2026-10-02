@@ -1,0 +1,144 @@
+# Tests on Linux and Windows for every push and pull request, and the desktop
+# app's installers for a version tag (docs/release.md).
+#
+#   push / pull request  typecheck + npm test, on ubuntu-latest and windows-latest
+#   tag v<version>       the above, then the Windows installer (windows-latest)
+#                        and the Linux AppImage, published to a DRAFT release
+#
+# The tag must match package.json's version. The installer is signed when the
+# signing secrets exist (Azure Artifact Signing, formerly Trusted Signing, or a .pfx certificate) and is
+# built unsigned, with a warning on the run, when they do not.
+name: node-desktop
+
+on:
+  push:
+    branches: [main, rewrite]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: node-desktop-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+  windows-installer:
+    name: Windows installer
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    env:
+      # The update feed the installed app reads: this repository's releases (they must be public).
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_OWNER: ${{ github.repository_owner }}
+      GH_REPO: ${{ github.event.repository.name }}
+      # Azure Artifact Signing (preferred). The three AZURE_SIGNING_* name the certificate;
+      # the AZURE_TENANT/CLIENT values are the app registration allowed to sign with it.
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+      AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+      AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+      AZURE_SIGNING_PUBLISHER: ${{ secrets.AZURE_SIGNING_PUBLISHER }}
+      # Or a classic code-signing certificate: the .pfx as base64, and its password.
+      CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: The tag matches package.json
+        shell: bash
+        run: |
+          want="v$(node -p "require('./package.json').version")"
+          if [ "$want" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version ($want)"
+            exit 1
+          fi
+
+      - name: Signing
+        shell: bash
+        run: |
+          if [ -n "$AZURE_SIGNING_ENDPOINT" ] && [ -n "$AZURE_SIGNING_ACCOUNT" ] && [ -n "$AZURE_SIGNING_PROFILE" ]; then
+            echo "signing with Azure Artifact Signing (profile $AZURE_SIGNING_PROFILE)"
+          elif [ -n "$CSC_LINK" ]; then
+            echo "signing with the certificate in WIN_CSC_LINK"
+          else
+            echo "::warning title=UNSIGNED INSTALLER::No code-signing secrets are set. This installer is UNSIGNED: Windows SmartScreen will warn every user and antivirus may block it. See docs/release.md."
+          fi
+
+      - run: npm ci
+
+      # Builds the site and server, the icons, rebuilds better-sqlite3 for Electron, packs the NSIS installer,
+      # signs it when the secrets are there, and uploads it with latest.yml to a draft release for this tag.
+      - run: node scripts/desktop.mjs dist --win --x64 --publish always
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            release/*.exe
+            release/latest.yml
+          if-no-files-found: error
+
+  linux-appimage:
+    name: Linux AppImage
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_OWNER: ${{ github.repository_owner }}
+      GH_REPO: ${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: node scripts/desktop.mjs dist --linux AppImage --publish always
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: |
+            release/*.AppImage
+            release/latest-linux.yml
+          if-no-files-found: error

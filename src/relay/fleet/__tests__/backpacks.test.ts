@@ -1,10 +1,19 @@
-// The pure parts of the backpack routines: clocks, state folding, policy.
-import { describe, expect, it } from "vitest";
+// The pure parts of the backpack routines: clocks, state folding, the two halves' helpers, the daily login's picks;
+// and how a job or a daily login waits for a busy account.
+import { describe, expect, it, vi } from "vitest";
+// A busy account is looked at again every 50 ms here, and the daily pass does not pause between accounts.
+vi.hoisted(() => {
+  process.env.DELETE_RETRY_S = "0.05";
+  process.env.BACKPACK_LOGIN_STAGGER_MS = "10";
+});
 import os from "node:os";
 import path from "node:path";
-import { applyCalendar, applyCharList, BackpackStore, decide, deriveClocks, isDisposable, monthKey, monthResetAt, gainPerDay, needsLoginToday, noteLogin, orderCandidate, planClaims, type AccountBackpackState, type PlanRow, type StockSample } from "../backpacks";
+import { applyCalendar, applyCharList, backpacksIn, BackpackStore, calendarDue, findBackpack, pendingBackpackDay, reachedBackpackDays, syncCycle, deriveClocks, monthKey, monthResetAt, needsLoginToday, noteLogin, type AccountBackpackState } from "../backpacks";
 import { parseCalendar, parseCharListDetail } from "../../realm/api";
+import { BringUpRefused } from "../bringUp";
+import { NEXUS_MAP } from "../vaultTrip";
 import type { BotAccount } from "../botPool";
+import type { GameClient } from "../../client/gameClient";
 
 const acc = { alias: "bot1", guid: "bot1@example.com", botGuid: "guid-1" } as BotAccount;
 const CAL = `<LoginRewards serverTime='1788754461.04813' conCurDay = '1' nonconCurDay = '3'>
@@ -46,28 +55,6 @@ describe("state and policy", () => {
       { track: "consecutive", day: 1, quantity: 1, claimable: false },
     ]);
   });
-  it("claims every reached backpack day; equips only when allowed and something is banked", () => {
-    const st = fresh();
-    expect(decide(st, { equip: false })).toMatchObject({ claim: [expect.objectContaining({ day: 2 })], equip: false });
-    expect(decide(st, { equip: true }, null).equip).toBe(false);
-    expect(decide(st, { equip: true }, 0).equip).toBe(true); // the 3 about to be claimed count
-    st.backpackDays = [];
-    expect(decide(st, { equip: true }, 0).equip).toBe(false);
-    expect(decide(st, { equip: true }, 2).equip).toBe(true);
-    st.hasBackpack = true;
-    expect(decide(st, { equip: true }, 2)).toMatchObject({ equip: false, reasons: ["character already has a backpack"] });
-  });
-  it("applies the owner's disposability rule", () => {
-    const st = fresh(); // seasonal, no backpack
-    expect(isDisposable(st, 0)).toBe(true);
-    expect(isDisposable(st, 1)).toBe(false);
-    st.hasBackpack = true;
-    expect(isDisposable(st, 0)).toBe(false);
-    st.seasonal = false;
-    expect(isDisposable(st, 0)).toBe(false);
-    st.banked = 1;
-    expect(isDisposable(st, 0)).toBe(true);
-  });
   it("counts one login per UTC day and starts over on a new month", () => {
     const st = fresh();
     const d1 = Date.UTC(2026, 8, 7, 23, 50) ; // 2026-09-07 23:50Z
@@ -81,100 +68,10 @@ describe("state and policy", () => {
     noteLogin(st, Date.UTC(2026, 9, 1, 1));
     expect(st.loginDays).toEqual(["2026-10-01"]);
   });
-  it("persists and summarises", () => {
-    const file = path.join(os.tmpdir(), `bp-${process.pid}-${Date.now()}-${Math.random()}.json`);
-    const store = new BackpackStore(file);
-    const st = store.for(acc);
-    applyCharList(st, parseCharListDetail(CHARS), 1000);
-    applyCalendar(st, parseCalendar(CAL), 1000);
-    st.banked = 2;
-    store.noteServerTime(1788754461);
-    store.save();
-    const again = new BackpackStore(file);
-    expect(again.for(acc)).toEqual(st);
-    expect(again.summary(1_000_000)).toEqual({ accounts: 1, audited: 1, withBackpack: 0, seasonal: 1, dead: 0, claimableDays: 1, claimableBackpacks: 3, banked: 2, vaultVisited: 1, loggedToday: 0 });
-    expect(again.clocks().monthResetsAt).toBe(1790812800);
-  });
 });
 
-describe("demand-driven claim plan", () => {
-  const row = (alias: string, held: number, capacity: 8 | 16, claimable = true, seasonal = false): PlanRow => ({ botGuid: `g-${alias}`, alias, seasonal, held, capacity, claimable, banked: 0, vaultBot: false, eligible: true });
-  it("claims on just enough of the biggest holders for the pool's stock to fit, with the buffer", () => {
-    // 40 items on the non-seasonal side, one backpack bot already: 40*1.2/16 -> 3 bots, so 2 more.
-    const rows = [row("bp", 10, 16), row("big", 8, 8), row("mid", 7, 8), row("small", 5, 8), row("empty", 0, 8), row("noday", 10, 8, false)];
-    const p = planClaims(rows, { buffer: 0.2 });
-    expect(p.nonseasonal).toMatchObject({ bots: 6, stock: 40, backpackBots: 1, needBots: 3, deficit: 2, candidates: 4 });
-    expect(p.nonseasonal.picks.map((x) => x.alias)).toEqual(["big", "mid"]);
-    expect(p.seasonal).toMatchObject({ bots: 0, stock: 0, needBots: 0, deficit: 0, picks: [] });
-  });
-  it("claims nothing when the stock already fits, and only on the pool that needs it", () => {
-    const rows = [row("a", 6, 16), row("b", 6, 8), row("s1", 20, 8, true, true), row("s2", 12, 8, true, true)];
-    const p = planClaims(rows, { buffer: 0 });
-    expect(p.nonseasonal.deficit).toBe(0);
-    expect(p.nonseasonal.picks).toEqual([]);
-    expect(p.seasonal).toMatchObject({ stock: 32, needBots: 2, deficit: 2 });
-    expect(p.seasonal.picks.map((x) => x.alias)).toEqual(["s1", "s2"]);
-  });
-  it("cannot pick more accounts than have a claimable day", () => {
-    const p = planClaims([row("a", 16, 8, false), row("b", 16, 8, true), row("c", 16, 8, false)], { buffer: 0 });
-    expect(p.nonseasonal).toMatchObject({ needBots: 3, deficit: 3, candidates: 1 });
-    expect(p.nonseasonal.picks.map((x) => x.alias)).toEqual(["b"]);
-  });
-});
 
-describe("growth-based headroom", () => {
-  const S = (day: string, nonseasonal: number, seasonal = 0): StockSample => ({ day, seasonal, nonseasonal });
-  it("averages the net gain per day over the window and needs two days of samples", () => {
-    expect(gainPerDay([S("2026-09-07", 100)], "nonseasonal", "2026-09-07")).toBeNull();
-    const samples = [S("2026-09-01", 100), S("2026-09-04", 130), S("2026-09-07", 160)];
-    expect(gainPerDay(samples, "nonseasonal", "2026-09-07")).toBe(10);
-    // Only the last 7 days count: the 09-01 sample falls out on the 9th.
-    expect(gainPerDay([...samples, S("2026-09-09", 200)], "nonseasonal", "2026-09-09")).toBe((200 - 130) / 5);
-    expect(gainPerDay(samples, "seasonal", "2026-09-07")).toBe(0);
-  });
-  it("plans for the measured growth over the horizon instead of a fixed fraction", () => {
-    const row = (alias: string, held: number, capacity: 8 | 16): PlanRow => ({ botGuid: alias, alias, seasonal: false, held, capacity, claimable: true, banked: 0, vaultBot: false, eligible: true });
-    const rows = [row("a", 16, 16), row("b", 8, 8), row("c", 8, 8), row("d", 0, 8)];
-    // 32 items, gaining 10/day, 5 days to the reset -> 82 items -> 6 bots, 1 already: 5 needed but 3 candidates.
-    const p = planClaims(rows, { gainPerDay: { seasonal: null, nonseasonal: 10 }, horizonDays: 5 }).nonseasonal;
-    expect(p).toMatchObject({ stock: 32, bufferItems: 50, bufferMode: "growth", gainPerDay: 10, horizonDays: 5, needBots: 6, deficit: 5, candidates: 3 });
-    expect(p.picks.map((x) => x.alias)).toEqual(["b", "c", "d"]);
-    // Shrinking stock plans no headroom; unknown growth falls back to the fraction.
-    expect(planClaims(rows, { gainPerDay: { seasonal: null, nonseasonal: -4 }, horizonDays: 5 }).nonseasonal).toMatchObject({ bufferItems: 0, needBots: 2, deficit: 1 });
-    expect(planClaims(rows, { buffer: 0.5 }).nonseasonal).toMatchObject({ bufferItems: 16, bufferMode: "fraction", needBots: 3 });
-  });
-});
 
-describe("activity labels for the console", () => {
-  it("the chore labels the account while it drives it and clears the label after", async () => {
-    const { BackpackService } = await import("../backpacks");
-    const { BotPool } = await import("../botPool");
-    const { InventoryTracker } = await import("../inventoryTracker");
-    const dir = path.join(os.tmpdir(), `bp-act-${process.pid}-${Date.now()}`);
-    const store = new BackpackStore(path.join(dir, "state.json"));
-    const pool = { every: () => [acc] } as unknown as InstanceType<typeof BotPool>;
-    const tracker = new InventoryTracker(path.join(dir, "inv.json"));
-    const seen: (string | null)[] = [];
-    let svc: InstanceType<typeof BackpackService>;
-    const deps = {
-      pool, clients: new Map(), log: () => {}, proxies: { configured: false, release: () => {} }, gate: { lockoutRemainingMs: () => 0, pausedRemainingMs: () => 0, noteCooldown: () => {} },
-      bringUp: async () => {
-        seen.push(svc.activityOf(acc.guid));
-        // A dead client: the trip fails at its first wait, which is enough to see the label lifecycle.
-        return { active: false, playerData: { name: "", hasBackpack: false, inv: [], enchantments: {} }, charSeasonal: null, stop: () => {}, world: { entities: new Map() } } as never;
-      },
-    };
-    svc = new BackpackService({ sd: { deps, pool, tracker, settings: {} } as never, store, holds: new Set() });
-    const a = { ...acc, info: { guid: acc.guid, password: "x", server: "USSouth3" }, client: null, suspended: false, assignedRequestId: null, inUse: false } as unknown as typeof acc;
-    (pool as unknown as { every: () => unknown[] }).every = () => [a];
-    svc.startChore({ mode: "dry", guids: [a.guid] });
-    while (svc.chore.running) await new Promise((r) => setTimeout(r, 5));
-    expect(seen).toEqual(["backpack chore (dry): logging in"]);
-    expect(svc.activityOf(a.guid)).toBeNull();
-    expect(svc.chore.failed).toBe(1);
-    expect(store.for(a).lastError).toMatch(/inactive/);
-  });
-});
 
 describe("a known backpack survives refreshes without the stat", () => {
   it("snapshotInventory records 16 slots from the fleet's knowledge alone", async () => {
@@ -188,78 +85,8 @@ describe("a known backpack survives refreshes without the stat", () => {
   });
 });
 
-describe("plan lanes for the scheduler", () => {
-  const row = (alias: string, held: number, capacity: 8 | 16, extra: Partial<PlanRow> = {}): PlanRow => ({ botGuid: `g-${alias}`, alias, seasonal: false, held, capacity, claimable: true, banked: 0, vaultBot: false, eligible: true, ...extra });
-  it("vault bots are their own lane and never count as pool stock", () => {
-    const rows = [row("v1", 8, 8, { vaultBot: true }), row("v2", 3, 16, { vaultBot: true }), row("a", 8, 8), row("b", 8, 8)];
-    const p = planClaims(rows, { buffer: 0 });
-    expect(p.vaults).toMatchObject({ bots: 2, backpackBots: 1, deficit: 1, picks: [{ alias: "v1", held: 8 }] });
-    expect(p.nonseasonal.stock).toBe(16);
-  });
-  it("spares already banked are picked before claims, and ineligible accounts never", () => {
-    const rows = [row("claim", 8, 8), row("spare", 2, 8, { claimable: false, banked: 2 }), row("cooling", 8, 8, { eligible: false }), row("nothing", 8, 8, { claimable: false })];
-    const p = planClaims(rows, { buffer: 0 });
-    expect(p.nonseasonal.candidates).toBe(2);
-    expect(p.nonseasonal.picks.map((x) => x.alias)).toEqual(["spare", "claim"]);
-  });
-});
 
-describe("retry accounting", () => {
-  it("transient failures cost nothing; three structural ones put the account on the manual list", async () => {
-    const { noteChoreOutcome, eligibleForTrip, isTransientError } = await import("../backpacks");
-    const st = fresh();
-    const t0 = Date.UTC(2026, 8, 10);
-    expect(isTransientError("timed out after 30s waiting for the Nexus")).toBe(true);
-    expect(isTransientError("the backpack was not applied (the server refused the USEITEM)")).toBe(false);
-    noteChoreOutcome(st, false, "client went inactive while waiting for the Nexus", t0);
-    expect(st.choreAttempts).toBe(0);
-    expect(eligibleForTrip(st, t0 + 1000)).toBe(true);
-    noteChoreOutcome(st, false, "the backpack was not applied (the server refused the USEITEM)", t0);
-    expect(st.choreAttempts).toBe(1);
-    expect(eligibleForTrip(st, t0 + 3_600_000)).toBe(false);
-    expect(eligibleForTrip(st, t0 + 25 * 3_600_000)).toBe(true);
-    noteChoreOutcome(st, false, "USEPORTAL did not lead to the Vault after 4 attempts", t0 + 2 * 86_400_000); // transient wording
-    noteChoreOutcome(st, false, "no VAULTINFO after entering the vault", t0 + 3 * 86_400_000);
-    noteChoreOutcome(st, false, "no VAULTINFO after entering the vault", t0 + 5 * 86_400_000);
-    expect(st.choreAttempts).toBe(3);
-    expect(st.manual).toBe(true);
-    // A new month starts the count over.
-    noteChoreOutcome(st, true, null, Date.UTC(2026, 9, 2));
-    expect(st.manual).toBe(false);
-    expect(st.choreAttempts).toBe(0);
-  });
-  function fresh(): AccountBackpackState {
-    const store = new BackpackStore(path.join(os.tmpdir(), `bp-r-${process.pid}-${Date.now()}-${Math.random()}.json`));
-    return store.for(acc);
-  }
-});
 
-describe("login lane targets", () => {
-  it("picks accounts that can still reach the backpack day, tightest slack first", async () => {
-    const { loginTargets } = await import("../backpacks");
-    const mk = (alias: string, day: number, held: number, over: Partial<AccountBackpackState> = {}): AccountBackpackState => ({
-      ...new BackpackStore(path.join(os.tmpdir(), `bp-l-${Math.random()}.json`)).for({ alias, guid: `${alias}@x`, botGuid: `g-${alias}` } as BotAccount),
-      hasBackpack: false, nonconCurDay: day, backpackDays: [{ track: "nonconsecutive", day: 2, quantity: 3, claimable: false }], ...over,
-    });
-    const now = Date.UTC(2026, 8, 28, 12); // 2.5 days to the reset -> 3 usable days
-    const clocks = { serverTime: now / 1000, monthResetsAt: Date.UTC(2026, 9, 1) / 1000, season: null, seasonEndsBeforeMonth: null };
-    const rows = [
-      { st: mk("a", 1, 5), held: 5, poolDeficit: 4, vaultBot: false },      // needs 1 more day: slack 2
-      { st: mk("b", 0, 9), held: 9, poolDeficit: 4, vaultBot: false },      // needs 2: slack 1 -> first
-      { st: mk("c", 1, 1, { loginDays: ["2026-09-28"] }), held: 1, poolDeficit: 4, vaultBot: false }, // already counted today
-      { st: mk("d", 2, 9), held: 9, poolDeficit: 4, vaultBot: false },      // day reached: not a login target
-      { st: mk("e", 0, 9), held: 9, poolDeficit: 0, vaultBot: false },      // pool needs nothing
-      { st: mk("f", 0, 0), held: 0, poolDeficit: 0, vaultBot: true },       // vault bots always qualify
-      { st: mk("g", 1, 3, { hasBackpack: true }), held: 3, poolDeficit: 4, vaultBot: false },
-    ];
-    expect(loginTargets(rows, clocks, now, 10).map((s) => s.alias)).toEqual(["b", "f", "a"]);
-    expect(loginTargets(rows, clocks, now, 1).map((s) => s.alias)).toEqual(["b"]);
-    // Half a day left: one login is still possible today, so only the accounts one day short qualify.
-    expect(loginTargets(rows, clocks, Date.UTC(2026, 8, 30, 12), 10).map((s) => s.alias)).toEqual(["a", "c"]);
-    // After the reset moment nobody can.
-    expect(loginTargets(rows, clocks, Date.UTC(2026, 9, 1, 0, 1), 10)).toEqual([]);
-  });
-});
 
 describe("calibration: does an HTTP audit count as a login day", () => {
   it("collects evidence only across UTC days without a fleet login in between, and settles at ten", async () => {
@@ -285,48 +112,214 @@ describe("calibration: does an HTTP audit count as a login day", () => {
   });
 });
 
-describe("recycle picks and audit backoff", () => {
-  async function service(states: Partial<AccountBackpackState>[], held: Record<string, number> = {}, seasonalDeficitRows: PlanRow[] = []) {
-    const { BackpackService } = await import("../backpacks");
-    const { InventoryTracker } = await import("../inventoryTracker");
-    const dir = path.join(os.tmpdir(), `bp-rc-${process.pid}-${Date.now()}-${Math.random()}`);
-    const store = new BackpackStore(path.join(dir, "state.json"));
-    const accs = states.map((s, i) => ({ alias: `a${i}`, guid: `a${i}@x`, botGuid: `g-a${i}`, seasonalOrDefault: s.seasonal ?? false, suspended: false, client: null, assignedRequestId: null, inUse: false, info: { guid: `a${i}@x`, password: "p" } }));
-    const tracker = new InventoryTracker(path.join(dir, "inv.json"));
-    for (const [g, n] of Object.entries(held)) tracker.updateFromSlots(g, Object.fromEntries(Array.from({ length: n }, (_, i) => [4 + i, { itemId: "pdef", enchantments: [] }])), 8);
-    const pool = { every: () => accs };
-    const svc = new BackpackService({ sd: { deps: { pool, clients: new Map(), log: () => {}, proxies: { configured: false }, gate: { lockoutRemainingMs: () => 0, pausedRemainingMs: () => 0 } }, pool, tracker, settings: {} } as never, store, holds: new Set() });
-    accs.forEach((a, i) => Object.assign(store.for(a as never), { lastAuditAt: 1000, hasBackpack: false, seasonal: false, charId: 1, dead: false, ...states[i] }));
-    void seasonalDeficitRows;
-    return { svc, store, accs };
-  }
-  it("the audit skips accounts it tried within a day and failed", async () => {
-    const { svc, store, accs } = await service([{ lastAuditAt: null }, { lastAuditAt: null }, { lastAuditAt: null }]);
-    const now = Date.UTC(2026, 8, 10, 12);
-    store.for(accs[1] as never).lastAuditTriedAt = (now - 3_600_000) / 1000;      // tried an hour ago, still unaudited
-    store.for(accs[2] as never).lastAuditTriedAt = (now - 30 * 3_600_000) / 1000; // tried yesterday
-    expect(svc.auditPicks({ auditStaleDays: 3 }, now, 10)).toEqual(["a0@x", "a2@x"]);
+
+
+describe("the per-account halves: what is ahead, and where a backpack sits", () => {
+  const base = (): AccountBackpackState => ({
+    alias: "a", guid: "g", botGuid: "b", charId: 1, seasonal: false, dead: false, hasBackpack: false, maxNumChars: 1, nonconCurDay: 3, conCurDay: 1,
+    backpackDays: [], banked: null, lastAuditAt: null, lastVaultAt: null, claimed: [], lastLoginAt: null, loginDays: [], lastError: null, lastErrorAt: null, lastAuditTriedAt: null, manual: false,
+  });
+  it("names the nearest backpack day above a track's counter, never a reached one", () => {
+    const st = base();
+    st.backpackDays = [
+      { track: "nonconsecutive", day: 2, quantity: 3, claimable: true }, // reached, unclaimed
+      { track: "nonconsecutive", day: 9, quantity: 1, claimable: false }, // 6 logins away
+      { track: "consecutive", day: 5, quantity: 2, claimable: false }, // 4 logins away
+    ];
+    expect(pendingBackpackDay(st)).toEqual({ track: "consecutive", day: 5, current: 1, quantity: 2 });
+    st.backpackDays = [{ track: "nonconsecutive", day: 2, quantity: 3, claimable: false }]; // claimed: below the counter
+    expect(pendingBackpackDay(st)).toBeNull();
+    st.nonconCurDay = null;
+    st.backpackDays = [{ track: "nonconsecutive", day: 9, quantity: 1, claimable: false }];
+    expect(pendingBackpackDay(st)).toBeNull();
+  });
+  it("finds a backpack in the gift chest first, then the vault, then the spoils chest, and counts them all", () => {
+    const view = { vault: { objectId: 10, slots: [-1, 3180, -1] }, material: { objectId: 11, slots: [] }, gift: { objectId: 12, slots: [5, -1] }, potion: { objectId: 13, slots: [] }, spoils: { objectId: 14, slots: [3180] } };
+    expect(findBackpack(view)).toEqual({ kind: "vault", objectId: 10, slot: 1 });
+    expect(backpacksIn(view)).toBe(2);
+    view.gift.slots[1] = 3180;
+    expect(findBackpack(view)).toEqual({ kind: "gift", objectId: 12, slot: 1 });
+    expect(findBackpack({ ...view, gift: { objectId: -1, slots: [3180] }, vault: { objectId: 10, slots: [] }, spoils: { objectId: 14, slots: [] } })).toBeNull();
   });
 });
 
-describe("an order for a 16-slot bot", () => {
-  const row = (alias: string, o: Partial<PlanRow> = {}): PlanRow => ({ botGuid: `g-${alias}`, alias, seasonal: false, held: 0, capacity: 8, claimable: false, banked: 0, vaultBot: false, eligible: true, ...o });
-  it("picks an empty, free account of the right half with a spare banked, else one with a claimable day", () => {
-    const rows = [
-      row("holds", { held: 3, banked: 1 }), // not empty: fitting it makes no 16-free bot
-      row("vault", { banked: 1, vaultBot: true }),
-      row("busy", { banked: 1, eligible: false }),
-      row("done", { banked: 1, capacity: 16 }),
-      row("seasonal", { banked: 1, seasonal: true }),
-      row("bare"), // nothing banked, nothing claimable
-      row("claim", { claimable: true }),
-      row("spare-b", { banked: 2 }),
-      row("spare-a", { banked: 1 }),
-    ];
-    expect(orderCandidate(rows, false)?.alias).toBe("spare-a");
-    expect(orderCandidate(rows, true)?.alias).toBe("seasonal");
-    expect(orderCandidate(rows.filter((r) => !r.alias.startsWith("spare")), false)?.alias).toBe("claim");
-    expect(orderCandidate(rows.filter((r) => !r.alias.startsWith("spare") && r.alias !== "claim"), false)).toBeNull();
-    expect(orderCandidate([], false)).toBeNull();
+describe("the daily login picks", () => {
+  it("picks accounts with a backpack day ahead that have not been in the world today, and leaves the rest alone", async () => {
+    const { BackpackService } = await import("../backpacks");
+    const dir = path.join(os.tmpdir(), `bp-daily-${process.pid}-${Date.now()}`);
+    const store = new BackpackStore(path.join(dir, "state.json"));
+    const mk = (i: number) => ({ alias: `a${i}`, guid: `a${i}@x`, botGuid: `g-a${i}`, suspended: false, client: null, assignedRequestId: null, inUse: false, info: {} }) as unknown as BotAccount;
+    const accs = [mk(0), mk(1), mk(2), mk(3), mk(4)];
+    const pool = { every: () => accs };
+    const holds = new Set<string>();
+    const now = Date.UTC(2026, 8, 22, 15);
+    const svc = new BackpackService({ sd: { deps: { pool, clients: new Map(), log: () => {}, proxies: { configured: false, exclusiveCapacity: () => null, releaseProbe() {} }, gate: { lockoutRemainingMs: () => 0, pausedRemainingMs: () => 0 } }, pool, tracker: {}, settings: {} } as never, store, holds, now: () => now });
+    const ahead = { track: "nonconsecutive" as const, day: 9, quantity: 1, claimable: false };
+    Object.assign(store.for(accs[0]), { nonconCurDay: 3, backpackDays: [ahead] }); // a day ahead, not in today: picked
+    Object.assign(store.for(accs[1]), { nonconCurDay: 3, backpackDays: [ahead], loginDays: ["2026-09-22"] }); // already in today
+    Object.assign(store.for(accs[2]), { nonconCurDay: 3, backpackDays: [{ ...ahead, day: 2, claimable: true }] }); // reached, nothing ahead: the owner claims it
+    Object.assign(store.for(accs[3]), { nonconCurDay: 3, backpackDays: [] }); // nothing on the calendar
+    Object.assign(store.for(accs[4]), { nonconCurDay: 3, backpackDays: [ahead], lastErrorAt: now / 1000 - 3_600 }); // failed an hour ago: backs off a day
+    expect(svc.dailyLoginPicks(now).map((a) => a.alias)).toEqual(["a0"]);
+    holds.add(accs[0].guid); // held by a trip right now: still picked, its login waits for the trip
+    expect(svc.dailyLoginPicks(now).map((a) => a.alias)).toEqual(["a0"]);
+    holds.clear();
+    expect(svc.viewFor(accs[0], now)).toMatchObject({ claimable: 0, pending: { track: "nonconsecutive", day: 9, current: 3, quantity: 1 }, loginToday: false, job: null });
+    expect(svc.viewFor(accs[2], now)).toMatchObject({ claimable: 1, pending: null });
+  });
+});
+
+describe("one calendar read a cycle, then the logins move the counters", () => {
+  it("the first login of a day advances the tracks, a reached day shows, and a new cycle asks for a read", async () => {
+    const store = new BackpackStore(path.join(os.tmpdir(), `bp-cycle-${process.pid}-${Date.now()}.json`));
+    const st = store.for(acc);
+    applyCalendar(st, parseCalendar(CAL), Date.UTC(2026, 8, 10)); // serverTime 1788754461 = 2026-09; noncon 3, con 1; backpack days: noncon 2 (reached), con 1 (not)
+    expect(st.calendarMonth).toBe("2026-09");
+    st.backpackDays.push({ track: "nonconsecutive", day: 5, quantity: 1, claimable: false });
+    const d10 = Date.UTC(2026, 8, 10, 12);
+    expect(calendarDue(st, d10)).toBe(false);
+    noteLogin(st, d10);
+    expect(st.nonconCurDay).toBe(4);
+    expect(st.conCurDay).toBe(1); // no login yesterday: the consecutive track starts over
+    noteLogin(st, d10 + 3_600_000); // the same day again: nothing moves
+    expect(st.nonconCurDay).toBe(4);
+    noteLogin(st, d10 + 86_400_000);
+    expect(st.nonconCurDay).toBe(5);
+    expect(st.conCurDay).toBe(2);
+    expect(reachedBackpackDays(st).map((d) => [d.track, d.day])).toEqual([["nonconsecutive", 2], ["nonconsecutive", 5]]);
+    expect(pendingBackpackDay(st)).toBeNull();
+    st.claimed.push("2026-09:nonconsecutive:5");
+    expect(reachedBackpackDays(st).map((d) => d.day)).toEqual([2]);
+    // October: the counters are last cycle's; nothing moves until the new read, which is due.
+    const oct = Date.UTC(2026, 9, 2, 12);
+    expect(calendarDue(st, oct)).toBe(true);
+    noteLogin(st, oct);
+    expect(st.nonconCurDay).toBe(5);
+    expect(st.loginDays).toEqual(["2026-10-02"]);
+  });
+});
+
+describe("one layout for everyone", () => {
+  it("a new cycle takes the node's layout with counters from zero, one each when the account already logged in today", async () => {
+    const store = new BackpackStore(path.join(os.tmpdir(), `bp-layout-${process.pid}-${Date.now()}.json`));
+    const cal = parseCalendar(CAL.replace("serverTime='1788754461.04813'", "serverTime='1791244800'")); // 2026-10-02
+    store.noteCalendar(cal, Date.UTC(2026, 9, 2));
+    expect(store.calendarLayout()).toMatchObject({ month: "2026-10", days: [expect.objectContaining({ track: "nonconsecutive", day: 2, claimable: false }), expect.objectContaining({ track: "consecutive", day: 1 })] });
+    const st = store.for(acc);
+    applyCalendar(st, parseCalendar(CAL), Date.UTC(2026, 8, 10)); // September's read
+    const oct3 = Date.UTC(2026, 9, 3, 12);
+    expect(syncCycle(st, store.calendarLayout(), oct3)).toBe(true);
+    expect(st).toMatchObject({ calendarMonth: "2026-10", nonconCurDay: 0, conCurDay: 0 });
+    expect(calendarDue(st, oct3)).toBe(false);
+    expect(syncCycle(st, store.calendarLayout(), oct3)).toBe(false); // already this cycle's
+    noteLogin(st, oct3);
+    expect(st.nonconCurDay).toBe(1);
+    // Another account that logged in today before the sync starts at one.
+    const other = store.for({ ...acc, botGuid: "guid-2", guid: "b@x" } as BotAccount);
+    applyCalendar(other, parseCalendar(CAL), Date.UTC(2026, 8, 10));
+    other.loginDays = ["2026-10-03"];
+    syncCycle(other, store.calendarLayout(), oct3);
+    expect(other).toMatchObject({ nonconCurDay: 1, conCurDay: 1 });
+    // No layout for the cycle yet: nothing to hand over, a read is due.
+    expect(syncCycle(store.for({ ...acc, botGuid: "guid-3", guid: "c@x" } as BotAccount), null, oct3)).toBe(false);
+  });
+});
+
+describe("a busy account is waited for, not refused", () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const until = async (pred: () => boolean, ms = 3000) => {
+    for (const end = Date.now() + ms; !pred() && Date.now() < end; ) await sleep(10);
+  };
+  async function setup() {
+    const { BackpackService } = await import("../backpacks");
+    const store = new BackpackStore(path.join(os.tmpdir(), `bp-wait-${process.pid}-${Date.now()}-${Math.random()}.json`));
+    const acc = { alias: "a0", guid: "a0@x", botGuid: "g-a0", suspended: false, client: null, assignedRequestId: null, inUse: false, info: { server: "USSouth3" } } as unknown as BotAccount;
+    const logins: number[] = [];
+    const clients = new Map<string, GameClient>();
+    const deps = {
+      clients, log: () => {}, proxies: { configured: false, release() {}, exclusiveCapacity: () => null, releaseProbe() {} }, gate: { lockoutRemainingMs: () => 0, pausedRemainingMs: () => 0, noteCooldown() {} },
+      // Straight into the Nexus.
+      bringUp: async (_d: unknown, a: BotAccount) => {
+        logins.push(Date.now());
+        const c = { active: true, connected: true, objectId: 5, mapName: NEXUS_MAP, charId: 1, token: "t", proxy: null, playerData: { name: "Ign" }, stop() { this.active = false; }, on() {} };
+        clients.set(a.guid, c as unknown as GameClient);
+        return c as unknown as GameClient;
+      },
+    };
+    const holds = new Set<string>();
+    const svc = new BackpackService({ sd: { deps, pool: { every: () => [acc] }, tracker: {}, settings: {} } as never, store, holds });
+    const month = monthKey(Date.now() / 1000);
+    Object.assign(store.for(acc), { nonconCurDay: 3, calendarMonth: month, lastAuditAt: Date.now(), backpackDays: [{ track: "nonconsecutive", day: 9, quantity: 1, claimable: false }] });
+    return { svc, store, acc, logins, holds, deps };
+  }
+
+  it("a claim asked while the account is busy is taken at once and runs when the account is free", async () => {
+    const { svc, store, acc, logins, deps } = await setup();
+    deps.bringUp = async () => {
+      logins.push(Date.now());
+      throw new BringUpRefused("failed", "the test ends the trip here");
+    };
+    store.for(acc).backpackDays = [{ track: "nonconsecutive", day: 2, quantity: 1, claimable: true }];
+    (acc as { assignedRequestId: number | null }).assignedRequestId = 7; // in a trade
+    expect(svc.startClaim(acc)).toEqual({ ok: true });
+    await sleep(120);
+    expect(svc.jobOf(acc.guid)).toMatchObject({ kind: "claim", waiting: "the account is busy" });
+    expect(svc.activityOf(acc.guid)).toMatch(/queued, waiting for the account/);
+    expect(logins).toHaveLength(0);
+    expect(svc.startClaim(acc)).toEqual({ ok: false, error: "a backpack job is already on this account" });
+    (acc as { assignedRequestId: number | null }).assignedRequestId = null; // the trade is over
+    await until(() => svc.jobOf(acc.guid) === null);
+    expect(logins).toHaveLength(1);
+    expect(store.for(acc).lastJob).toMatchObject({ kind: "claim", ok: false, summary: expect.stringContaining("the test ends the trip here") });
+  });
+
+  it("waits out a login held back (every proxy host in use) as it does a busy account, and a waiting job can be taken back", async () => {
+    const { svc, store, acc, logins, deps } = await setup();
+    let full = 2;
+    deps.bringUp = async () => {
+      logins.push(Date.now());
+      if (full-- > 0) throw new BringUpRefused("failed", "no free proxy", true);
+      throw new BringUpRefused("failed", "the test ends the trip here");
+    };
+    store.for(acc).backpackDays = [{ track: "nonconsecutive", day: 2, quantity: 1, claimable: true }];
+    expect(svc.startClaim(acc)).toEqual({ ok: true });
+    await until(() => svc.jobOf(acc.guid) === null);
+    // Two held-back tries recorded nothing; the third ran the job.
+    expect(logins).toHaveLength(3);
+    expect(store.for(acc).lastJob).toMatchObject({ kind: "claim", ok: false, summary: expect.stringContaining("the test ends the trip here") });
+
+    // Taken back while it waits: gone at once, never run, and another can be asked for.
+    (acc as { assignedRequestId: number | null }).assignedRequestId = 7;
+    expect(svc.startConsume(acc, 1)).toEqual({ ok: true });
+    await sleep(120);
+    expect(svc.jobOf(acc.guid)).toMatchObject({ kind: "consume", waiting: "the account is busy" });
+    expect(svc.cancelWaiting(acc)).toEqual({ ok: true });
+    expect(svc.jobOf(acc.guid)).toBeNull();
+    expect(svc.cancelWaiting(acc)).toEqual({ ok: false, error: "no backpack job on this account" });
+    expect(svc.startClaim(acc)).toEqual({ ok: true });
+    (acc as { assignedRequestId: number | null }).assignedRequestId = null;
+    await until(() => svc.jobOf(acc.guid) === null);
+    expect(logins).toHaveLength(4);
+    expect(store.for(acc).lastJob).toMatchObject({ kind: "claim" });
+  });
+
+  it("the daily login waits for a held account, and is dropped when something else brought the account in meanwhile", async () => {
+    const { svc, store, acc, logins, holds } = await setup();
+    holds.add(acc.guid); // a storage trip has it
+    const pass = svc.dailyLoginPass();
+    await sleep(120);
+    expect(logins).toHaveLength(0);
+    holds.delete(acc.guid);
+    expect(await pass).toMatchObject({ picked: 1, ok: 1 });
+    expect(logins).toHaveLength(1);
+    expect(needsLoginToday(store.for(acc), Date.now())).toBe(false);
+    // Tomorrow: held again, and the trip that has it counts as the day's login.
+    store.for(acc).loginDays = [];
+    holds.add(acc.guid);
+    const next = svc.dailyLoginPass();
+    await sleep(120);
+    noteLogin(store.for(acc), Date.now());
+    expect(await next).toMatchObject({ picked: 1, ok: 0, skipped: 1 });
+    expect(logins).toHaveLength(1);
   });
 });

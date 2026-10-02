@@ -17,6 +17,8 @@ export interface ProbeResult {
   tutorialDone: boolean;
   /** The character that would log in (the preferred one when it exists, else the first), or null with no character. */
   loaded: CharDetail | null;
+  /** With verdict "attempt-limit": how long Realm locks the account, for the login gate. */
+  lockoutSeconds?: number;
 }
 
 export async function probeAccount(creds: { guid: string; password?: string; secret?: string }, proxy: Proxy | null, preferredCharId: number | null = null): Promise<ProbeResult> {
@@ -26,7 +28,7 @@ export async function probeAccount(creds: { guid: string; password?: string; sec
     const e = tok.error;
     if (e.kind === "suspended") return { verdict: "suspended", detail: "Realm: the account is suspended", ...none };
     if (e.kind === "bad-credentials") return { verdict: "bad-credentials", detail: "Realm: invalid credentials", ...none };
-    if (e.kind === "attempt-limit") return { verdict: "attempt-limit", detail: `login attempt limit, wait ${e.lockoutSeconds}s`, ...none };
+    if (e.kind === "attempt-limit") return { verdict: "attempt-limit", detail: `login attempt limit, wait ${e.lockoutSeconds}s`, lockoutSeconds: e.lockoutSeconds, ...none };
     return { verdict: "error", detail: e.kind === "network" ? `network: ${e.detail}` : `verify failed: ${e.kind}`, ...none };
   }
   const cl = await getCharList(tok.value, proxy);

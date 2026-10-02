@@ -16,8 +16,21 @@
 const BASE_LEN = 13;
 const PREFIX = [0x00, 0x02, 0x04];
 const EMPTY = 0xfffd;
-/** What this project's catalog can carry; enforced at business boundaries, not here. */
+/**
+ * Entry values that are not enchantment ids. The stat pads its reserved
+ * entries with 0xFFFD; the account snapshot's records (char/list with
+ * muleDump, see decodeSnapshotRecord) end at 0xFFFD and mark a locked slot
+ * 0xFFFE and an unlocked empty one 0xFFFF.
+ */
+const isSentinel = (id: number): boolean => id >= 0xfffd;
+/**
+ * The most enchantments a tradeable item carries. The game will not trade
+ * an item with three (legendary) or four (divine): such an item is never
+ * listed in the pool or communism and never picked for a trade.
+ */
 export const MAX_ENCHANTS = 2;
+/** Whether an item with this many enchantments can change hands in game. */
+export const tradeableEnchants = (count: number): boolean => count <= MAX_ENCHANTS;
 
 const B64URL = /^[A-Za-z0-9_-]+$/;
 
@@ -38,7 +51,30 @@ export function decodeEnchantRecord(payload: string): number[] | null {
   const out: number[] = [];
   for (let i = 0; i < 4; i++) {
     const id = rec.readUInt16LE(3 + i * 2);
-    if (id !== EMPTY) out.push(id);
+    if (id === EMPTY) continue;
+    if (!isSentinel(id)) out.push(id);
+  }
+  return out;
+}
+
+/**
+ * An `ItemData` record from the account snapshot (char/list with
+ * `muleDump=true`; docs/relay/STORAGE.md "The account snapshot"): base64,
+ * URL-safe or standard, padded or not. The header is not checked: the
+ * entries start at byte 3 either way (the stat's `00 02 04`, the snapshot's
+ * `00` + item type), little-endian uint16 each, at most four, ending at
+ * 0xFFFD; 0xFFFE (locked) and 0xFFFF (empty) are not enchantments. A record
+ * too short to hold an entry decodes to [].
+ */
+export function decodeSnapshotRecord(payload: string): number[] {
+  const body = payload.trim().replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
+  if (!body || !/^[A-Za-z0-9+/]+$/.test(body)) return [];
+  const rec = Buffer.from(body, "base64");
+  const out: number[] = [];
+  for (let i = 3; i + 1 < rec.length && out.length < 4; i += 2) {
+    const id = rec.readUInt16LE(i);
+    if (id === EMPTY) break;
+    if (!isSentinel(id)) out.push(id);
   }
   return out;
 }

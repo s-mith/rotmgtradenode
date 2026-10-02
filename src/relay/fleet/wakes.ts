@@ -1,6 +1,6 @@
 // Login scheduling shared by every dispatcher in the process: the global
-// stagger, in-flight logins, per-account retry pacing, and the accountgen
-// pull cooldown. One Realm connection budget, one place that paces it.
+// stagger, in-flight logins, per-account retry pacing. One Realm connection
+// budget, one place that paces it.
 import type { GameClient } from "../client/gameClient";
 import type { BotAccount } from "./botPool";
 import { bringUp, BringUpRefused, type FleetDeps } from "./bringUp";
@@ -71,6 +71,9 @@ export class WakeScheduler {
         this.lastWakeAt = Date.now();
         client = await (this.deps.bringUp ?? bringUp)(this.deps, acc, server);
         verdict = "captured";
+        // An advanced account's next login is often moments away (a character
+        // switch, its next request): a login that worked is no attempt to pace.
+        if (this.deps.isAdvanced?.(acc)) this.attempts.delete(acc.guid);
       } catch (e) {
         if (e instanceof BringUpRefused) verdict = e.verdict;
         else log(`Dispatcher: wake of ${acc.alias} on ${server} raised: ${String(e)}`);

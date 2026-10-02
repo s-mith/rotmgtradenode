@@ -258,7 +258,9 @@ async function main() {
   const { ident, get } = await openBuild(BASE, (l) => console.log(l));
   console.log(`item tooltips: ${BASE} (game ${ident.version}, build ${ident.hash})`);
   const [equipXml, playersXml, enchXml] = await Promise.all([get("extracted_assets/TextAsset/equip.xml"), get("extracted_assets/TextAsset/players.xml"), get("extracted_assets/TextAsset/enchantments.xml")]);
-  const byType = new Map(readObjects(equipXml).map((o) => [parseNum(o["@_type"]), o]));
+  // Eggs and skins live in their own files; a build without one just has no tooltips for those.
+  const extra = await Promise.all(["equipEggs.xml", "equipSkins.xml"].map((f) => get(`extracted_assets/TextAsset/${f}`).catch(() => null)));
+  const byType = new Map([...readObjects(equipXml), ...extra.flatMap((x) => (x ? readObjects(x) : []))].map((o) => [parseNum(o["@_type"]), o]));
   const ench = enchantMods(enchXml);
   fs.writeFileSync(ENCH_OUT, JSON.stringify(ench));
   console.log(`wrote ${Object.keys(ench).length} enchantment stat mods (${(fs.statSync(ENCH_OUT).size / 1024).toFixed(1)} KB) -> ${path.relative(ROOT, ENCH_OUT)}`);

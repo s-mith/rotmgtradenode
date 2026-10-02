@@ -59,7 +59,8 @@ export async function GET(req: Request) {
       bots: pyrelayBots,
       instances: pyrelayInstances,
       enchanted: pyrelayEnchanted,
-      topBots: samplePerBot.slice(0, 20),
+      // Every bot, the fullest first.
+      topBots: samplePerBot,
     },
   });
 }

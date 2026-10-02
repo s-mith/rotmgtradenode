@@ -58,13 +58,22 @@ export function wirePools(p: PoolSides): WirePools {
   return p.seasonal && p.nonseasonal ? "b" : p.seasonal ? "s" : "n";
 }
 /** How the grid names a stored item's place. */
-export function whereLabel(w: { kind: "vault" | "rack" | "gift" | "spoils"; slot: number } | { kind: "char"; charId: number; slot: number; className: string; level: number }): string {
+export type StoredWhereWire =
+  | { kind: "vault" | "rack" | "gift" | "spoils"; slot: number; seasonal?: boolean }
+  | { kind: "char"; charId: number; slot: number; className: string; level: number; capacity?: number; seasonal?: boolean }
+  | { kind: "worn"; charId: number; slot: number; className: string; level: number; seasonal?: boolean }
+  | { kind: "quickslot"; charId: number; slot: number; count: number; className: string; level: number; seasonal?: boolean };
+export function whereLabel(w: StoredWhereWire): string {
+  // The vault, rack and gift chest are one per side; the side is named once a login said which one was read.
+  const side = w.kind !== "spoils" && w.seasonal !== undefined ? (w.seasonal ? "seasonal " : "non-seasonal ") : "";
   switch (w.kind) {
-    case "vault": return "vault chest";
-    case "rack": return "potion rack";
-    case "gift": return "gift chest";
+    case "vault": return `${side}vault chest`;
+    case "rack": return `${side}potion rack`;
+    case "gift": return `${side}gift chest`;
     case "spoils": return "spoils chest";
     case "char": return `${w.className} (lvl ${w.level})`;
+    case "worn": return `worn by ${w.className} (lvl ${w.level})`;
+    case "quickslot": return `quickslot of ${w.className} (lvl ${w.level})`;
   }
 }
 
@@ -74,7 +83,7 @@ export interface WireCatalogEntry {
   sprite: string | null;
   category: string;
   subtype: string | null;
-  /** Whether this node takes the item in (Control panel → Trading → Accepted items). */
+  /** Whether this node takes the item in (Control panel → Accepted items). */
   accepted?: boolean;
 }
 

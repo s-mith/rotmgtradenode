@@ -24,7 +24,7 @@ export default function OffersTab({ password }: { password: string }) {
   const [limits, setLimits] = useState<Limits>(null);
   const [held, setHeld] = useState<Held[]>([]);
   const [servers, setServers] = useState<string[]>([]);
-  const [status, setStatus] = useState<{ linked: boolean; lastPollAt: number | null; lastError: string | null; rendezvous: Rendezvous[] } | null>(null);
+  const [status, setStatus] = useState<{ linked: boolean; lastPollAt: number | null; lastError: string | null; rendezvous: Rendezvous[]; tradeSlots?: { biggest: number; byBot: Record<string, number> } } | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [want, setWant] = useState<{ itemId: string; qty: string; slotsMin: string; slotsExact: string }[]>([{ itemId: "", qty: "1", slotsMin: "", slotsExact: "" }]);
   const [server, setServer] = useState("");
@@ -90,7 +90,7 @@ export default function OffersTab({ password }: { password: string }) {
     setPreviews((p) => ({ ...p, [o.id]: b.ok ? { ok: true, text: `You would give: ${list(b.picks as Held[])}` } : { ok: false, text: String(b.error) } }));
   }
   async function accept(o: Offer) {
-    if (!confirm(`Accept offer #${o.id}? Your bot meets ${o.botIgn} on ${o.server} and swaps ${o.want.length} line(s) of your items for: ${list(o.give)}.`)) return;
+    if (!confirm(`Accept offer #${o.id}? Your bot meets ${o.botIgn || "their bot"} on ${o.server} and swaps ${o.want.length} line(s) of your items for: ${list(o.give)}.`)) return;
     const b = await post({ action: "accept", offer: o });
     if (b) {
       setNotice(`Accepted. Meeting #${(b.rendezvous as Rendezvous).id} on ${o.server}; watch Meetings.`);
@@ -112,7 +112,7 @@ export default function OffersTab({ password }: { password: string }) {
 
   return (
     <section>
-      {status && !status.linked && <p style={{ color: "var(--warn, #d2a24c)" }}>Offers need the hub: link this node under Fleet → Node first.</p>}
+      {status && !status.linked && <p style={{ color: "var(--warn, #d2a24c)" }}>Offers need the hub: link this node from Overview first.</p>}
       <div className="pool-tabs">
         {(["browse", "mine", "new", "meetings"] as const).map((v) => (
           <button key={v} className={"nav-link" + (view === v ? " active" : "")} onClick={() => setView(v)}>
@@ -125,7 +125,7 @@ export default function OffersTab({ password }: { password: string }) {
       {notice && <p style={{ color: "var(--good, #5aa86a)" }}>{notice}</p>}
       {limits && (view === "browse" || view === "mine") && (
         <p style={{ color: limits.frozen ? "var(--bad)" : "var(--muted, #999)", fontSize: 12 }}>
-          {limits.frozen ? "This node is frozen after a disputed swap; the hub operator has to clear it." : `Limits: ${limits.maxOpenOffers} open offer(s), ${limits.maxItemsPerSide} items per side · ${limits.completedSwaps} completed swap(s). Limits grow with completed swaps.`}
+          {limits.frozen ? "The hub operator has frozen this node: no new offers or accepts until they unfreeze it." : `Limits: ${limits.maxOpenOffers} open offer(s), ${limits.maxItemsPerSide} items per side (the biggest trade inventory among your accounts) · ${limits.completedSwaps} completed swap(s).`}
         </p>
       )}
 
@@ -170,8 +170,10 @@ export default function OffersTab({ password }: { password: string }) {
                 {items.map((h) => {
                   const on = picked.has(h.instanceId);
                   const other = pickedBot && pickedBot !== h.botGuid;
+                  // No more than the account trades at once (its character's trade slots).
+                  const full = !on && !other && picked.size >= (status?.tradeSlots?.byBot[h.botGuid] ?? 8);
                   return (
-                    <button key={h.instanceId} className="nav-link" disabled={busy || (!!other && !on)} title={other ? "one account per offer" : ""} style={{ border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`, borderRadius: 6, padding: "4px 8px", color: on ? "var(--accent-hot)" : undefined }}
+                    <button key={h.instanceId} className="nav-link" disabled={busy || (!!other && !on) || full} title={other ? "one account per offer" : full ? `this account trades at most ${status?.tradeSlots?.byBot[h.botGuid] ?? 8} items at once` : ""} style={{ border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`, borderRadius: 6, padding: "4px 8px", color: on ? "var(--accent-hot)" : undefined }}
                       onClick={() => setPicked((p) => { const n = new Set(p); if (n.has(h.instanceId)) n.delete(h.instanceId); else n.add(h.instanceId); return n; })}>
                       {h.name}{h.enchantIds.length ? ` (${h.enchantIds.length})` : ""}
                     </button>
@@ -184,7 +186,7 @@ export default function OffersTab({ password }: { password: string }) {
           {want.map((w, i) => (
             <div key={i} style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>
               <input value={w.itemId} placeholder="item id (e.g. pdef)" style={{ width: 160 }} onChange={(e) => setWant((ws) => ws.map((x, j) => (j === i ? { ...x, itemId: e.target.value.trim() } : x)))} />
-              <input value={w.qty} type="number" min={1} max={24} style={{ width: 60 }} onChange={(e) => setWant((ws) => ws.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))} />
+              <input value={w.qty} type="number" min={1} max={status?.tradeSlots?.biggest ?? 24} style={{ width: 60 }} onChange={(e) => setWant((ws) => ws.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))} />
               <input value={w.slotsMin} placeholder="min ench" style={{ width: 80 }} onChange={(e) => setWant((ws) => ws.map((x, j) => (j === i ? { ...x, slotsMin: e.target.value } : x)))} />
               <input value={w.slotsExact} placeholder="exact ench" style={{ width: 80 }} onChange={(e) => setWant((ws) => ws.map((x, j) => (j === i ? { ...x, slotsExact: e.target.value } : x)))} />
               {want.length > 1 && <button className="nav-link" onClick={() => setWant((ws) => ws.filter((_, j) => j !== i))}>remove</button>}

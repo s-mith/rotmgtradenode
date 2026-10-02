@@ -1,11 +1,12 @@
 rotmgtradenode design doc
 =====================
 
-Two pieces: the NODE (rotmgtradenode, a self-hosted personal vault each player
-runs on their own computer) and the HUB (rotmgtradehub, a website that lets
-nodes find each other, swap items, and share a commons). The hub runs no
-bots, never logs into the game, holds no items, no credentials and no money,
-and sees vault contents only for vaults their owners chose to share (6.5).
+Two pieces: the NODE (rotmgtradenode, a self-hosted item pool each player
+runs on their own accounts from their own computer) and the HUB
+(rotmgtradehub, a website that lets nodes find each other, swap items, and
+share a communism). The hub runs no bots, never logs into the game, holds no
+items, no credentials and no money, and sees only what nodes publish: their
+offers and their communism (6.3).
 Everything physical happens on players' own accounts from their own
 machines. Both are open source. A third, private service that supplies
 finished accounts to a node is designed separately and is not part of this
@@ -16,22 +17,22 @@ document.
 ----------------------
 
 Goals
-  - every player can run their own vault from their own computer, as promised
+  - every player can run their own pool from their own computer, as promised
     in the shutdown notice, with no dependency on a central fleet
   - the project cannot be taken down by one ban wave: no central roster, no
     central accounts, no central IP
-  - nodes that opt in can trade with each other and pool items in a commons
-  - a node owner can share their vault with friends through the hub, so a
-    guest can deposit and withdraw without running the app
-  - players who cannot make alts by hand can get them from a separate
-    account service, which hands them to the node; the node walks the
-    tutorial locally
+  - nodes that opt in can trade with each other and pool items in a communism
+  - a node owner can set accounts aside as a communism, so anyone on the hub
+    can deposit and withdraw there without running the app, like the
+    original rotmgcommunism pool
+  - accounts are the owner's own alts, made on Realm's site and played through
+    the tutorial by hand before they join a node
 
 Non-goals (for now)
   - no bots on the hub of any kind: no reserve accounts, no escrow, no /tell
-    listener, no tutorial walkers, and no Realm traffic at all
+    listener, and no Realm traffic at all
   - no market and no points: no currency, no fractional decas, no credit or
-    contribution ledger. Cross-node trades are item for item; the commons is
+    contribution ledger. Cross-node trades are item for item; communism is
     free and capped
   - no raids, realm hunting, leaderboard, skin redeeming, or the dev API on the
     node
@@ -49,14 +50,24 @@ were what got the old cohort banned. So every node must obey:
     at a time; the "proxy only" rule is on by default, so no proxies means
     no logins). A direct login from the home IP is an explicit opt-out
   - no character recycling, ever
-  - no scheduled logins across accounts; bots log in when the owner uses them
-  - the hub never logs into the game. The first game login of any account
-    a node receives is its tutorial walk on that node, through the owner's
-    own proxies
+  - no scheduled logins across accounts beyond the once-a-day login a node
+    gives an account with a backpack day still ahead on its calendar; bots log
+    in when the owner uses them
+  - the hub never logs into the game; every game login is a node's, through
+    the owner's own proxies
   - a Realm build change must not cause a mass kick: nodes check the current
     protocol before logging in (section 8)
 
 Any future feature that breaks one of these needs its own risk write-up first.
+
+Risk write-up, trades with players (6.2b, 2026-09-23): a stranger on the hub
+can make one of a node's pool bots log in and stand in a nexus for up to
+thirty minutes, which bends "bots log in when the owner uses them". Kept
+small: off by default, a per-node cap on meetings at once, one meeting per
+person at a time and six an hour, a day's pause after two no-shows, the bot
+invites a player at most every two minutes and otherwise waits for their
+/trade, and every login still goes through the owner's proxies and the
+build gate. Communism accounts already meet strangers the same way (6.3).
 
 
 3. Trust model
@@ -72,18 +83,23 @@ Any future feature that breaks one of these needs its own risk write-up first.
     to the hub from the client links that key to a hub user account (4.3). The
     hub knows node public keys and never any credentials
   - a node verifies its own owner locally by /tell to the owner's own bot. The
-    hub does not verify player IGNs; it records bot IGNs and lets counterparties
-    attest them (see 6.2)
+    hub does not verify player IGNs on its own; it records bot IGNs and lets
+    counterparties attest them (see 6.2). The operator may name one node the
+    login node (6.6): its /tell desk proves characters for the hub, and the
+    hub trusts it with that because the operator runs it
+  - a trade with a player (6.2b) has one witness, the node: its receipt alone
+    closes it, the trade window being all or nothing for both sides. What the
+    player reports afterwards reaches the operator and freezes nobody
 
 
 4. Components
 -------------
 
 4.1 Node (rotmgtradenode)
-  - open source. Fork of rotmgcommunism `rewrite`, trimmed to: vault,
+  - open source. Fork of rotmgcommunism `rewrite`, trimmed to: the pool,
     deposit/withdraw, /tell owner login, inventory tracker, trade machine,
-    backpack claim chore, tutorial walker (for hand-made and delivered accounts)
-  - cherry-pick branch `rotmg-trade` (offers between vaults, item locking)
+    backpack claim and use per account
+  - cherry-pick branch `rotmg-trade` (offers between nodes, item locking)
   - Electron app: tray shell around the existing Hono server + Vite SPA,
     auto-update, credentials in the OS keychain, SQLite under the user data dir.
     Windows first, code-signed; Linux and Mac builds if cheap. better-sqlite3
@@ -109,37 +125,48 @@ Any future feature that breaks one of these needs its own risk write-up first.
 4.2 Hub (rotmgtradehub)
   - open source. A website + API. No bots, no items, no credentials, no
     money, no Realm traffic. Every secret it uses is env, not code
+  - the website is the one human interface for anything cross-node: a
+    front page with live numbers and the download, a dashboard of live
+    node cards and a first-run checklist, the offer board and communism
+    with buttons that queue requests for nodes (anyone: deposits into and
+    withdraws from a node's communism; the owner: offers, accepts, cancels,
+    communism takes and gives with their own node), an activity feed pushed
+    over server-sent events, and Discord webhook notifications. Items render as tiles from the node package's catalog
+    and sprite sheet; wants are built with a picker. Sign-in is Google or
+    Discord; nodes link with one-time codes
   - holds: hub user accounts, node registry (public key, bot IGNs, version,
-    last seen), offers, commons listings, trade receipts,
-    vault-share grants
+    last seen), offers, communism accounts and listings, the request queue,
+    trade receipts
   - ban telemetry store (section 8)
   - hosting: a small site anywhere (Railway or a Vultr VPS)
 
 4.3 Node modes and hub login
   Local mode (default, no hub account needed)
-    - everything in 6.1 works: roster, vault, deposit/withdraw, /tell owner
-      login, backpack chore, all state in the local SQLite
+    - everything in 6.1 works: roster, pool, deposit/withdraw, /tell owner
+      login, backpacks per account, all state in the local SQLite
     - the app never contacts the hub except for the version check, which can
       be turned off
-    - no hub features: no offers, no commons, no shared vaults
+    - no hub features: no offers, no communism across nodes, no hub requests
 
-  Connected mode (log in to the hub from the client)
-    - the client has a "Log in to rotmgtradehub" screen: hub email + password,
-      or a Discord login if the hub offers one. This is a hub user account,
-      separate from any game account
-    - on first login the node sends its public key and the hub links it to the
-      account. One hub account can have several nodes (desktop + laptop); each
-      node is listed on the hub with its bot IGNs and last-seen time, and can be
-      unlinked from the website
-    - after linking, hub requests are signed with the node key, so the password
-      is used once and never stored on the node; the hub issues a session
-      bound to the node key that can be revoked from the website
-    - logging in unlocks: posting and accepting offers, commons opt-in and
-      withdraws, granting other hub users vault space on my node and using
-      the space granted to me (6.5), and hub-side status (which of my nodes
-      are online, open offers, commons items)
+  Connected mode (link the node to a hub account)
+    - hub accounts are made on the hub website by signing in with Google;
+      the hub keeps the email address and a display name. This is a hub user
+      account, separate from any game account, and it has no password
+    - the website hands out a one-time link code (my nodes -> link a node:
+      eight characters, fifteen minutes). The owner pastes it into the node's
+      console; the node sends its public key with the code and the hub links
+      the key to the account. One hub account can have several nodes
+      (desktop + laptop); each node is listed on the hub with its bot IGNs and
+      last-seen time, and can be unlinked from the website
+    - after linking, hub requests are signed with the node key; no hub
+      secret is ever stored on the node, and the hub revokes the key by
+      deleting the node row from the website
+    - logging in unlocks: posting and accepting offers, communism across
+      the hub (taking from and giving to other nodes' communism with my bots,
+      and other people using mine), and hub-side status (which of my nodes
+      are online, open offers, communism items)
     - logging out or losing the hub does not touch local state. Open offers
-      and commons listings for that node are hidden on the hub while the node
+      and communism listings for that node are hidden on the hub while the node
       is offline and resume when it reconnects. Locked items stay locked
       locally until the node hears the offer's final state
     - the roster and all credentials stay local in both modes; connected mode
@@ -157,18 +184,17 @@ Any future feature that breaks one of these needs its own risk write-up first.
 
 Node SQLite (never leaves the machine)
   - accounts and passwords, roster, per-bot capacity
-  - owned item instances (instance UUID, item id, enchant record, holder bot)
-  - local vault ledger, offer state mirror
+  - tracked item instances (instance UUID, item id, enchant record, holder bot)
+  - the request queue, offer state mirror
 
 Hub database
-  - hub user accounts (email, password hash or Discord id) and the nodes
+  - hub user accounts (email, Google subject or Discord id; no passwords) and the nodes
     linked to each
   - nodes, bot IGN attestations
   - offers (give / want, status, expiry)
-  - commons contributions and availability
-  - vault shares: grants (owner node, guest user, IGN, slots per half, role,
-    trade yes/no) and, for shared vaults only, each guest's published vault
-    contents and the guest request queue
+  - each node's communism: its communism accounts (room per half) and their items
+  - the request queue: what hub users asked a node to do, and the node's
+    progress reports
   - trade receipts
   - opt-in ban telemetry: per node, per account hash: suspended-at, last
     seen, last activity kind, node version, Realm build
@@ -183,15 +209,13 @@ enchant record, never by instance id.
 --------
 
 6.1 Owner deposit / withdraw (node only)
-  - same as rotmgcommunism My Vault: owner logs in by /tell, claims, trades with
-    their own bot. No hub involvement
+  - same as rotmgcommunism: the owner logs in by /tell and trades with their
+    own bot; everything on the pool accounts is theirs. No hub involvement
 
 6.2 P2P swap (node <-> node via hub)
   - a node posts an offer: give N items (locked, max 24 = 8 inventory + 16-slot
-    backpack per trade window), want M items with wishlist-style filters.
-    The items are the owner's, or a guest's from their personal vault on
-    that node (6.5); a guest offer is tagged with the guest's hub account and
-    shown under their name
+    backpack per trade window), want M items with per-slot enchantment filters.
+    The items are the owner's pool items (never communism's)
   - another node accepts; the hub checks both sides have room and creates a
     rendezvous: server, both bot IGNs, both item lists, a time window
   - both nodes run the consolidation swap path (consolidate_give /
@@ -212,95 +236,78 @@ enchant record, never by instance id.
   - trade limits: a new node may have 1 open offer and small windows; limits
     grow with matching receipts
 
-6.3 Commons (federated, no points)
-  - a node opts in some of its items; contributed items stay on the
-    contributor's bots and stay the contributor's until they are taken
-  - the hub lists each item with live availability (contributor node seen
-    within the last few minutes or not). Offline contributions are hidden,
-    not deleted
-  - anyone linked can take a listed item, free. There is no points system:
-    contributions earn nothing and withdrawals cost nothing. What bounds it
-    is a per-node daily cap the hub operator sets (default 8 hand-overs per
-    rolling day), and that a node cannot take its own items
-  - withdraw = a one-sided meeting: the contributor's bot gives, the
-    withdrawer's bot receives, nothing comes back. Same receipt protocol as
-    6.2: the hub records it only when the giver's "gave" equals the taker's
-    "got" and the taker gave nothing. Taking an item unlists it at once; a
-    failed, aborted or expired meeting lists it again and does not count
-    against the cap
-  - a contributor who pulls items back out of band simply stops listing them
-    on the next publish; nothing is owed
+6.2b Trades with players (a person without a node, 2026-09-23)
+  - a node that allows it (setting, off by default) lets anyone signed in to
+    the hub take its offers with their own character: Trade in game on the
+    board. The hub makes the meeting at once (rendezvous kind `player`); the
+    node's bot brings the offer's items to the server's nexus; the page tells
+    the person when to /trade it, and what the node sees
+  - in the window the bot puts its items up and judges theirs against the
+    offer's want lines (enchantment filters included); it holds off and says
+    why while they do not fit, accepts only after them, and a window that
+    closes without the trade can be tried again until the deadline
+  - the node's receipt closes it; its count of trades with players is apart
+    from completed swaps (which drive the offer limits). The person can call
+    it off, confirm, or report a problem
+  - caps and the risk write-up: section 2
+
+6.3 Communism (federated, no points)
+  - a node sets whole accounts aside for communism ("communism" flag on the
+    roster). Their trade slots are communism's room, everything on them
+    (character slots and storage) is a communism item; the pool is everything
+    else. The fleet never uses a communism account for pool work
+  - the node publishes its communism to the hub: accounts (IGN, half, slots,
+    free, online) and items (ref = instance id). The hub shows one federated
+    board: every online node's items, and each node's room per half
+  - anyone signed in to the hub can deposit into a node's communism and take
+    from it, as much as they like, no points, no caps: they give their IGN
+    and a server, the hub queues a request for that node, and one of its
+    communism accounts meets them in game like the original rotmgcommunism
+    pool. The node reports progress (queued, which bot to /trade, done)
+  - node-to-node: a node's own bot can take a listed item onto its pool
+    (communism account gives, the taker's bot receives, nothing back) or
+    give pool items into another node's communism (the giver's bot gives, a
+    communism account of the target with room receives). Same receipt protocol
+    as 6.2: recorded only when the giver's "gave" equals the taker's "got"
+    and the taker gave nothing. Taking an item unlists it at once; a failed,
+    aborted or expired meeting lists it again
+  - the operator takes it all back at any time: unflag the account and it
+    is a pool account again with whatever it holds; or withdraw communism
+    items to their own character like anyone else
 
 6.4 Account supply
-  - outside this document. The node's only part is a future pickup client
-    that receives finished accounts and queues them for their tutorial
-    walks (7)
+  - outside this document. A node takes only accounts that have played
+    through the tutorial already.
 
-6.5 Shared vaults via the hub
-  - the owner grants a hub user access to one of their nodes. A grant is:
-      slots       how many vault slots the guest gets, per half (seasonal /
-                  non-seasonal): the guest's PERSONAL VAULT on the owner's
-                  node. 0 in a half = nothing there
-      role        deposit only            guest can put items in
-                  withdraw own            guest can take back their own items
-                  withdraw any            guest can take anything in the
-                                          owner's pool too (a trusted friend)
-                  co-owner                withdraw any + manage grants
-      trade       yes / no: may the guest post and accept offers (6.2) with
-                  the items in their personal vault
-    Grants live on the hub, keyed by node. The owner sets, raises, lowers
-    and revokes them from the Control panel; the node mirrors them
-  - the owner grants to a hub user AND the IGN that user will trade from.
-    The IGN is what the node enforces at trade time (below), so a guest
-    account lying about its IGN cannot receive anything. Optionally the guest
-    proves the IGN once by /tell to the owner's bot, which the node attests
-    to the hub
-  - the guest's personal vault is the node's existing per-user vault (users,
-    vault_halves with a slot cap, vault_items owned by the user): items a
-    guest deposits are theirs, sit on the owner's bots, and count against
-    their slots. Lowering a quota below what is used blocks new deposits and
-    incoming trades until the guest is under it again; it never evicts
-  - while connected, a node with at least one grant publishes to the hub
-    each guest's vault (item id, enchant record, holder bot online or not,
-    slots used / granted). Visible only to the owner and that guest. Nodes
-    with no grants publish nothing
-  - the guest uses the hub website, or their own client logged in to the hub,
-    to browse their vault and queue a deposit or a withdraw. They do not need
-    to run the app or own any accounts
-  - the hub turns the request into an assignment (guest IGN, server, items,
-    vault user) and the owner's node pulls it like any other: its bot goes to
-    the server and trades with that IGN only. Same machinery as the old site's
-    personal-vault deposit/withdraw and as a commons withdraw (6.3)
-  - guest trading (trade = yes): the guest posts and accepts offers on the
-    hub exactly like a node owner, but the offer is tagged "on behalf of"
-    the guest's hub account and may give only items from the guest's own
-    vault. What the guest receives lands in their vault, so an accept is
-    refused when it would exceed their slots (items held + wishes pending +
-    incoming). The node's bot still does the physical trade; the node signs
-    the receipt; limits, attestations and freezes stay per NODE, so an owner
-    is on the hook for their guests and picks them accordingly
-  - no receipt protocol between guest and owner: the guest trusts the owner
-    by accepting the grant, and the owner runs the node, so the node's own
-    report closes the request
-  - offline node: the vault shows as offline, queued requests wait until the
-    node reconnects and expire after a set time. Offers the guest posted are
-    hidden while the node is offline, like the owner's
-  - the owner's client shows every grant with slots used / granted, pending
-    guest requests, and can pause sharing or a single guest's trading
-  - local mode has no shared vaults. A node-local /tell allowlist could be
-    added later for people who never log in to the hub; not in scope now
-  - a node with many guests is a mini pool. The ban-risk rules in 2 still
-    bound it: a few accounts per exit IP however many people use them, so
-    the sum of quotas is bounded by what the roster can hold
+6.5 Hub requests
+  - the hub keeps one queue of what its users asked a node to do: communism
+    deposits and withdraws by anyone, and the owner's own offers, accepts,
+    cancels, communism takes and gives. The node polls it, runs each request
+    against its queue or coordinators, and posts results: progress notes
+    while a row is open (a bot has claimed it: "/trade <bot>"), then done or
+    failed. A request nobody takes within 30 minutes expires
+  - no grants, no quotas, no per-user storage on a node: what a hub user can
+    reach is exactly communism, and only a node's owner acts with its bots
+  - local mode has no hub requests; the owner's own communism still works from
+    the node's page
+
+
+6.6 Signing in with a Realm character (the login node, 2026-09-23)
+  - the operator names one node the login node (admin page). People sign in
+    to the hub, or prove the character they trade with, by whispering a code
+    from that character to the node's login desk bot; the node reports who
+    whispered it. No email, no password: an account made this way has the
+    character's name and nothing else
+  - once a login node is set, communism deposits and withdraws and trades in
+    game go by proven characters only; a character is proven on one account
+    at a time (whoever whispered last)
 
 7. Node scope: keep / cut from rotmgcommunism
 ---------------------------------------------
 
 Keep: GameClient, protocol codecs, inventory tracker, trade machine,
-per-bot capacity, chunked withdraw, /tell login, My Vault UI, backpack claim
-chore (manual, per account), the tutorial walker (walks hand-made and freshly
-delivered accounts), the account pickup client, Realm server list refresh
-at boot.
+per-bot capacity, chunked withdraw, /tell login, the pool UI, backpack claim
+and use (manual, per account), Realm server list refresh at boot.
 
 Nothing from the old account generator's registration code stays on the node.
 
@@ -344,7 +351,7 @@ Opt-in ban telemetry
   - when on, the node reports to the hub: a salted hash of each account
     (never the email), suspended-at when a login returns the ToS suspension
     text, last seen, what the account was doing last (idle, owner trade,
-    swap, commons, tutorial walk), node version, Realm build, and account age
+    swap, communism, backpack job), node version, Realm build, and account age
     bucket
   - the hub joins this across nodes into the same view scripts/ban-pattern.py
     gave for the fleet, so a wave is visible while it is starting, split by
@@ -357,17 +364,16 @@ Opt-in ban telemetry
 9. Phasing
 ----------
 
-  1. Node standalone: vault, deposit/withdraw, /tell login, tutorial walker
-     for hand-made accounts, server list refresh, protocol pre-login check
+  1. Node standalone: the pool, deposit/withdraw, /tell login, server list refresh, protocol pre-login check
      against the feed, Electron build, signed Windows installer. This is the
      shutdown-notice promise and ships first
   2. Hub v0: hub user accounts, log in from the client, node linking, node
      registry, version feed, current-build endpoint, ban telemetry intake
   3. P2P swaps: offers, rendezvous, receipts, attestations, trade limits
-  4. Commons: opt-in items, availability, free capped hand-overs
-  4b. Shared vaults: grants with slot quotas, published per-guest contents,
-      guest deposit/withdraw via the hub, then guest offers (on-behalf-of
-      tag on 6.2, room checks against the guest's slots)
+  4. Communism: communism accounts, the federated board, deposits and withdraws
+     by anyone on the hub, node-to-node takes and gives. (Replaced, on
+     2026-09-21, the first cut of opt-in items with a daily cap, and the
+     personal vaults and shared vaults that came with it.)
   5. Account supply: separate private service, not part of this document
   6. Later, if ever: an operator-run reserve fleet, modelled as just another
      node with a trusted flag so bringing it back is config, not protocol
@@ -382,7 +388,9 @@ Opt-in ban telemetry
     hub spot the same account on two nodes)
   - whether receipts should include a packet-level proof (last TRADE packets)
     or just the node's summary
-  - clawback or reputation penalty for commons contributors who go dark
+  - whether a node's communism should get any protection against being
+    emptied by one person (today it is the operator's own choice of accounts
+    and nothing else)
   - one character slot per account means no seasonal/non-seasonal switching
     without deletion, which rule 2 forbids; decide per-account seasonality at
     creation and never change it

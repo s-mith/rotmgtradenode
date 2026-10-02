@@ -1,8 +1,9 @@
 // Taking an account away from the dispatcher for a maintenance login (a
-// storage trip, a read of a new account): hold the guid so the desk leaves
-// it alone, have the desk let go of it when it is idling there, let a login
-// in progress finish, wait out the gate's cooldown after the closed session,
-// and hand it back afterwards. Used by storage.ts and Fleet.readAccount.
+// storage trip, a read of a new account, a backpack job): hold the guid so
+// the desk leaves it alone, have the desk let go of it when it is idling
+// there, let a login in progress finish, wait out the gate's cooldown after
+// the closed session, and hand it back afterwards. Used by storage.ts,
+// backpacks.ts and Fleet.readAccount.
 import type { BotAccount } from "./botPool";
 import type { SweepDeps } from "./sweeps";
 
@@ -10,6 +11,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** How long to wait for a lent bot to go offline, and for its login cooldown to pass. */
 export const RELEASE_WAIT_MS = 15_000;
 export const LOCKOUT_WAIT_MS = 90_000;
+/**
+ * How often a queued job (a character delete, a new character, a drop, a
+ * backpack job) looks again at a busy account. It waits as long as the
+ * account stays busy; the console can take it back meanwhile.
+ */
+export const BUSY_RETRY_MS = (() => {
+  const v = Number(process.env.DELETE_RETRY_S ?? 15);
+  return (Number.isFinite(v) && v > 0 ? v : 15) * 1000;
+})();
 
 export interface BorrowOptions {
   sd: SweepDeps;

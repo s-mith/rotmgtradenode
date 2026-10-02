@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const xmlPath = process.argv[2] ?? process.env.ROTMG_OBJECT_XML ?? path.resolve("../rotmglearn/data/gamedata/object.xml");
+const xmlPath = process.argv[2] ?? process.env.ROTMG_OBJECT_XML ?? path.resolve("../../rotmglearn/data/gamedata/object.xml");
 const file = path.resolve("src/lib/raidDungeons.ts");
 const xml = fs.readFileSync(xmlPath, "utf8");
 

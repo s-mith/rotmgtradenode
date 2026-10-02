@@ -7,7 +7,7 @@
 
 import type Database from "better-sqlite3";
 import { emitRequest } from "./liveBus";
-import { releaseVaultBotIfEmpty } from "./vault";
+import { presence } from "./fleetPresence";
 
 export type OpenRequests = { deposits: number; withdraws: number };
 
@@ -19,8 +19,22 @@ export type OpenRequests = { deposits: number; withdraws: number };
  * pre-grouping legacy rows those gates also skip. A mismatch here would mean
  * flagging a queue as full when the submit path doesn't, or vice versa.
  */
-/** A player may have this many withdraws open at once (the fragmenter makes several rows from one request). */
-export const MAX_OPEN_WITHDRAWS = 3;
+/**
+ * How many withdraw requests one player may have open at once (the rows the
+ * fragmenter splits one into, a trade per bot, count once): one per bot the
+ * fleet can have online, so its proxies set the budget and one player can't
+ * queue more trades than the fleet could run side by side. The operator can
+ * set MAX_OPEN_WITHDRAWS (0: no limit); per-player item caps are on top
+ * (lib/playerLimits.ts).
+ */
+export function maxOpenWithdraws(): number {
+  const env = process.env.MAX_OPEN_WITHDRAWS;
+  if (env !== undefined && env !== "") {
+    const n = Number(env);
+    if (Number.isInteger(n) && n >= 0) return n === 0 ? Number.POSITIVE_INFINITY : n;
+  }
+  return Math.max(1, presence.onlineCap() ?? 1);
+}
 
 export function openRequestsFor(db: Database.Database, ignLower: string): OpenRequests {
   return db
@@ -28,7 +42,7 @@ export function openRequestsFor(db: Database.Database, ignLower: string): OpenRe
       `SELECT
          (SELECT COUNT(*) FROM deposit_requests
            WHERE ign_lower = ? AND status IN ('pending','claimed')) AS deposits,
-         (SELECT COUNT(*) FROM withdraw_requests
+         (SELECT COUNT(DISTINCT group_id) FROM withdraw_requests
            WHERE ign_lower = ? AND status IN ('pending','claimed')
              AND group_id IS NOT NULL) AS withdraws`,
     )
@@ -47,8 +61,9 @@ export type OpenGroup = {
   groupId: string;
   kind: "deposit" | "withdraw";
   server: string;
-  /** Personal storage rather than the pool. */
-  vault: boolean;
+  /** Communism rather than the pool. */
+  /** Into or out of communism rather than the pool. */
+  communism: boolean;
   seasonal: boolean;
   createdAt: number;
   /** Deposits: the declared upper bound; withdraws: what was asked for. */
@@ -65,27 +80,27 @@ export function openGroupsFor(db: Database.Database, ignLower: string): OpenGrou
   const out: OpenGroup[] = [];
   const deposits = db
     .prepare(
-      `SELECT group_id, MIN(server) AS server, MAX(vault_user_id IS NOT NULL) AS vault, MAX(seasonal) AS seasonal,
+      `SELECT group_id, MIN(server) AS server, MAX(communism) AS communism, MAX(seasonal) AS seasonal,
               MIN(created_at) AS created_at, MAX(item_count) AS item_count
          FROM deposit_requests WHERE ign_lower = ? AND status IN ('pending','claimed') AND group_id IS NOT NULL
         GROUP BY group_id ORDER BY MIN(created_at)`,
     )
-    .all(ignLower) as { group_id: string; server: string; vault: number; seasonal: number; created_at: number; item_count: number }[];
+    .all(ignLower) as { group_id: string; server: string; communism: number; seasonal: number; created_at: number; item_count: number }[];
   for (const d of deposits) {
-    out.push({ groupId: d.group_id, kind: "deposit", server: d.server, vault: d.vault === 1, seasonal: d.seasonal !== 0, createdAt: d.created_at, items: [], itemCount: d.item_count });
+    out.push({ groupId: d.group_id, kind: "deposit", server: d.server, communism: d.communism === 1, seasonal: d.seasonal !== 0, createdAt: d.created_at, items: [], itemCount: d.item_count });
   }
   const withdraws = db
     .prepare(
-      `SELECT group_id, server, items_json, vault_user_id, seasonal, created_at
+      `SELECT group_id, server, items_json, communism, seasonal, created_at
          FROM withdraw_requests WHERE ign_lower = ? AND status IN ('pending','claimed') AND group_id IS NOT NULL
         ORDER BY created_at, id`,
     )
-    .all(ignLower) as { group_id: string; server: string; items_json: string; vault_user_id: number | null; seasonal: number; created_at: number }[];
+    .all(ignLower) as { group_id: string; server: string; items_json: string; communism: number; seasonal: number; created_at: number }[];
   const byGroup = new Map<string, OpenGroup>();
   for (const w of withdraws) {
     let g = byGroup.get(w.group_id);
     if (!g) {
-      g = { groupId: w.group_id, kind: "withdraw", server: w.server, vault: w.vault_user_id !== null, seasonal: w.seasonal !== 0, createdAt: w.created_at, items: [], itemCount: 0 };
+      g = { groupId: w.group_id, kind: "withdraw", server: w.server, communism: w.communism === 1, seasonal: w.seasonal !== 0, createdAt: w.created_at, items: [], itemCount: 0 };
       byGroup.set(w.group_id, g);
       out.push(g);
     }
@@ -104,6 +119,37 @@ export function openGroupsFor(db: Database.Database, ignLower: string): OpenGrou
   return out.sort((a, b) => a.createdAt - b.createdAt);
 }
 
+/** How long a request the node ended with a reason stays in the player's list. */
+export const ENDED_SHOWN_MS = 15 * 60 * 1000;
+
+/**
+ * `ignLower`'s groups that ended without being fulfilled lately, for a reason
+ * the node recorded (a bot gave up, the window never opened, the stale
+ * sweep): listed so the player sees why instead of the request vanishing.
+ * Their own cancels are left out; they know.
+ */
+export function recentlyEndedGroupsFor(db: Database.Database, ignLower: string, since = Date.now() - ENDED_SHOWN_MS): OpenGroup[] {
+  const out: OpenGroup[] = [];
+  const ended = (table: "deposit_requests" | "withdraw_requests") =>
+    db
+      .prepare(
+        `SELECT group_id, MIN(server) AS server, MAX(communism) AS communism, MAX(seasonal) AS seasonal, MIN(created_at) AS created_at
+           FROM ${table} WHERE ign_lower = ? AND group_id IS NOT NULL
+          GROUP BY group_id
+         HAVING SUM(status IN ('pending','claimed')) = 0
+            AND SUM(status = 'cancelled' AND end_reason IS NOT NULL AND end_reason NOT IN ('cancelled by player','vault-full')) > 0
+            AND MAX(updated_at) >= ?
+          ORDER BY MIN(created_at)`,
+      )
+      .all(ignLower, since) as { group_id: string; server: string; communism: number; seasonal: number; created_at: number }[];
+  for (const kind of ["deposit", "withdraw"] as const) {
+    for (const g of ended(kind === "deposit" ? "deposit_requests" : "withdraw_requests")) {
+      out.push({ groupId: g.group_id, kind, server: g.server, communism: g.communism === 1, seasonal: g.seasonal !== 0, createdAt: g.created_at, items: [], itemCount: 0 });
+    }
+  }
+  return out;
+}
+
 /**
  * Cancel `ignLower`'s open requests directly, no code challenge.
  *
@@ -117,23 +163,21 @@ export function openGroupsFor(db: Database.Database, ignLower: string): OpenGrou
 export function cancelOpenRequests(db: Database.Database, ignLower: string, groupId: string | null = null): CancelResult {
   const now = Date.now();
   const groups: (string | null)[] = [];
-  const vaultUsers = new Set<number>();
   const out = db.transaction(() => {
     const cancel = (table: "deposit_requests" | "withdraw_requests"): number => {
       const kind = table === "deposit_requests" ? "deposit" : "withdraw";
       // One group when asked (the In Flight panel's per-request cancel),
       // else everything the character has open.
       const rows = db
-        .prepare(`SELECT id, group_id, vault_user_id FROM ${table} WHERE ign_lower = ? AND status IN ('pending', 'claimed')${groupId ? " AND group_id = ?" : ""}`)
-        .all(...(groupId ? [ignLower, groupId] : [ignLower])) as { id: number; group_id: string | null; vault_user_id: number | null }[];
-      const upd = db.prepare(`UPDATE ${table} SET status = 'cancelled', updated_at = ? WHERE id = ? AND status IN ('pending', 'claimed')`);
+        .prepare(`SELECT id, group_id FROM ${table} WHERE ign_lower = ? AND status IN ('pending', 'claimed')${groupId ? " AND group_id = ?" : ""}`)
+        .all(...(groupId ? [ignLower, groupId] : [ignLower])) as { id: number; group_id: string | null }[];
+      const upd = db.prepare(`UPDATE ${table} SET status = 'cancelled', end_reason = 'cancelled by player', updated_at = ? WHERE id = ? AND status IN ('pending', 'claimed')`);
       const ev = db.prepare("INSERT INTO request_events (kind, request_id, event, bot_guid, detail, at) VALUES (?, ?, 'cancelled', NULL, ?, ?)");
       let n = 0;
       for (const r of rows) {
         if (upd.run(now, r.id).changes) {
           ev.run(kind, r.id, JSON.stringify({ why: "cancelled by player" }), now);
           groups.push(r.group_id);
-          if (r.vault_user_id !== null) vaultUsers.add(r.vault_user_id);
           n++;
         }
       }
@@ -143,7 +187,6 @@ export function cancelOpenRequests(db: Database.Database, ignLower: string, grou
     // status report; there is no bot table to free any more.
     const depositsCancelled = cancel("deposit_requests");
     const withdrawsCancelled = cancel("withdraw_requests");
-    for (const u of vaultUsers) releaseVaultBotIfEmpty(db, u);
     return { depositsCancelled, withdrawsCancelled, tradesInProgress: 0 };
   }).immediate();
   for (const g of groups) emitRequest(g);
