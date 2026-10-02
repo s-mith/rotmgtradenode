@@ -20,7 +20,8 @@ export type DepositGroupStatus = {
   tradeCount: number;
   trades: DepositGroupTrade[];
   /** Why the deposit stopped, when it stopped for a reason other than the
-   *  player under-filling a trade. Only 'vault-full' today; null otherwise. */
+   *  player under-filling a trade: 'vault-full', or why the fleet cancelled
+   *  it (no bot could take it); null otherwise. */
   endReason: string | null;
   /** The IGN the group was queued for — the automation API needs it to cancel. */
   ign: string;

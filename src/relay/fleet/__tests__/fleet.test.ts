@@ -241,11 +241,11 @@ describe("connection budget", () => {
   });
 });
 
-describe("proxy pool source and operator switch", () => {
+describe("proxy pool list and operator switch", () => {
   const mk = (hosts: string[]): Proxy[] => hosts.map((host) => ({ host, port: 1080, type: 5, username: "u", password: "p" }));
   const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "proxypool-"));
 
-  it("parses Webshare's host:port:user:pass download format", () => {
+  it("parses Webshare's host:port:user:pass lines", () => {
     const list = parseProxyList("1.2.3.4:5000:alice:s3cret\r\n\r\n# comment\n5.6.7.8:6000:bob:pw\njunk\n");
     expect(list).toEqual([
       { host: "1.2.3.4", port: 5000, type: 5, username: "alice", password: "s3cret" },
@@ -290,47 +290,22 @@ describe("proxy pool source and operator switch", () => {
     expect(pool.claim("bot@example.com")).toBeNull();
   });
 
-  it("refresh downloads the list, caches it, and keeps state across the swap", async () => {
-    const dir = tmp();
-    const file = path.join(dir, "proxies.txt");
-    const stateFile = path.join(dir, "proxy_settings.json");
-    fs.writeFileSync(file, "1.1.1.1:1080:u:p\n2.2.2.2:1080:u:p\n");
-    let body = "2.2.2.2:1080:u:p\n3.3.3.3:2000:u2:p2\n";
-    let calls = 0;
-    const fakeFetch = (async () => { calls++; return new Response(body, { status: 200 }); }) as unknown as typeof fetch;
-    const pool = ProxyPool.fromSource({ url: "https://example.test/list", file, stateFile, fetch: fakeFetch });
-    expect(pool.sourceStatus()).toMatchObject({ urlConfigured: true, loadedFrom: "file", fetchedAt: null });
-    expect(pool.exclusiveCapacity()).toBe(2);
-    pool.setEnabled("2.2.2.2", false);
-    const held = pool.claim("bot@example.com")!;
-    expect(held.host).toBe("1.1.1.1");
-
-    const r = await pool.refresh();
-    expect(r).toEqual({ ok: true, count: 2, error: null });
-    expect(calls).toBe(1);
-    expect(fs.readFileSync(file, "utf8")).toBe(body);
-    expect(pool.sourceStatus().loadedFrom).toBe("url");
-    expect(pool.healthReport().map((h) => h.host).sort()).toEqual(["2.2.2.2", "3.3.3.3"]);
-    expect(pool.isEnabled("2.2.2.2")).toBe(false);
-    expect(pool.exclusiveCapacity()).toBe(1);
-    // The removed host's occupant is still tracked until it lets go.
-    expect(pool.occupiedCount()).toBe(1);
-    pool.release("bot@example.com");
-    expect(pool.occupiedCount()).toBe(0);
-    expect(pool.claim("bot@example.com")!.host).toBe("3.3.3.3");
-
-    // A bad download keeps the current list and the cache.
-    body = "";
-    const bad = await pool.refresh();
-    expect(bad.ok).toBe(false);
-    expect(pool.exclusiveCapacity()).toBe(1);
-    expect(pool.sourceStatus().lastError).toMatch(/no usable proxy lines/);
-    expect(fs.readFileSync(file, "utf8")).not.toBe("");
-  });
-
-  it("refresh without a URL is a no-op", async () => {
+  it("an HTTP call waits for a host to come free, up to its job's deadline", async () => {
     const pool = new ProxyPool(mk(["a"]));
-    expect(await pool.refresh()).toEqual({ ok: false, count: 1, error: "PROXIES_URL not configured" });
+    pool.claim("bot@example.com");
+    expect(pool.probeFor("reader@example.com")).toBeNull();
+    // Nobody lets go before the deadline: no host, and why.
+    expect(await pool.probeWhenFree("reader@example.com", Date.now() + 600)).toBeNull();
+    expect(pool.noFreeHostReason()).toBe("every proxy host is carrying a bot");
+    // The bot logs out meanwhile: the call gets its host.
+    setTimeout(() => pool.release("bot@example.com"), 300);
+    expect((await pool.probeWhenFree("reader@example.com", Date.now() + 10_000))?.host).toBe("a");
+    // Every host switched off: no bot logging out frees one, so there is no wait at all.
+    pool.setAllEnabled(false);
+    const started = Date.now();
+    expect(await pool.probeWhenFree("reader@example.com", Date.now() + 10_000)).toBeNull();
+    expect(Date.now() - started).toBeLessThan(200);
+    expect(pool.noFreeHostReason()).toBe("every proxy host is switched off");
   });
 });
 
@@ -349,8 +324,18 @@ describe("tracker holder index and instance-exact transfers", () => {
     expect(tracker.instancesFor("taker")[4].instanceId).toBe(enchanted);
     expect(tracker.holderOf(enchanted)).toBe("taker");
     expect(tracker.holderOf(before[4].instanceId)).toBe("giver");
+    tracker.recordIgn("taker", "Taker");
     tracker.removeBot("taker");
     expect(tracker.holderOf(enchanted)).toBeUndefined();
+    // Everything about the bot goes, not just the first map that had it (a ghost with instances but no counts sat in the pool feed, 2026-09-22).
+    expect(tracker.instancesFor("taker")).toEqual({});
+    expect(tracker.ignFor("taker")).toBe("");
+    expect(tracker.capacityView().has("taker")).toBe(false);
+    // Pruning to a roster drops whoever is not on it.
+    tracker.recordIgn("ghost", "Ghost");
+    expect(tracker.pruneTo(new Set(["giver"]))).toEqual(["ghost"]);
+    expect(tracker.ignFor("ghost")).toBe("");
+    expect(tracker.instancesFor("giver")[4]).toBeDefined();
     tracker.close();
     fs.rmSync(dir, { recursive: true, force: true });
   });

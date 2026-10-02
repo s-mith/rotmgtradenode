@@ -138,8 +138,10 @@ async function main() {
   const { ident, get } = await openBuild(BASE, log);
   log(`equip sync: ${BASE} (game ${ident.version}, build ${ident.hash})`);
   const [equipXml, playersXml] = await Promise.all([get("extracted_assets/TextAsset/equip.xml"), get("extracted_assets/TextAsset/players.xml")]);
+  // Pet eggs live in their own file; a build without it (or an older mirror) just has no eggs to add.
+  const eggsXml = await get("extracted_assets/TextAsset/equipEggs.xml").catch(() => null);
 
-  const objects = readObjects(equipXml);
+  const objects = [...readObjects(equipXml), ...(eggsXml ? readObjects(eggsXml) : [])];
   const classes = classSlots(playersXml);
   if (!objects.length) throw new Error("equip.xml parsed to zero objects");
   if (classes.length < 10) throw new Error(`players.xml: only ${classes.length} classes parsed`);
@@ -184,7 +186,7 @@ async function main() {
     const cls = classify(o);
     missing.push({ type, id, name, slot, group: slotGroup(slot), category: cls.category, subtype: cls.subtype, tier: cls.tier, classes: classesFor(slot, classes), feedPower: o.feedPower ? Number(o.feedPower) : null, texture: tex ? { file: String(tex.File), index: parseNum(tex.Index) } : null, animated: !!o.AnimatedTexture });
   }
-  log(`  ${tradeable.length} tradeable items in equip.xml; ${missing.length} not on the site`);
+  log(`  ${tradeable.length} tradeable items in equip.xml + equipEggs.xml; ${missing.length} not on the site`);
   const byCat = {};
   for (const m of missing) byCat[m.category] = (byCat[m.category] ?? 0) + 1;
   if (missing.length) log(`  by category: ${Object.entries(byCat).sort().map(([k, v]) => `${k} ${v}`).join(", ")}`);

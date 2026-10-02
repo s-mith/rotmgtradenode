@@ -6,6 +6,7 @@ import { toCatalogId } from "../trade/itemMap";
 import type { BotAccount, BotPool } from "./botPool";
 import { bringUp, BringUpRefused, takeDown, type BringUpVerdict, type FleetDeps } from "./bringUp";
 import type { InventoryTracker } from "./inventoryTracker";
+import { onlineCapFor } from "./constants";
 import type { PoolSettings, TradeHold } from "./stores";
 import type { WakeScheduler } from "./wakes";
 
@@ -13,7 +14,6 @@ const PER_BOT_TIMEOUT_MS = 25_000;
 const MIN_SETTLE_MS = 4_000;
 const STABLE_FOR_MS = 1_500;
 const POLL_MS = 500;
-const MAX_CONCURRENT_SWEEPS = 25;
 const SWEEP_STAGGER_MS = 200;
 const RETRY_PAUSE_MS = 10_000;
 const SWEEP_ONLINE_WINDOW_S = Number(process.env.SWEEP_ONLINE_WINDOW_S ?? 180);
@@ -152,12 +152,14 @@ export async function startupSweep(sd: SweepDeps): Promise<void> {
     sd.deps.log("startup_sweep: nothing stale — no sweep needed");
     return;
   }
-  sd.deps.log(`startup_sweep: sweeping ${todo.length} of ${all.length} bot(s) (<= ${MAX_CONCURRENT_SWEEPS} concurrent)`);
+  // As many logins at once as the node can have bots online: one per enabled proxy (or its direct cap).
+  const atOnce = Math.max(1, onlineCapFor(sd.deps.proxies.exclusiveCapacity?.() ?? null));
+  sd.deps.log(`startup_sweep: sweeping ${todo.length} of ${all.length} bot(s) (<= ${atOnce} concurrent)`);
   let running = 0;
   const waiters: (() => void)[] = [];
   const tasks: Promise<unknown>[] = [];
   for (const [i, acc] of todo.entries()) {
-    while (running >= MAX_CONCURRENT_SWEEPS) await new Promise<void>((r) => waiters.push(r));
+    while (running >= atOnce) await new Promise<void>((r) => waiters.push(r));
     running++;
     tasks.push(
       sweepAccount(sd, acc, `${acc.alias} (${i + 1}/${todo.length})`).finally(() => {

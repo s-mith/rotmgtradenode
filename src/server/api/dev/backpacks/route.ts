@@ -1,33 +1,15 @@
 import { json } from "@/server/http";
 import { checkDevPassword, pyrelay } from "@/lib/devauth";
 
-// GET  /api/dev/backpacks?view=status|plan|accounts[&buffer=0.2][&only=claimable|nobackpack|banked|needlogin|errors][&limit=200]
-// POST /api/dev/backpacks  body { action: "audit"|"chore"|"cancel-audit"|"cancel-chore", ...run options }
+// POST /api/dev/backpacks  body { action: "claim", guid, seasonal? } | { action: "consume", guid, charId } | { action: "cancel", guid } | { action: "daily-login" }
 //
 // A thin pass-through to the fleet's /backpacks control-plane routes
-// (docs/relay/BACKPACKS.md §12): the HTTP audit, the daily login pass, the
-// demand-driven plan and the in-game chore. The fleet enforces the live-chore
-// gate (BACKPACK_CHORE_LIVE=1); this route only carries the operator's intent.
-export async function GET(req: Request) {
-  const auth = checkDevPassword(req);
-  if (!auth.ok) return json({ error: auth.error }, { status: auth.status });
-  const url = new URL(req.url);
-  const view = url.searchParams.get("view") ?? "status";
-  let path = "";
-  if (view === "plan") path = `/plan${url.searchParams.has("buffer") ? `?buffer=${encodeURIComponent(url.searchParams.get("buffer")!)}` : ""}`;
-  else if (view === "accounts") {
-    const q = new URLSearchParams();
-    for (const k of ["only", "limit"]) if (url.searchParams.has(k)) q.set(k, url.searchParams.get(k)!);
-    path = `/accounts${q.size ? `?${q}` : ""}`;
-  } else if (view !== "status") return json({ error: "view must be status, plan or accounts" }, { status: 400 });
-  const r = await pyrelay.backpacksGet<Record<string, unknown>>(path);
-  if (!r.ok) return json({ error: r.error }, { status: r.status });
-  return json(r.data);
-}
-
+// (docs/relay/BACKPACKS.md): the per-account claim and use jobs, and a pass
+// of today's logins. This route only carries the operator's intent.
 const ACTIONS: Record<string, string> = {
-  audit: "/audit", chore: "/chore",
-  "cancel-audit": "/audit/cancel", "cancel-chore": "/chore/cancel",
+  // Per account (the Accounts tab): { action: "claim", guid, seasonal? } and { action: "consume", guid, charId }, and
+  // { action: "cancel", guid } to take back one still waiting for the account; a pass of today's logins.
+  claim: "/claim", consume: "/consume", cancel: "/cancel", "daily-login": "/daily-login",
 };
 
 export async function POST(req: Request) {
@@ -42,7 +24,6 @@ export async function POST(req: Request) {
   const path = ACTIONS[String(body.action ?? "")];
   if (!path) return json({ error: `action must be one of ${Object.keys(ACTIONS).join(", ")}` }, { status: 400 });
   const { action: _action, ...opts } = body;
-  if (opts.unauditedOnly !== undefined) opts.unauditedOnly = opts.unauditedOnly === true;
   const r = await pyrelay.backpacksPost<Record<string, unknown>>(path, opts);
   if (!r.ok) return json({ error: r.error }, { status: r.status });
   return json(r.data);

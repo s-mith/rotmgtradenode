@@ -2,6 +2,7 @@ import { gzipSync } from "node:zlib";
 import { Hono } from "hono";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { acceptsGzip } from "./http";
+import { guardRequest } from "./guard";
 import { registerRoutes } from "./routes";
 
 const CLIENT_DIR = process.env.CLIENT_DIR ?? "./dist/client";
@@ -10,6 +11,13 @@ const GZIP_MIN_BYTES = 1024;
 
 export function createApp(): Hono {
   const app = new Hono();
+
+  // Cross-site requests and foreign Host names never reach a handler (server/guard.ts).
+  app.use("/api/*", async (c, next) => {
+    const refused = guardRequest(c.req.raw, { bindHost: process.env.HOST ?? "127.0.0.1", allowedHosts: process.env.ALLOWED_HOSTS });
+    if (refused) return c.json({ error: refused.error }, refused.status as 403);
+    await next();
+  });
 
   // Compress JSON API responses here, in the process. Railway meters the bytes
   // that leave the container, so the gzip its edge applies on the way to the

@@ -1,25 +1,26 @@
 import { NavLink } from "react-router-dom";
 
-// One header for the whole app: the vault and the control panel are two
-// tabs of the same program, not a site and a hidden admin page.
+// One header for the whole app: the pool and the control panel are two
+// tabs of the same program, not a site and a hidden admin page. The title is
+// the way back to the pool; it greys out while the control panel is open.
 export default function SiteHeader() {
   const discordUrl = import.meta.env.VITE_DISCORD_URL;
   return (
     <header className="site">
-      <span className="title-link" aria-label="rotmg trade, beta" style={{ cursor: "default" }}>
+      <NavLink to="/" end className={({ isActive }) => "title-link" + (isActive ? "" : " away")} aria-label="rotmg trade node, beta: the pool" title="The pool">
         <img src="/logo.png" alt="" className="title-logo" width={48} height={48} />
         <span className="title-text">
-          rotmg trade
+          rotmg trade <span className="title-node">node</span>
           {/* The one beta mark: a sash across the wordmark's corner, not a tag on every tab. */}
           <span className="title-beta" aria-hidden="true">beta</span>
         </span>
-      </span>
+      </NavLink>
       <nav className="site-nav" aria-label="Sections">
-        <NavLink to="/" end className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}>
-          Vault
-        </NavLink>
         <NavLink to="/control" className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}>
           Control panel
+        </NavLink>
+        <NavLink to="/help" className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}>
+          Help
         </NavLink>
       </nav>
       <div className="tag-col">
@@ -34,7 +35,7 @@ export default function SiteHeader() {
             Join our Discord
           </a>
         )}
-        <span className="tag">your vault, on your own accounts, from your own computer</span>
+        <span className="tag">your pool, on your own accounts, from your own computer</span>
       </div>
     </header>
   );

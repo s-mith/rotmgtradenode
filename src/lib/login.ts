@@ -40,11 +40,12 @@ export type PollResult =
   | { ok: true; state: "pending" | "expired" }
   | { ok: false; status: number; error: string };
 
-// A cold fleet takes a login (~queue) to bring a bot in-world. Rather than fail
-// the moment none is up, we wait: pyrelay kicks off a wake on the first 503, and
-// each retry checks whether a bot has arrived. Bounded so a genuinely dead fleet
-// still errors instead of hanging forever.
-const START_MAX_WAIT_MS = 45_000;
+// The login desk is staffed on demand unless the owner keeps it on (Overview):
+// with nobody at it, the fleet logs a bot in on the first 503 and each retry
+// checks whether it has arrived, so the code goes out once a bot is in the game
+// to receive the tell. A login (and a queue) can take a minute or two; bounded
+// so a genuinely dead fleet still errors instead of hanging forever.
+const START_MAX_WAIT_MS = Number(process.env.LOGIN_START_WAIT_SECONDS ?? 150) * 1000;
 const START_POLL_MS = 2_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

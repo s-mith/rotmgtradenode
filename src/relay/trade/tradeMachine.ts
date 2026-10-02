@@ -11,11 +11,18 @@
 // the other side sends back). The taker still accepts first, once its own
 // offer is up and the giver's matches; the giver mirrors once the taker's
 // offer is exactly the agreed swap.
+//
+// A player swap is a person trading with their own character against one of
+// this node's offers. The bot puts up the offer's items, judges whatever the
+// person puts up against the offer's want lines, and mirrors their accept
+// only when it covers them exactly. A person fumbles: a wrong item is held
+// with a reason rather than cancelled, and a window that closes without the
+// trade does not end the meeting; they /trade again until its deadline.
 import type { GameClient } from "../client/gameClient";
 import type { AnyPacket, Packet } from "../protocol/packets";
 import type { TradeItem } from "../protocol/data";
 import { Stat } from "../protocol/stats";
-import { enchantCount, MAX_ENCHANTS } from "../protocol/enchants";
+import { decodeEnchantRecord, enchantCount, MAX_ENCHANTS } from "../protocol/enchants";
 import { isPoolItem, isSkinType, minEnchantsFor, toCatalogId, toObjType } from "./itemMap";
 
 export const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS ?? 20_000);
@@ -26,13 +33,30 @@ export const PARTNER_COOLDOWN_MS = Number(process.env.PARTNER_COOLDOWN_MS ?? 1_2
  * Bot-to-bot moves: the receiving bot accepts first. Realm ignores an accept
  * that lands right after the offer changed (a human can't click that fast),
  * so wait a beat, and re-send while the giver's mirror accept hasn't come.
+ * The giver's offer is judged again right before each of those accepts
+ * (sendTakerAccept), not only when it changed.
  */
 export const CONSOLIDATION_ACCEPT_DELAY_MS = Number(process.env.CONSOLIDATION_ACCEPT_DELAY_MS ?? 1500);
 export const CONSOLIDATION_REACCEPT_MS = Number(process.env.CONSOLIDATION_REACCEPT_MS ?? 6000);
 export const CONSOLIDATION_ACCEPT_ATTEMPTS = Number(process.env.CONSOLIDATION_ACCEPT_ATTEMPTS ?? 4);
 export const PARTNER_LOCK_MAX_MS = Number(process.env.PARTNER_LOCK_MAX_MS ?? REQUEST_TIMEOUT_MS + TRADE_TIMEOUT_MS);
+/**
+ * A cross-node meeting (Assignment.meetingDeadlineAt): a request the partner
+ * does not answer is sent again this much later, until the deadline. The
+ * other node's bot may still be logging in; one unanswered request is not
+ * a verdict on the meeting.
+ */
+export const REQUEST_RETRY_MS = Number(process.env.REQUEST_RETRY_MS ?? 15_000);
+/**
+ * A player meeting: the person's own /trade is the usual way in. The bot
+ * invites once when it first sees them in the nexus, and after that no more
+ * often than this, so a player who is sorting their inventory is not nagged.
+ */
+export const PLAYER_REINVITE_MS = Number(process.env.PLAYER_REINVITE_MS ?? 120_000);
+/** A player meeting gives up after this many trade windows closed without the trade (cancelled, idle, wrong items, no room). */
+export const PLAYER_MAX_WINDOWS = Number(process.env.PLAYER_MAX_WINDOWS ?? 6);
 
-export type AssignmentKind = "deposit" | "withdraw" | "consolidate_give" | "consolidate_take";
+export type AssignmentKind = "deposit" | "withdraw" | "consolidate_give" | "consolidate_take" | "player_swap";
 export interface ItemQty {
   itemId: string;
   qty: number;
@@ -52,13 +76,40 @@ export interface Assignment {
   swapInstanceIds?: string[] | null;
   /** Deposits: also take character skins. Only the operator's own skin deposits set this. */
   acceptSkins?: boolean;
+  /**
+   * A meeting with another node's bot (design doc §6.2): the giver keeps
+   * inviting until this time, the taker never invites (it answers the
+   * giver's request), and only the deadline makes an absent partner a failure.
+   */
+  meetingDeadlineAt?: number | null;
+  /**
+   * What must arrive, one entry per physical item, when the counterparty's
+   * enchantments are known: the partner's window is checked against these,
+   * not only against catalog counts. `enchants: null` accepts any copy.
+   */
+  expectIncoming?: ItemDetail[] | null;
+  /**
+   * player_swap: judges what the person put up (every offered item, in
+   * window order), since which copies they bring is theirs to choose.
+   * `exact` false while they are still filling their side, true when they
+   * accept. `why` is shown to them.
+   */
+  incomingCheck?: ((offered: ItemDetail[], exact: boolean) => { ok: true } | { ok: false; why: string }) | null;
+  /** player_swap: how many items the person hands over in a trade that fits (for the room check). */
+  incomingCount?: number;
+}
+/** One physical item as a trade window shows it: catalog id and decoded enchant ids (null when the record could not be read). */
+export interface ItemDetail {
+  itemId: string;
+  enchants: number[] | null;
 }
 export type Outcome =
   | { ok: true; kind: "deposit"; received: ItemQty[]; receivedUnits: { itemId: string; enchants: number }[] }
   | { ok: true; kind: "withdraw"; delivered: ItemQty[]; deliveredInstanceIds: string[] }
-  | { ok: true; kind: "consolidate_give" | "consolidate_take"; consolidated: ItemQty[]; swapItems?: ItemQty[] }
+  | { ok: true; kind: "consolidate_give" | "consolidate_take"; consolidated: ItemQty[]; swapItems?: ItemQty[]; partnerName?: string; ourOffered?: ItemDetail[]; partnerOffered?: ItemDetail[] }
+  | { ok: true; kind: "player_swap"; gave: ItemQty[]; got: ItemQty[]; partnerName?: string; ourOffered: ItemDetail[]; partnerOffered: ItemDetail[] }
   /** A withdraw that failed after one or more chunks crossed reports what did (`delivered`), so the site can re-queue the rest. */
-  | { ok: false; error: string; partnerAbsent?: boolean; delivered?: ItemQty[]; deliveredInstanceIds?: string[] };
+  | { ok: false; error: string; partnerAbsent?: boolean; delivered?: ItemQty[]; deliveredInstanceIds?: string[]; partnerName?: string };
 
 export type Phase = "IDLE" | "REQUESTED" | "IN_TRADE" | "ACCEPTED" | "DONE" | "FAILED";
 
@@ -223,6 +274,14 @@ export interface TradeSessionOptions {
   acceptsType?: (objType: number) => boolean;
   /** Called whenever the trade reaches a terminal state. */
   onOutcome?: () => void;
+  /** What a player meeting is doing now, for the person waiting on the hub (invited, window open, holding and why, window closed). Repeats are not sent. */
+  onNote?: (event: string, detail: Record<string, unknown>) => void;
+  /**
+   * True: a map change does not ask for the trade by itself; the dispatcher
+   * asks once the bot has arrived in the Nexus (a bot that waited in its Vault,
+   * whose request would otherwise go out before the Nexus streams in).
+   */
+  requestOnArrival?: () => boolean;
   log?: (line: string) => void;
 }
 
@@ -245,6 +304,18 @@ export class TradeSession {
   private chunk: { items: ItemQty[]; instanceIds: string[] | null } | null = null;
   private chunkResumeAt: number | null = null;
   private chunks = 0;
+  /** Whispers already sent to the partner this assignment (tellPartner). */
+  private toldPartner = new Set<string>();
+  /** A meeting's request went unanswered: when to send the next one (null = none due). */
+  private requestRetryAt: number | null = null;
+  /** The partner's name as the trade window showed it (TRADESTART), for the receipt. */
+  private observedPartner = "";
+  /** A player meeting: when the bot last invited, the windows opened and closed without the trade, whether the person was ever seen, the last note sent. */
+  private lastInviteAt = 0;
+  private windowsOpened = 0;
+  private windowFailures = 0;
+  private playerSeen = false;
+  private lastNoteKey = "";
   private outcome: Outcome | null = null;
   private readonly presence = new PresenceView();
   private readonly client: GameClient;
@@ -274,6 +345,10 @@ export class TradeSession {
   getAssignment(): Assignment | null {
     return this.assignment;
   }
+  /** A meeting's new deadline (the hub extended it): requests keep going until then. */
+  extendMeeting(deadlineAt: number): void {
+    if (this.assignment && this.assignment.meetingDeadlineAt != null && deadlineAt > this.assignment.meetingDeadlineAt) this.assignment = { ...this.assignment, meetingDeadlineAt: deadlineAt };
+  }
   setAssignment(a: Assignment | null): void {
     this.assignment = a;
     this.resetChunks();
@@ -284,6 +359,14 @@ export class TradeSession {
     this.chunk = null;
     this.chunkResumeAt = null;
     this.chunks = 0;
+    this.toldPartner.clear();
+    this.requestRetryAt = null;
+    this.observedPartner = "";
+    this.lastInviteAt = 0;
+    this.windowsOpened = 0;
+    this.windowFailures = 0;
+    this.playerSeen = false;
+    this.lastNoteKey = "";
   }
   private deliveredList(): ItemQty[] {
     return [...this.delivered].map(([itemId, qty]) => ({ itemId, qty }));
@@ -295,6 +378,18 @@ export class TradeSession {
       items: subtractItems(a.items, this.delivered),
       instanceIds: a.instanceIds ? a.instanceIds.filter((id) => !doneIds.has(id)) : null,
     };
+  }
+  /** Whisper the trade partner, once per distinct message per assignment. */
+  private tellPartner(text: string): void {
+    const to = this.partnerIgn || this.assignment?.partnerIgn || "";
+    if (!to || this.toldPartner.has(text)) return;
+    this.toldPartner.add(text);
+    this.client.send("PLAYERTEXT", { text: `/tell ${to} ${text}` });
+  }
+  /** A withdraw's finished windows so far, when any crossed: what a disconnect must still report. */
+  partialDelivery(): { delivered: ItemQty[]; deliveredInstanceIds: string[] } | null {
+    if (this.assignment?.kind !== "withdraw" || !this.delivered.size) return null;
+    return { delivered: this.deliveredList(), deliveredInstanceIds: [...this.deliveredInstanceIds] };
   }
   /** How many trade windows this assignment has completed so far. */
   get chunksDone(): number {
@@ -309,6 +404,10 @@ export class TradeSession {
   }
   partnerPresent(ign: string): boolean | null {
     return this.presence.present(ign);
+  }
+  /** A player meeting so far: whether the person was ever seen or traded, and how many windows opened and closed without the trade. */
+  playerProgress(): { seen: boolean; windowsOpened: number; windowFailures: number } {
+    return { seen: this.playerSeen || this.windowsOpened > 0, windowsOpened: this.windowsOpened, windowFailures: this.windowFailures };
   }
 
   /** Send REQUESTTRADE for the current assignment if idle. */
@@ -341,7 +440,11 @@ export class TradeSession {
     this.partnerItems = [];
     this.ourOffer = [];
     this.partnerOffer = [];
-    this.presence.reset();
+    // The view of who is around is kept: the bot is still on the same map,
+    // and the server never re-announces players already in view, so wiping
+    // it here made everyone "not in nexus" once the settle window passed
+    // (live 2026-10-01: a withdraw right after a failed deposit with the same
+    // player gave up in 0s). onMapInfo clears it when the map really changes.
   }
 
   /** The other side of an open trade window, for the operator console. */
@@ -368,21 +471,95 @@ export class TradeSession {
   }
   private giveUp(reason: string): void {
     this.log(`giving up on ${this.partnerIgn || "?"}: ${reason}`);
-    this.finish({ ok: false, error: reason, partnerAbsent: true }, "FAILED");
+    this.finish({ ok: false, error: reason, partnerAbsent: true, ...(this.observedPartner ? { partnerName: this.observedPartner } : {}) }, "FAILED");
   }
   private cancel(error: string): void {
     this.client.send("CANCELTRADE", {});
-    this.finish({ ok: false, error }, "FAILED");
+    this.finish({ ok: false, error, ...(this.observedPartner ? { partnerName: this.observedPartner } : {}) }, "FAILED");
+  }
+
+  /** A player meeting's news, once per change (the same hold reason on every TRADECHANGED is one note). */
+  private note(event: string, detail: Record<string, unknown> = {}): void {
+    const key = `${event}|${JSON.stringify(detail)}`;
+    if (key === this.lastNoteKey) return;
+    this.lastNoteKey = key;
+    this.opts.onNote?.(event, detail);
+  }
+  /**
+   * A player meeting's window closed without the trade: the meeting goes on
+   * (the person can /trade again) until too many windows have failed. The
+   * partner lock is let go so its short cooldown applies before the next one.
+   */
+  private windowFailed(why: string): void {
+    this.windowFailures++;
+    this.log(`player window ${this.windowFailures}/${PLAYER_MAX_WINDOWS} closed without the trade: ${why}`);
+    if (this.windowFailures >= PLAYER_MAX_WINDOWS) {
+      this.note("player-window-failed", { why, windows: this.windowFailures, max: PLAYER_MAX_WINDOWS, final: true });
+      this.finish({ ok: false, error: `${why} (${this.windowFailures} trade windows closed without the trade)`, ...(this.observedPartner ? { partnerName: this.observedPartner } : {}) }, "FAILED");
+      return;
+    }
+    this.note("player-window-failed", { why, windows: this.windowFailures, max: PLAYER_MAX_WINDOWS });
+    this.opts.coordinator.release(this.partnerIgn, this.guid);
+    this.phase = "IDLE";
+    this.clientItems = [];
+    this.partnerItems = [];
+    this.ourOffer = [];
+    this.partnerOffer = [];
+    this.lastActionAt = Date.now();
+  }
+  private cancelWindow(why: string): void {
+    this.client.send("CANCELTRADE", {});
+    this.windowFailed(why);
+  }
+
+  /** A player meeting: wait to be asked, or invite the person once they are in view, then no more often than PLAYER_REINVITE_MS. */
+  private invitePlayer(a: Assignment): boolean {
+    this.partnerIgn = a.partnerIgn;
+    if (this.presence.present(a.partnerIgn) !== true) return false;
+    this.playerSeen = true;
+    const now = Date.now();
+    if (this.lastInviteAt && now - this.lastInviteAt < PLAYER_REINVITE_MS) return false;
+    const holderIsTrading = (g: string) => g === this.guid && this.isTrading();
+    if (!this.opts.coordinator.acquire(a.partnerIgn, this.guid, holderIsTrading, (s) => this.log(s))) return false;
+    this.phase = "REQUESTED";
+    this.lastActionAt = now;
+    this.lastInviteAt = now;
+    this.outcome = null;
+    this.client.send("REQUESTTRADE", { name: a.partnerIgn });
+    this.log(`invited player ${a.partnerIgn}`);
+    this.note("player-invited");
+    return true;
   }
 
   private request(a: Assignment): boolean {
-    if (this.chunkResumeAt !== null && Date.now() < this.chunkResumeAt) return false;
-    this.chunkResumeAt = null;
-    if (this.presence.present(a.partnerIgn) === false) {
+    if (a.kind === "player_swap") return this.invitePlayer(a);
+    // The receiving side of a bot-to-bot move never invites: the giver's
+    // request reaches it as TRADEREQUESTED and it answers there. Two bots
+    // inviting each other worked when both were ready at once, but a taker's
+    // lone request timed out and failed the whole meeting when the giver's
+    // node was a few seconds behind.
+    if (a.kind === "consolidate_take") {
       this.partnerIgn = a.partnerIgn;
-      this.giveUp("partner not in nexus");
       return false;
     }
+    if (this.chunkResumeAt !== null && Date.now() < this.chunkResumeAt) return false;
+    this.chunkResumeAt = null;
+    if (this.requestRetryAt !== null && Date.now() < this.requestRetryAt) return false;
+    const present = this.presence.present(a.partnerIgn);
+    if (present === false) {
+      this.partnerIgn = a.partnerIgn;
+      // A player who queued a trade and is not here has left; another
+      // node's bot may still be logging in for its side of a meeting, so a
+      // swap waits (the dispatcher fails it at the meeting deadline).
+      if (a.kind === "deposit" || a.kind === "withdraw") this.giveUp("partner not in nexus");
+      return false;
+    }
+    // A meeting waits for a sighting rather than inviting into a map still streaming in.
+    if (present === null && a.meetingDeadlineAt != null) {
+      this.partnerIgn = a.partnerIgn;
+      return false;
+    }
+    this.requestRetryAt = null;
     const holderIsTrading = (g: string) => g === this.guid && this.isTrading();
     if (!this.opts.coordinator.acquire(a.partnerIgn, this.guid, holderIsTrading, (s) => this.log(s))) return false;
     this.phase = "REQUESTED";
@@ -422,16 +599,42 @@ export class TradeSession {
       }
     }
     if (arrived.length || p.drops.length) this.presence.update(arrived, p.drops);
+    const a = this.assignment;
+    if (a?.kind === "player_swap") {
+      const here = this.presence.present(a.partnerIgn);
+      if (here === true && !this.playerSeen) {
+        this.playerSeen = true;
+        this.note("player-seen");
+      }
+      // A person who walks off mid-window can come back: that window is over, the meeting is not.
+      if (here === false && this.phase === "IN_TRADE") this.cancelWindow("you left the nexus");
+      else if (here === false && this.phase === "REQUESTED") {
+        this.opts.coordinator.release(this.partnerIgn, this.guid);
+        this.phase = "IDLE";
+      }
+      return;
+    }
     if (this.phase !== "REQUESTED" && this.phase !== "IN_TRADE") return;
     if (this.presence.present(this.partnerIgn) === false) {
       if (this.phase !== "REQUESTED") this.client.send("CANCELTRADE", {});
+      // A meeting: the other node's bot dropped (its node restarted, it reconnected) and comes back for its side;
+      // nothing traded without TRADEDONE, so wait for it until the deadline (live 2026-09-24: a taker node killed
+      // for half a minute failed the whole meeting here).
+      const deadline = this.assignment?.meetingDeadlineAt ?? null;
+      const now = Date.now();
+      if (deadline !== null && now < deadline) {
+        this.log(`${this.partnerIgn} left the nexus — waiting for it to come back (meeting deadline in ${Math.floor((deadline - now) / 1000)}s)`);
+        this.phase = "IDLE";
+        this.requestRetryAt = now + REQUEST_RETRY_MS;
+        return;
+      }
       this.giveUp("partner left");
     }
   }
 
   private onMapInfo(): void {
     this.presence.reset();
-    if (this.assignment && this.phase === "IDLE") this.request(this.assignment);
+    if (this.assignment && this.phase === "IDLE" && !this.opts.requestOnArrival?.()) this.request(this.assignment);
   }
 
   private onTradeRequested(p: Packet<"TRADEREQUESTED">): void {
@@ -445,6 +648,7 @@ export class TradeSession {
       this.lastActionAt = Date.now();
       this.outcome = null;
     }
+    if (a.kind === "player_swap") this.playerSeen = true;
     // The same packet type doubles as our accept.
     this.client.send("REQUESTTRADE", { name: p.name });
   }
@@ -457,10 +661,13 @@ export class TradeSession {
     }
     if (!ignMatch(p.partnerName, a.partnerIgn)) {
       this.log(`unexpected partner ${p.partnerName} — cancel`);
-      this.cancel("wrong partner");
+      // Somebody else's window is no reason to end a player's meeting.
+      if (a.kind === "player_swap") this.client.send("CANCELTRADE", {});
+      else this.cancel("wrong partner");
       return;
     }
     this.phase = "IN_TRADE";
+    this.observedPartner = ignBase(p.partnerName);
     this.clientItems = [...p.clientItems];
     this.partnerItems = [...p.partnerItems];
     this.partnerOffer = [];
@@ -468,6 +675,30 @@ export class TradeSession {
     this.takerAcceptDue = null;
     this.takerAcceptSentAt = 0;
     this.takerAcceptAttempts = 0;
+
+    if (a.kind === "player_swap") {
+      this.windowsOpened++;
+      this.playerSeen = true;
+      const offer = this.computeWithdrawOffer(p.clientItems, a.items, a.instanceIds ?? null);
+      if (!offer) {
+        this.log("the offer's items are not all in this window — cancel");
+        this.cancel("items not present");
+        return;
+      }
+      // What they end up with has to fit: what the bot hands over, less the slots their own items free.
+      const need = unitsOf(a.items) - (a.incomingCount ?? 0);
+      const room = partnerFreeSlots(p.partnerItems);
+      if (room !== null && need > room) {
+        this.log(`player has ${room} free slot(s) and would need ${need} — cancel window`);
+        this.cancelWindow(`you need ${need} free inventory slot${need === 1 ? "" : "s"} and have ${room}; make room, then /trade again`);
+        return;
+      }
+      this.ourOffer = offer;
+      this.client.send("CHANGETRADE", { offer });
+      this.log(`player window ${this.windowsOpened}: offered the offer's items, waiting for theirs`);
+      this.note("player-window-open", { window: this.windowsOpened });
+      return;
+    }
 
     const swapping = a.kind === "consolidate_take" && !!a.swapItems?.length;
     if (a.kind === "deposit" || (a.kind === "consolidate_take" && !swapping)) {
@@ -573,18 +804,35 @@ export class TradeSession {
     // Any change clears both accept boxes server-side.
     if (this.phase === "ACCEPTED") this.phase = "IN_TRADE";
 
+    if (a.kind === "player_swap") {
+      // A person fills their side a click at a time: say what is off, never cancel for it.
+      const r = this.judgePlayer(a, p.offer, false);
+      if (!r.ok) {
+        this.note("player-holding", { why: r.why });
+        return;
+      }
+      const exact = this.judgePlayer(a, p.offer, true);
+      this.note(exact.ok ? "player-matches" : "player-filling", exact.ok ? {} : { why: exact.why });
+      return;
+    }
+
     if (a.kind === "withdraw" || a.kind === "consolidate_give") {
       const back = a.kind === "consolidate_give" ? a.swapItems ?? [] : [];
-      if (p.offer.some(Boolean) && !(back.length && this.partnerOfferWithin(back, p.offer))) {
-        this.log(`partner tried to add items in ${a.kind} — cancel`);
-        this.cancel("partner added items");
+      if (p.offer.some(Boolean)) {
+        if (!(back.length && this.partnerOfferWithin(back, p.offer))) {
+          this.log(`partner tried to add items in ${a.kind} — cancel`);
+          this.cancel("partner added items");
+        } else if (!this.partnerDetailWithin(a, p.offer)) {
+          this.log("partner's items are not the meeting's (wrong enchantments) — cancel");
+          this.cancel("partner's items differ from the meeting's");
+        }
       }
       return;
     }
     if (a.kind === "consolidate_take") {
       // The one place a bot accepts first: the receiving side of a bot-to-bot
       // move gives nothing away, and someone has to break the tie.
-      if (!this.partnerOfferMatches(a.items)) {
+      if (!this.partnerOfferMatches(a.items) || !this.partnerDetailMatches(a, this.partnerOffer)) {
         this.takerAcceptDue = null;
         return;
       }
@@ -597,10 +845,23 @@ export class TradeSession {
     }
   }
 
-  /** consolidate_take: check our accept box (empty, or our side of a swap); the giver mirrors it. */
+  /**
+   * consolidate_take: check our accept box (empty, or our side of a swap);
+   * the giver mirrors it. The giver's side is judged again in the same
+   * instant the accept goes out, every time (the first one after the delay
+   * Realm needs, and each re-send): an accept never goes out on a window
+   * that no longer holds exactly what the meeting promised.
+   */
   private sendTakerAccept(): void {
     this.takerAcceptDue = null;
-    if (!this.assignment?.swapItems?.length) this.ourOffer = this.clientItems.map(() => false);
+    const a = this.assignment;
+    if (!a) return;
+    if (!this.partnerOfferMatches(a.items) || !this.partnerDetailMatches(a, this.partnerOffer)) {
+      this.log("the giver's offer no longer matches at the moment of accepting — not accepting");
+      if (this.phase === "ACCEPTED") this.phase = "IN_TRADE";
+      return;
+    }
+    if (!a.swapItems?.length) this.ourOffer = this.clientItems.map(() => false);
     this.client.send("ACCEPTTRADE", { clientOffer: this.ourOffer, partnerOffer: [...this.partnerOffer] });
     this.phase = "ACCEPTED";
     this.lastActionAt = Date.now();
@@ -627,6 +888,56 @@ export class TradeSession {
     for (const [k, v] of got) if ((want.get(k) ?? 0) < v) return false;
     return true;
   }
+  /** The partner's offered items under `mask`, with their enchant records decoded; null on an unknown item. */
+  private offeredDetail(mask: boolean[]): ItemDetail[] | null {
+    const out: ItemDetail[] = [];
+    for (let i = 0; i < this.partnerItems.length; i++) {
+      if (!mask[i]) continue;
+      const cid = toCatalogId(this.partnerItems[i].item);
+      if (cid === undefined) return null;
+      out.push({ itemId: cid, enchants: decodeEnchantRecord(this.partnerItems[i].enchantment) });
+    }
+    return out;
+  }
+  /** Our own offered items under `mask`, the same way. */
+  private ourDetail(mask: boolean[]): ItemDetail[] {
+    const out: ItemDetail[] = [];
+    for (let i = 0; i < this.clientItems.length; i++) {
+      if (!mask[i]) continue;
+      const cid = toCatalogId(this.clientItems[i].item);
+      if (cid === undefined) continue;
+      out.push({ itemId: cid, enchants: decodeEnchantRecord(this.clientItems[i].enchantment) });
+    }
+    return out;
+  }
+  /** The partner's whole offer is exactly what the meeting promised, enchantments included (when the assignment carries them). */
+  private partnerDetailMatches(a: Assignment, mask: boolean[]): boolean {
+    if (!a.expectIncoming) return true;
+    const offered = this.offeredDetail(mask);
+    if (!offered) return false;
+    const r = matchItemDetails(a.expectIncoming, offered, true);
+    if (!r.ok) this.log(`partner's offer differs from the meeting's items: ${r.why}`);
+    return r.ok;
+  }
+  /** Every item the partner has put up so far is one the meeting promised (a swap partner still filling its side). */
+  private partnerDetailWithin(a: Assignment, mask: boolean[]): boolean {
+    if (!a.expectIncoming) return true;
+    const offered = this.offeredDetail(mask);
+    if (!offered) return false;
+    const r = matchItemDetails(a.expectIncoming, offered, false);
+    if (!r.ok) this.log(`partner put up something the meeting did not promise: ${r.why}`);
+    return r.ok;
+  }
+
+  /** A player's side of the window under `mask`, judged against the offer's want lines (the assignment's check). */
+  private judgePlayer(a: Assignment, mask: boolean[], exact: boolean): { ok: true; offered: ItemDetail[] } | { ok: false; why: string } {
+    const offered = this.offeredDetail(mask);
+    if (!offered) return { ok: false, why: "one of your items is not one the bot knows; take it out" };
+    if (!a.incomingCheck) return { ok: false, why: "the bot does not know what this trade asks for" };
+    const r = a.incomingCheck(offered, exact);
+    return r.ok ? { ok: true, offered } : r;
+  }
+
   /** Catalog id -> count over the partner's window under `mask`; null on an unknown item. */
   private offeredCounts(mask: boolean[]): Map<string, number> | null {
     const got = new Map<string, number>();
@@ -645,6 +956,35 @@ export class TradeSession {
     if (!a || this.phase !== "IN_TRADE") return;
     if (a.kind === "consolidate_take") return;
 
+    if (a.kind === "player_swap") {
+      if (!sameMask(p.clientOffer, this.ourOffer)) {
+        this.log("accept-time client offer mismatch — cancel window");
+        this.cancelWindow("the trade window changed on the bot's side; /trade again");
+        return;
+      }
+      const r = this.judgePlayer(a, p.partnerOffer, true);
+      if (!r.ok) {
+        this.log(`player accepted, but their side does not fit: ${r.why} — holding`);
+        this.note("player-holding", { why: r.why });
+        return;
+      }
+      // Room after the trade: their free slots plus the slots their own items leave, against what the bot hands over.
+      const room = partnerFreeSlots(this.partnerItems);
+      const gives = this.ourOffer.filter(Boolean).length;
+      if (room !== null && room + r.offered.length < gives) {
+        const need = gives - r.offered.length;
+        this.cancelWindow(`you need ${need} free inventory slot${need === 1 ? "" : "s"} and have ${room}; make room, then /trade again`);
+        return;
+      }
+      this.client.send("ACCEPTTRADE", { clientOffer: [...this.ourOffer], partnerOffer: [...p.partnerOffer] });
+      this.partnerOffer = [...p.partnerOffer];
+      this.phase = "ACCEPTED";
+      this.lastActionAt = Date.now();
+      this.log("the player's side fits — accepted");
+      this.note("player-accepted");
+      return;
+    }
+
     if (a.kind === "withdraw" || a.kind === "consolidate_give") {
       if (!sameMask(p.clientOffer, this.ourOffer)) {
         this.log("accept-time client offer mismatch — cancel");
@@ -652,7 +992,7 @@ export class TradeSession {
         return;
       }
       const back = a.kind === "consolidate_give" ? a.swapItems ?? [] : [];
-      if (back.length ? !this.partnerOfferMatches(back, p.partnerOffer) : p.partnerOffer.some(Boolean)) {
+      if (back.length ? !this.partnerOfferMatches(back, p.partnerOffer) || !this.partnerDetailMatches(a, p.partnerOffer) : p.partnerOffer.some(Boolean)) {
         this.log(back.length ? "partner's side of the swap doesn't match at accept — cancel" : "partner offered items at accept — cancel");
         this.cancel(back.length ? "swap offer mismatch" : "partner added items");
         return;
@@ -668,6 +1008,9 @@ export class TradeSession {
     // sufficient rarity. Realm sizes the window to our free slots, so the
     // count cap needs no enforcement here.
     let offered = 0;
+    // What the bot won't take, by reason, so the player is told rather than
+    // left looking at a window that never accepts.
+    const refused: string[] = [];
     for (let i = 0; i < p.partnerOffer.length; i++) {
       if (!p.partnerOffer[i] || i >= this.partnerItems.length) continue;
       const ti = this.partnerItems[i];
@@ -677,18 +1020,32 @@ export class TradeSession {
           continue;
         }
         this.log(isSkinType(ti.item) ? "partner offered a skin on a normal deposit — holding" : "partner offered non-pool item at accept — holding");
-        return;
+        refused.push(`${itemLabel(ti.item)} (not tradeable into the pool)`);
+        continue;
       }
       if (this.opts.acceptsType && !this.opts.acceptsType(ti.item)) {
         this.log(`partner offered item ${ti.item}, which this node does not take — holding`);
-        return;
+        refused.push(`${itemLabel(ti.item)} (this node does not take it)`);
+        continue;
       }
       const need = minEnchantsFor(ti.item);
       if (need && enchantCount(ti.enchantment) < need) {
         this.log(`partner offered item ${ti.item} below minimum rarity — holding`);
-        return;
+        refused.push(`${itemLabel(ti.item)} (needs ${need}+ enchantments)`);
+        continue;
       }
       offered++;
+    }
+    if (refused.length) {
+      this.tellPartner(`I can't take: ${refused.join(", ")}. Take ${refused.length === 1 ? "it" : "them"} off and accept again.`);
+      return;
+    }
+    // Nothing offered: accepting would close an empty trade the site can't
+    // record (a deposit is 1+ items), leaving the row claimed for nothing.
+    if (offered === 0) {
+      this.log("partner accepted an empty deposit — holding");
+      this.tellPartner("Put the items you are depositing in the trade window, then accept.");
+      return;
     }
     this.ourOffer = this.clientItems.map(() => false);
     this.client.send("ACCEPTTRADE", { clientOffer: this.ourOffer, partnerOffer: [...p.partnerOffer] });
@@ -702,6 +1059,25 @@ export class TradeSession {
   private onTradeDone(p: Packet<"TRADEDONE">): void {
     const a = this.assignment;
     if (!a) return;
+    if (a.kind === "player_swap") {
+      // The echo of a window this side already closed changes nothing.
+      if (this.phase !== "REQUESTED" && this.phase !== "IN_TRADE" && this.phase !== "ACCEPTED") return;
+      if (p.code !== 0) {
+        this.log(`TRADEDONE code=${p.code} desc=${p.description}`);
+        this.windowFailed(p.description ? `the trade window closed: ${p.description}` : `the trade window closed (code ${p.code})`);
+        return;
+      }
+      const partnerOffered = this.offeredDetail(this.partnerOffer) ?? [];
+      const got = new Map<string, number>();
+      for (const d of partnerOffered) got.set(d.itemId, (got.get(d.itemId) ?? 0) + 1);
+      this.log(`TRADEDONE success kind=player_swap (window ${this.windowsOpened})`);
+      this.note("player-traded");
+      this.finish({
+        ok: true, kind: "player_swap", gave: [...a.items], got: [...got].map(([itemId, qty]) => ({ itemId, qty })),
+        ...(this.observedPartner ? { partnerName: this.observedPartner } : {}), ourOffered: this.ourDetail(this.ourOffer), partnerOffered,
+      }, "DONE");
+      return;
+    }
     if (p.code !== 0) {
       this.log(`TRADEDONE code=${p.code} desc=${p.description}`);
       this.finish({ ok: false, error: p.description || `code ${p.code}` }, "FAILED");
@@ -709,7 +1085,11 @@ export class TradeSession {
     }
     let out: Outcome;
     if (a.kind === "consolidate_give" || a.kind === "consolidate_take") {
-      out = { ok: true, kind: a.kind, consolidated: [...a.items], ...(a.swapItems?.length ? { swapItems: [...a.swapItems] } : {}) };
+      out = {
+        ok: true, kind: a.kind, consolidated: [...a.items], ...(a.swapItems?.length ? { swapItems: [...a.swapItems] } : {}),
+        ...(this.observedPartner ? { partnerName: this.observedPartner } : {}),
+        ourOffered: this.ourDetail(this.ourOffer), partnerOffered: this.offeredDetail(this.partnerOffer) ?? [],
+      };
     } else if (a.kind === "deposit") {
       const counts = new Map<string, number>();
       const units: { itemId: string; enchants: number }[] = [];
@@ -751,17 +1131,39 @@ export class TradeSession {
   /** Timeouts for a trade that stopped moving. */
   private watchdog(): void {
     if (this.phase === "IDLE") {
-      if (this.assignment && this.chunkResumeAt !== null && Date.now() >= this.chunkResumeAt) this.request(this.assignment);
+      const a = this.assignment;
+      if (a && ((this.chunkResumeAt !== null && Date.now() >= this.chunkResumeAt) || (this.requestRetryAt !== null && Date.now() >= this.requestRetryAt))) this.request(a);
       return;
     }
     const now = Date.now();
+    if (this.assignment?.kind === "player_swap") {
+      const idle = now - this.lastActionAt;
+      if (this.phase === "REQUESTED" && idle > REQUEST_TIMEOUT_MS) {
+        // An invite nobody answered: wait for their /trade, or the next invite.
+        this.opts.coordinator.release(this.partnerIgn, this.guid);
+        this.phase = "IDLE";
+      } else if ((this.phase === "IN_TRADE" || this.phase === "ACCEPTED") && idle > TRADE_TIMEOUT_MS) {
+        this.log(`player window idle in ${this.phase} — cancelling it`);
+        this.cancelWindow(`the trade window sat untouched for ${Math.floor(TRADE_TIMEOUT_MS / 1000)}s`);
+      }
+      return;
+    }
     if (this.assignment?.kind === "consolidate_take") {
       if (this.phase === "IN_TRADE" && this.takerAcceptDue !== null && now >= this.takerAcceptDue) this.sendTakerAccept();
       else if (this.phase === "ACCEPTED" && this.takerAcceptAttempts < CONSOLIDATION_ACCEPT_ATTEMPTS && now - this.takerAcceptSentAt > CONSOLIDATION_REACCEPT_MS) this.sendTakerAccept();
     }
     const elapsed = now - this.lastActionAt;
     if (this.phase === "REQUESTED" && elapsed > REQUEST_TIMEOUT_MS) {
-      this.giveUp(`no trade window ${Math.floor(REQUEST_TIMEOUT_MS / 1000)}s after the request`);
+      const deadline = this.assignment?.meetingDeadlineAt ?? null;
+      if (deadline !== null && now < deadline) {
+        // A meeting: the partner's node may not have claimed its side yet.
+        // Ask again in a while; the partner lock stays ours.
+        this.log(`no trade window ${Math.floor(REQUEST_TIMEOUT_MS / 1000)}s after the request — asking again in ${Math.floor(REQUEST_RETRY_MS / 1000)}s (meeting deadline in ${Math.floor((deadline - now) / 1000)}s)`);
+        this.phase = "IDLE";
+        this.requestRetryAt = now + REQUEST_RETRY_MS;
+        return;
+      }
+      this.giveUp(deadline !== null ? "partner never answered before the meeting deadline" : `no trade window ${Math.floor(REQUEST_TIMEOUT_MS / 1000)}s after the request`);
     } else if ((this.phase === "IN_TRADE" || this.phase === "ACCEPTED") && elapsed > TRADE_TIMEOUT_MS) {
       this.log(`trade timed out in ${this.phase} — cancelling`);
       this.cancel("trade timeout");
@@ -773,6 +1175,41 @@ function mask(m: boolean[]): string {
   return m.map((v) => (v ? "1" : "0")).join("");
 }
 
+const sameSet = (a: number[], b: number[]): boolean => a.length === b.length && [...a].sort((x, y) => x - y).every((v, i) => v === [...b].sort((x, y) => x - y)[i]);
+/** An expectation accepts an offered copy: same catalog id, and the enchant ids agree when both are known (null on the offered side = the record could not be read: only a plain or any-copy expectation takes it). */
+export function detailFits(expected: ItemDetail, offered: ItemDetail): boolean {
+  if (expected.itemId !== offered.itemId) return false;
+  if (expected.enchants === null) return true;
+  if (offered.enchants === null) return expected.enchants.length === 0;
+  return sameSet(expected.enchants, offered.enchants);
+}
+/**
+ * Match offered items against per-unit expectations, each expectation used
+ * once, the most specific expectation first. `exact`: every expectation must
+ * be met and nothing may be left over; otherwise the offered items only have
+ * to be a subset (a side still being filled).
+ */
+export function matchItemDetails(expected: ItemDetail[], offered: ItemDetail[], exact: boolean): { ok: true } | { ok: false; why: string } {
+  const pool = expected.map((e, i) => ({ e, i, specificity: e.enchants === null ? 0 : e.enchants.length + 1 }));
+  const used = new Set<number>();
+  for (const o of offered) {
+    const cands = pool.filter((c) => !used.has(c.i) && detailFits(c.e, o)).sort((a, b) => b.specificity - a.specificity);
+    if (!cands.length) return { ok: false, why: `${o.itemId} with ${o.enchants === null ? "unreadable enchantments" : o.enchants.length ? `enchantments ${o.enchants.join(",")}` : "no enchantments"} is not part of the meeting` };
+    used.add(cands[0].i);
+  }
+  if (exact && used.size !== expected.length) {
+    const missing = pool.find((c) => !used.has(c.i))!.e;
+    return { ok: false, why: `${missing.itemId}${missing.enchants?.length ? ` with enchantments ${missing.enchants.join(",")}` : ""} is missing` };
+  }
+  return { ok: true };
+}
+
 function sameMask(a: boolean[], b: boolean[]): boolean {
   return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+/** A readable name for an object type in a whisper: its catalog id spelled out, else the type number. */
+function itemLabel(objType: number): string {
+  const id = toCatalogId(objType);
+  return id ? id.replace(/^skin:/, "skin ").replace(/_/g, " ") : `item ${objType}`;
 }

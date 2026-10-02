@@ -8,7 +8,7 @@
 import { EventEmitter } from "node:events";
 import type { Proxy } from "../net/proxy";
 import { GameSocket, type CloseReason } from "../net/gameSocket";
-import { getAccessToken, getCharList, clientTokenFor, type AuthFailure, type CharList } from "../realm/api";
+import { getAccessTokenDetail, getCharList, clientTokenFor, type AuthFailure, type CharList } from "../realm/api";
 import { ClassId, Condition, DEFAULT_SERVER, GameId, SERVER_IPS, hasCondition, isServerName } from "../realm/constants";
 import { HELLO_TOKEN, type AnyPacket, type PacketName, type Packets, type Packet } from "../protocol/packets";
 import type { MoveRecord, WorldPos } from "../protocol/data";
@@ -21,11 +21,17 @@ import type { RealmResources } from "../realm/resources";
 const MIN_SPEED = 0.004;
 const MAX_SPEED = 0.0096;
 const FRAME_MS = 100;
-/** Silence this long after the last queue packet means the queue is over. */
-export const QUEUE_SILENCE_MS = 20_000;
 /** Reconnect if the server has said nothing for this long after we were in. */
 const WATCHDOG_SILENCE_MS = 2_500;
 const WATCHDOG_TICK_MS = 500;
+/** Re-dials with no session in the world between them back off: 2.5 s, 5 s, 10 s and so on, up to this. */
+const REDIAL_MAX_MS = 60_000;
+/** Map names as MAPINFO gives them (the same ones relay/fleet/vaultTrip.ts walks between). */
+const NEXUS_MAP_NAME = "Nexus";
+const VAULT_MAP_NAME = "Vault";
+/** escapeToNexus: how often it looks whether the bot got there, and how many more ESCAPEs it sends before giving up. */
+const ESCAPE_RETRY_MS = 3_000;
+const ESCAPE_RETRIES = 4;
 
 /** The character to LOAD: the preferred one when the account still has it, else the first listed (what the game client does). */
 export function pickCharId(preferred: number | null | undefined, charIds: number[]): number {
@@ -48,12 +54,8 @@ export interface AccountConfig {
   resources?: RealmResources;
   /** The character to log in with when the account has it (docs/relay/STORAGE.md); otherwise the first one. */
   charId?: number;
-  /**
-   * Tutorial mode (the account walker): a fresh character is created on the
-   * given pool, not-yet-TDone accounts are routed to the tutorial map, and
-   * session kicks back off and retry instead of stopping the client.
-   */
-  tutorial?: { seasonal: boolean };
+  /** When the account has no character, the pool the one CREATE makes is on; `force` makes one even when it has characters (a new character in a free slot), `classType` which class (Wizard by default). */
+  create?: { seasonal: boolean; force?: boolean; classType?: number };
 }
 
 export type FailureEvent =
@@ -81,6 +83,8 @@ export interface GameClientEvents {
 }
 
 const TOKEN_ERROR_IDS = new Set([20]);
+/** What the game server answers a LOAD on a kept access token it no longer takes (see onFailure). */
+const KEPT_TOKEN_REFUSED_ID = 11;
 const TOKEN_ERROR_SUBSTRINGS = ["token security error", "invalid token", "token expired", "bad token"];
 const RATE_LIMIT_ERROR_IDS = new Set([0]);
 const CONNECTION_LIMIT_SUBSTRINGS = ["connection amount"];
@@ -90,10 +94,6 @@ export const ACCOUNT_IN_USE_DEFAULT_S = 15;
 export const ACCOUNT_IN_USE_MAX_S = 120;
 export const ACCOUNT_IN_USE_BUFFER_S = 3;
 export const RATE_LIMIT_DEFAULT_COOLDOWN_S = 60;
-/** Tutorial mode: retry budget and back-offs after a session kick. */
-export const TUTORIAL_MAX_KICKS = 5;
-export const KICK_BACKOFF_S = Number(process.env.KICK_BACKOFF_SECONDS ?? 60);
-export const INWORLD_BACKOFF_S = Number(process.env.INWORLD_BACKOFF_SECONDS ?? 10);
 
 export class GameClient extends EventEmitter<GameClientEvents> {
   readonly guid: string;
@@ -106,11 +106,13 @@ export class GameClient extends EventEmitter<GameClientEvents> {
 
   private accessToken = "";
   tokenIssuedAt = 0;
+  /** How long account/verify said the token lasts (seconds), when it said; null for a token this client did not mint. */
+  tokenLifetimeS: number | null = null;
   private currentCharId = -1;
   private needsNewChar = false;
   /** Whether the char list said the tutorial is done (TDone). */
   tutorialDone = true;
-  private readonly tutorial: { seasonal: boolean } | null;
+  private readonly create: { seasonal: boolean; force?: boolean; classType?: number } | null;
   private awaitingLoad = false;
   kickCount = 0;
   readonly world: WorldState;
@@ -119,6 +121,10 @@ export class GameClient extends EventEmitter<GameClientEvents> {
   private lastTickLocalTime = -1;
   /** Current map's name from MAPINFO. */
   mapName = "";
+  /** CREATE_SUCCESS has come since the last MAPINFO: the character stands in `mapName`, not on its way to it. */
+  private arrived = false;
+  /** escapeToNexus's check-and-resend loop, while one runs. */
+  private escapeTimer: ReturnType<typeof setInterval> | null = null;
   /** null until the char list has been read, or when the account has no character. */
   charSeasonal: boolean | null = null;
   /** The char list read at the last authenticate/refresh: every character, with what it carries. */
@@ -151,6 +157,11 @@ export class GameClient extends EventEmitter<GameClientEvents> {
   private records: MoveRecord[] = [];
   private nextPos: WorldPos[] = [];
   private connecting = false;
+  /** Bumped by disconnect()/stop(): a connect() that started under an older generation drops its socket instead of adopting it. */
+  private connGen = 0;
+  /** Re-dials by the watchdog since the last session reached the world, and when the last one went. */
+  private redials = 0;
+  private lastRedialAt = 0;
 
   active = true;
   /** True once the char list was read successfully. */
@@ -163,7 +174,6 @@ export class GameClient extends EventEmitter<GameClientEvents> {
   queuePos = -1;
   queueMax = -1;
   private queueSince = -1;
-  private lastQueueTime = -1;
   helloCount = 0;
 
   /** From the config: the character to log in with when the account has it. */
@@ -180,7 +190,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     this.creds = { guid: cfg.guid, password: cfg.password, secret: cfg.secret };
     if (cfg.host) this.host = cfg.host;
     this.port = cfg.port;
-    this.tutorial = cfg.tutorial ?? null;
+    this.create = cfg.create ?? null;
     this.world = new WorldState(cfg.resources ?? null);
     this.combat = cfg.resources ? new Combat(this, cfg.resources) : null;
   }
@@ -194,7 +204,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     if (this.lastTickLocalTime < 0) return this.getTime();
     return this.serverRealTimeMS + (this.getTime() - this.lastTickLocalTime);
   }
-  /** Public log for the combat/walker modules. */
+  /** Public log for the combat module. */
   logLine(line: string): void {
     this.log(line);
   }
@@ -245,7 +255,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     const c = chars.value;
     this.lastCharList = c;
     this.readCharFacts(c);
-    if (c.charIds.length > 0) {
+    if (c.charIds.length > 0 && !this.create?.force) {
       this.currentCharId = pickCharId(this.preferredCharId, c.charIds);
       this.needsNewChar = false;
     } else {
@@ -261,16 +271,40 @@ export class GameClient extends EventEmitter<GameClientEvents> {
 
   /** Mint a token and read the char list. Does not open the socket. */
   async authenticate(): Promise<{ ok: true } | { ok: false; error: AuthFailure }> {
-    const tok = await getAccessToken(this.creds, this.clientToken, this.proxy);
+    const tok = await getAccessTokenDetail(this.creds, this.clientToken, this.proxy);
     if (!tok.ok) return tok;
-    this.accessToken = tok.value;
+    this.accessToken = tok.value.accessToken;
+    this.tokenReused = false;
     this.tokenIssuedAt = Date.now();
+    this.tokenLifetimeS = tok.value.lifetimeS;
+    return this.loginWithToken();
+  }
+
+  /**
+   * Log in with a token this account minted earlier (`issuedAt`: when),
+   * skipping account/verify: only the char/list call that claims the
+   * session (advanced management's token reuse, relay/fleet/tokenCache.ts).
+   * A refusal usually means the token is spent; the caller mints a fresh
+   * one with authenticate(). Does not open the socket.
+   */
+  async resume(token: string, issuedAt: number): Promise<{ ok: true } | { ok: false; error: AuthFailure }> {
+    this.accessToken = token;
+    this.tokenIssuedAt = issuedAt;
+    this.tokenLifetimeS = null;
+    this.tokenReused = true;
+    return this.loginWithToken();
+  }
+  /** The session runs on a kept token (resume), not one minted for it. */
+  private tokenReused = false;
+
+  /** char/list with the token in hand (do_login: claims the session), then which character loads and where. */
+  private async loginWithToken(): Promise<{ ok: true } | { ok: false; error: AuthFailure }> {
     const chars = await getCharList(this.accessToken, this.proxy);
     if (!chars.ok) return chars;
     const c = chars.value;
     this.lastCharList = c;
     this.readCharFacts(c);
-    if (c.charIds.length > 0) {
+    if (c.charIds.length > 0 && !this.create?.force) {
       this.currentCharId = pickCharId(this.preferredCharId, c.charIds);
     } else {
       this.currentCharId = c.nextCharId;
@@ -314,6 +348,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     if (!this.active || !this.isReady || this.connecting) return false;
     if (this.connectCooldown > this.getTime()) return false;
     this.connecting = true;
+    const gen = ++this.connGen;
     try {
       if (this.sock) {
         const old = this.sock;
@@ -322,11 +357,11 @@ export class GameClient extends EventEmitter<GameClientEvents> {
         old.close();
       }
       this.stopFrames();
+      this.arrived = false;
       // Each attempt starts at the back of the line.
       this.queuePos = -1;
       this.queueMax = -1;
       this.queueSince = -1;
-      this.lastQueueTime = -1;
       if (!this.host) this.host = SERVER_IPS[this.server];
       const sock = new GameSocket(this.host, this.proxy, this.port);
       sock.on("packet", (p) => this.onPacket(p));
@@ -334,6 +369,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
         if (this.sock !== sock) return;
         this.sock = null;
         this.stopFrames();
+        this.arrived = false;
         this.log(`disconnected from ${this.host}: ${reason}${detail ? ` (${detail})` : ""}`);
         this.emit("disconnected", reason, detail);
       });
@@ -341,11 +377,20 @@ export class GameClient extends EventEmitter<GameClientEvents> {
       try {
         await sock.connect();
       } catch (e) {
+        if (gen !== this.connGen || !this.active) return false;
         this.log(`connect to ${this.host} failed: ${(e as Error).message}`);
         // A key whose HELLO never went out is dead either way.
         this.key = new Uint8Array(0);
         this.keyTime = -1;
         this.emit("disconnected", "error", (e as Error).message);
+        return false;
+      }
+      // stop() or disconnect() ran while the socket was opening: it found no
+      // socket to close, so close this one rather than bring a session up
+      // (a stopped client's proxy is already someone else's).
+      if (gen !== this.connGen || !this.active) {
+        sock.removeAllListeners();
+        sock.close();
         return false;
       }
       this.sock = sock;
@@ -385,6 +430,10 @@ export class GameClient extends EventEmitter<GameClientEvents> {
   }
   private recentSent: string[] = [];
   private recentRecv: string[] = [];
+  /** The last packets sent and received (types with the client clock), for a trip's failure line. */
+  recentPackets(): { sent: string[]; recv: string[] } {
+    return { sent: [...this.recentSent], recv: [...this.recentRecv] };
+  }
   private noteRecv(type: string): void {
     if (type === "NEWTICK" || type === "UPDATE" || type === "GOTO" || type === "SERVERPLAYERSHOOT" || type === "ENEMYSHOOT" || type === "PLAYSOUND") return;
     this.recentRecv.push(`${type}@${this.getTime()}`);
@@ -405,12 +454,6 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     return this.connect();
   }
 
-  /** Tutorial mode: reconnect into the tutorial map. */
-  gotoTutorial(): void {
-    this.gameId = GameId.tutorial;
-    this.disconnect();
-  }
-
   nexus(): void {
     this.send("ESCAPE", {});
     this.gameId = GameId.nexus;
@@ -418,9 +461,54 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     this.keyTime = -1;
   }
 
+  /** Standing in the Nexus: its CREATE_SUCCESS has come (gameIdValue only says which map the last HELLO or ESCAPE asked for). */
+  inNexus(): boolean {
+    return this.arrivedIn(NEXUS_MAP_NAME);
+  }
+  /** Standing in the Vault, the same way. */
+  inVault(): boolean {
+    return this.arrivedIn(VAULT_MAP_NAME);
+  }
+  private arrivedIn(map: string): boolean {
+    return this.active && this.connected && this.arrived && this.mapName === map;
+  }
+
+  /**
+   * Go back to the Nexus and see that it happens: ESCAPE now, then again
+   * every ESCAPE_RETRY_MS while the bot stands anywhere else, up to
+   * ESCAPE_RETRIES more times. The server answers an ESCAPE with a
+   * RECONNECT; one lost on the way would leave the bot where it was (the
+   * proxy's autonexus resends the same way). While a map is still loading
+   * there is no character to move, so the next look waits for it. Calling
+   * it again while it runs changes nothing.
+   */
+  escapeToNexus(): void {
+    if (!this.active || this.inNexus() || this.escapeTimer) return;
+    if (this.connected && this.arrived) this.nexus();
+    let resent = 0;
+    let looks = 0;
+    this.escapeTimer = setInterval(() => {
+      looks++;
+      if (!this.active || this.inNexus() || resent >= ESCAPE_RETRIES || looks > ESCAPE_RETRIES * 3) {
+        this.clearEscape();
+        return;
+      }
+      if (!this.connected || !this.arrived) return;
+      resent++;
+      this.log(`not in the Nexus ${(looks * ESCAPE_RETRY_MS) / 1000}s after ESCAPE (in ${this.mapName || "?"}) — sending it again (${resent}/${ESCAPE_RETRIES})`);
+      this.nexus();
+    }, ESCAPE_RETRY_MS);
+    this.escapeTimer.unref?.();
+  }
+  private clearEscape(): void {
+    if (this.escapeTimer) clearInterval(this.escapeTimer);
+    this.escapeTimer = null;
+  }
+
   /** Close the socket but keep the client alive (the watchdog will re-dial). */
   disconnect(): void {
-    if (this.tutorial) this.objectId = -1;
+    this.connGen++;
+    this.arrived = false;
     if (this.sock) {
       const s = this.sock;
       this.sock = null;
@@ -439,6 +527,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     this.active = false;
     if (this.watchdog) clearInterval(this.watchdog);
     this.watchdog = null;
+    this.clearEscape();
     this.disconnect();
     this.emit("stopped");
   }
@@ -450,17 +539,23 @@ export class GameClient extends EventEmitter<GameClientEvents> {
       // 0 means the first handshake hasn't completed; re-dialling now would
       // race the in-flight login.
       if (this.lastPacketTime === 0) return;
-      if (this.lastPacketTime + WATCHDOG_SILENCE_MS < this.getTime()) void this.connect();
+      const now = this.getTime();
+      if (this.lastPacketTime + WATCHDOG_SILENCE_MS >= now) return;
+      // A server that is down is not hammered: each re-dial without a session in between waits twice as long as the one before.
+      const wait = Math.min(REDIAL_MAX_MS, WATCHDOG_SILENCE_MS * 2 ** Math.min(this.redials, 10));
+      if (this.redials > 0 && this.lastRedialAt + wait > now) return;
+      this.redials++;
+      this.lastRedialAt = now;
+      void this.connect();
     }, WATCHDOG_TICK_MS);
     this.watchdog.unref();
   }
 
   // --- queue --------------------------------------------------------------
 
-  inLoginQueue(silenceMs = QUEUE_SILENCE_MS): boolean {
-    if (!this.active || this.objectId !== -1) return false;
-    if (this.lastQueueTime < 0) return false;
-    return this.getTime() - this.lastQueueTime <= silenceMs;
+  /** The server put this connection in its login queue: a queue packet since the last connect, and no character loaded since. */
+  inLoginQueue(): boolean {
+    return this.active && this.queueSince >= 0;
   }
 
   queueWaitMs(): number {
@@ -583,11 +678,14 @@ export class GameClient extends EventEmitter<GameClientEvents> {
 
   private onCreateSuccess(pkt: Packet<"CREATESUCCESS">): void {
     if (this.queueSince >= 0) this.log(`cleared ${this.server} queue after ${Math.floor(this.queueWaitMs() / 1000)}s`);
+    // In the world again: the next lost session re-dials at once.
+    this.redials = 0;
     this.queuePos = -1;
     this.queueMax = -1;
     this.queueSince = -1;
-    this.lastQueueTime = -1;
     this.objectId = pkt.objectId;
+    this.arrived = true;
+    if (this.mapName === NEXUS_MAP_NAME) this.clearEscape();
     this.kickCount = 0;
     this.awaitingLoad = false;
     this.records = [];
@@ -604,13 +702,14 @@ export class GameClient extends EventEmitter<GameClientEvents> {
   private onMapInfo(pkt: Packet<"MAPINFO">): void {
     this.log(`connected to ${this.server} ${pkt.name}${this.needsNewChar ? "" : ` as character #${this.currentCharId}`}`);
     this.mapName = pkt.name;
+    this.arrived = false;
     this.nextPos = [];
     this.world.reset();
     this.combat?.resetForMap();
     if (this.needsNewChar) {
       this.log("creating new char");
       // The seasonal field is honoured (verified 2026-07-05 via the char list).
-      this.send("CREATE", { classType: ClassId.WIZARD, skinType: 0, isChallenger: false, isSeasonal: this.tutorial?.seasonal ?? false, newBool: false });
+      this.send("CREATE", { classType: this.create?.classType ?? ClassId.WIZARD, skinType: 0, isChallenger: false, isSeasonal: this.create?.seasonal ?? false, newBool: false });
       this.needsNewChar = false;
     } else {
       this.awaitingLoad = true;
@@ -624,7 +723,6 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     if (this.queueSince < 0) this.queueSince = now;
     this.queuePos = pkt.curPos;
     this.queueMax = pkt.maxPos;
-    this.lastQueueTime = now;
     this.connectCooldown = now + 10_000;
     this.emit("queue", pkt.curPos, pkt.maxPos);
   }
@@ -664,6 +762,7 @@ export class GameClient extends EventEmitter<GameClientEvents> {
   }
 
   private onReconnect(pkt: Packet<"RECONNECT">): void {
+    this.arrived = false;
     if (pkt.host) this.host = pkt.host;
     this.gameId = pkt.gameId;
     this.key = pkt.key;
@@ -671,52 +770,11 @@ export class GameClient extends EventEmitter<GameClientEvents> {
     void this.connect();
   }
 
-  /**
-   * Tutorial mode: every failure here is a session kick (0 "Bad message
-   * received", 11 throttle, 13 rejected HELLO). Back off and retry; give up
-   * after a handful so the walker records the failure and moves on.
-   */
-  private onTutorialFailure(pkt: Packet<"FAILURE">): void {
-    this.log(`kick: id=${pkt.errorId} desc=${JSON.stringify(pkt.errorDescription)} map=${this.mapName} inWorld=${this.objectId !== -1}`);
-    this.kickCount++;
-    if (this.kickCount >= TUTORIAL_MAX_KICKS) {
-      this.log(`kicked ${this.kickCount}x — giving up on this account`);
-      this.emit("failure", { kind: "other", errorId: pkt.errorId, description: `kicked ${this.kickCount}x: ${pkt.errorDescription}` });
-      this.stop();
-      return;
-    }
-    this.keyTime = -1;
-    this.key = new Uint8Array(0);
-    if (pkt.errorId === 0 && this.awaitingLoad) {
-      // LOAD was kicked with no CREATE_SUCCESS: the preseeded charId doesn't
-      // exist — its CREATE was swallowed. CREATE again on the next attempt.
-      this.needsNewChar = true;
-    }
-    this.awaitingLoad = false;
-    // Not-yet-TDone accounts stay routed to the tutorial (the Nexus kicks
-    // first-login accounts); a pending CREATE only applies in the Nexus.
-    this.gameId = this.tutorialDone || this.needsNewChar ? GameId.nexus : GameId.tutorial;
-    if (pkt.errorDescription === "s.update_client" || pkt.errorDescription === "Account credentials not valid") {
-      this.emit("failure", pkt.errorDescription === "s.update_client" ? { kind: "update-client" } : { kind: "bad-credentials" });
-      this.stop();
-      return;
-    }
-    const inWorld = this.objectId !== -1;
-    this.disconnect();
-    const backoff = (inWorld ? INWORLD_BACKOFF_S : KICK_BACKOFF_S) * 1000;
-    this.connectCooldown = Math.max(this.connectCooldown, this.getTime() + backoff);
-    this.emit("failure", { kind: "other", errorId: pkt.errorId, description: pkt.errorDescription });
-  }
-
   // --- failure classification --------------------------------------------
 
   private onFailure(pkt: Packet<"FAILURE">): void {
     if (pkt.errorId === 15) {
       this.disconnect();
-      return;
-    }
-    if (this.tutorial) {
-      this.onTutorialFailure(pkt);
       return;
     }
     const desc = (pkt.errorDescription || "").toLowerCase();
@@ -740,7 +798,11 @@ export class GameClient extends EventEmitter<GameClientEvents> {
       this.stop();
       return;
     }
+    // A kept token the HTTP API still takes can be refused by the game server when the character loads:
+    // FAILURE 11 with no text (live 2026-10-01, tokens 12-16 minutes old). It is spent: a fresh one is minted.
+    const keptTokenRefused = this.tokenReused && pkt.errorId === KEPT_TOKEN_REFUSED_ID && !desc;
     const tokenError =
+      keptTokenRefused ||
       TOKEN_ERROR_SUBSTRINGS.some((s) => desc.includes(s)) ||
       (TOKEN_ERROR_IDS.has(pkt.errorId) && !desc.includes("account in use"));
     if (tokenError) {

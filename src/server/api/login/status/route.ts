@@ -17,7 +17,7 @@ import { ignsOf, linkIgn, sessionUser, userForIgn } from "@/lib/users";
 // the player keeps acting as the character they were on.
 export async function POST(req: Request) {
   const ip = clientIp(req);
-  if (!rateLimit(`login-status:${ip}`, 20, 1)) {
+  if (!rateLimit(`login-status:${ip}`, 20, 5)) {
     return json({ error: "Too many requests" }, { status: 429 });
   }
 
@@ -25,6 +25,13 @@ export async function POST(req: Request) {
   const code = typeof body.code === "string" ? body.code : "";
   if (!/^[A-Za-z0-9]{4,32}$/.test(code)) {
     return json({ error: "Invalid code" }, { status: 400 });
+  }
+
+  // A link needs a session; check it before the poll, which spends a verified code.
+  const db = getDb();
+  const me = body.link === true ? sessionUser(db, req) : null;
+  if (body.link === true && !me) {
+    return json({ error: "Your session ended. Log in again, then link the character.", state: "logged-out" }, { status: 401 });
   }
 
   const res = await pollLogin(code);
@@ -35,10 +42,7 @@ export async function POST(req: Request) {
   const verified = checkIgn(res.ign);
   if (!verified.ok) return json({ error: "The bot reported an unusable name." }, { status: 502 });
 
-  const db = getDb();
-  if (body.link === true) {
-    const me = sessionUser(db, req);
-    if (!me) return json({ error: "Log in first to link another character." }, { status: 401 });
+  if (me) {
     const r = linkIgn(db, me.userId, verified.ign, verified.ignLower);
     if (!r.ok) return json({ error: r.error, state: "verified" }, { status: r.status });
     return json({ ok: true, state: "verified", ign: me.ign, linked: verified.ign, igns: ignsOf(db, me.userId).map((i) => ({ ign: i.ign, linkedAt: i.linkedAt })) });

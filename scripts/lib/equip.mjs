@@ -89,7 +89,10 @@ const WEAPON_SLOTS = new Set([1, 2, 3, 8, 17, 24]);
 const ARMOR_SLOTS = new Set([6, 7, 14]);
 export const RING_SLOT = 9;
 export const CONSUMABLE_SLOT = 10;
+/** Pet eggs (equipEggs.xml) sit in slot 26: consumables, not abilities. */
+const EGG_SLOT = 26;
 export function slotGroup(slotType) {
+  if (slotType === EGG_SLOT) return "consumable";
   if (WEAPON_SLOTS.has(slotType)) return "weapon";
   if (ARMOR_SLOTS.has(slotType)) return "armor";
   if (slotType === RING_SLOT) return "ring";
@@ -148,7 +151,9 @@ export function tradeableItem(o, why) {
   if (labels.includes("EFFECT")) return fail("EFFECT pseudo-item");
   const name = itemName(o);
   if (/\btest(er)?\b/i.test(name)) return fail("test item");
-  if (!o.DisplayId && /[A-Za-z]\d+$/.test(String(o["@_id"]))) return fail("internal item (numbered id, no display name)");
+  // Numbered ids without a display name are the client's internal variants — except the legacy
+  // healing potions, which really are called "Potion of Health1".."6" in the game.
+  if (!o.DisplayId && /[A-Za-z]\d+$/.test(String(o["@_id"])) && !/^Potion of (Health|Magic)\d+$/.test(String(o["@_id"]))) return fail("internal item (numbered id, no display name)");
   return true;
 }
 
@@ -160,13 +165,21 @@ const GROUP_NAMES = { weapon: "Weapon", armor: "Armor", ring: "Ring", ability: "
  * weapons, armor and abilities (as the curated entries have it), and Ring or
  * Armor for untiered pieces (as the earlier syncs wrote them).
  */
+/** Readable books, letters and journals: their own category, so the accepted-items tab can list them apart from the other consumables. */
+export const LORE = new Set(["Book of Chess", "Book of Backgammon", "Book of Arcade", "Captain's Log", "Forgotten Log I", "Forgotten Log II", "Intercepted Letter 1", "Intercepted Letter 2", "Izel's Prayer", "Nefret's Journal", "Ozuchi's Vow", "Shrouded Summons", "Vagrant's Journal", "The Wanderer's Journal Page 1", "The Wanderer's Journal Page 2", "The Wanderer's Journal Page 3"]);
+/** The dungeon treasure sets (RealmEye "Dungeon Treasures"): once quest items, now only traded. */
+export const TREASURES = new Set(["Golden Femur", "Golden Ribcage", "Golden Skull", "Golden Nut", "Golden Bolt", "Golden Candelabra", "Holy Cross", "Pearl Necklace", "Golden Chalice", "Ruby Gemstone", "Golden Cockle", "Golden Conch", "Golden Horn Conch", "Golden Ankh", "Eye of Osiris", "Pharaoh's Mask"]);
+
 export function classify(o) {
   const slot = Number(o.SlotType);
   const group = slotGroup(slot);
   const labels = labelsOf(o);
   const name = itemName(o);
   if (group === "consumable") {
-    const category = labels.includes("STATPOTION") || /^(Greater )?Potion of /.test(name) ? "Potion" : /\bEgg$/i.test(name) ? "Egg" : "Consumable";
+    // Stat potions are "Potion of <stat>"; the legacy numbered "Potion of Health1".."6" heal and are plain consumables.
+    // Pet eggs carry a PetFamily (equipEggs.xml); drake eggs are consumables, egg-shaped or not.
+    const legacyHeal = /^Potion of (Health|Magic)\d+$/.test(name);
+    const category = LORE.has(name) ? "Lore" : TREASURES.has(name) ? "Treasure" : !legacyHeal && (labels.includes("STATPOTION") || /^(Greater )?Potion of /.test(name)) ? "Potion" : "PetFamily" in o ? "Egg" : "Consumable";
     return { kind: "consumable", group, tier: null, category, subtype: null };
   }
   const tier = tierOf(o);

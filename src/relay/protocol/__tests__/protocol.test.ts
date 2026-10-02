@@ -4,7 +4,7 @@
 // write exactly what the fleet has been speaking.
 import { describe, expect, it } from "vitest";
 import fixtures from "./fixtures.json";
-import walkerFixtures from "./walker-fixtures.json";
+import sessionFixtures from "./session-fixtures.json";
 // Calendar / vault / season packets: layouts as rotmgproxy verified them on the wire (2026-09); bytes from our own writer.
 import backpackFixtures from "./backpack-fixtures.json";
 // Party / teleport packets (build 7.0): layouts from the client's protocol dump and rotmgproxy's captures (party.test.ts has the live bytes); bytes from our own writer.
@@ -83,7 +83,7 @@ describe("enchant records", () => {
 });
 
 describe("packet codecs vs pyrelay", () => {
-  const cases = [...fixtures.packets, ...walkerFixtures.packets, ...backpackFixtures.packets, ...partyFixtures.packets] as Fixture[];
+  const cases = [...fixtures.packets, ...sessionFixtures.packets, ...backpackFixtures.packets, ...partyFixtures.packets] as Fixture[];
   const covered = new Set<string>();
   for (const [i, c] of cases.entries()) {
     covered.add(c.name);

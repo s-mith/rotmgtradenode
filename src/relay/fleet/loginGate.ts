@@ -8,7 +8,12 @@ const FOREVER_MS = 365 * 24 * 3600 * 1000;
 const HOLD_MS = 3600 * 1000;
 
 export class LoginGate {
+  /** Per-account cooldowns: Realm's attempt limit, "account in use", the grace after a session. */
   private lockedUntil = new Map<string, number>();
+  /** Accounts Realm suspended: locked until unlocked, whatever their cooldowns say. */
+  private retired = new Set<string>();
+  /** Accounts Realm refused the stored credentials for: no login is tried again until they are corrected (unlock), so a wrong password never meets Realm's attempt limit over and over. */
+  private badCredentials = new Set<string>();
   private serverJamUntil = new Map<string, number>();
   private attemptLimitHits: number[] = [];
   private pauseUntil = 0;
@@ -21,7 +26,16 @@ export class LoginGate {
     this.now = now;
   }
 
+  /** Retired for good (a suspension): never logs in again this run. */
+  isRetired(guid: string): boolean {
+    return this.retired.has(guid);
+  }
   lockoutRemainingMs(guid: string): number {
+    if (this.retired.has(guid) || this.badCredentials.has(guid)) return FOREVER_MS;
+    return this.cooldownRemainingMs(guid);
+  }
+  /** The account's own cooldown, a suspension's retire left aside: what an HTTP re-check of a suspended account still waits out. */
+  cooldownRemainingMs(guid: string): number {
     return Math.max(0, (this.lockedUntil.get(guid) ?? 0) - this.now());
   }
   /** Time until logins may resume; while a hold is on this never runs out. */
@@ -70,11 +84,22 @@ export class LoginGate {
   noteLoginSuccess(): void {
     this.attemptLimitHits = [];
   }
+  /** Realm said the stored email/password are wrong: hold the account until the owner corrects them. */
+  noteBadCredentials(guid: string): void {
+    if (this.badCredentials.has(guid)) return;
+    this.badCredentials.add(guid);
+    console.log(`LoginGate: ${guid} not logging in until its credentials are corrected — Realm refused them`);
+  }
+  hasBadCredentials(guid: string): boolean {
+    return this.badCredentials.has(guid);
+  }
   retire(guid: string): void {
-    this.lockedUntil.set(guid, this.now() + FOREVER_MS);
+    this.retired.add(guid);
   }
   /** Undo a retire (or any lockout): the account may log in on the next wake. */
   unlock(guid: string): void {
+    this.retired.delete(guid);
+    this.badCredentials.delete(guid);
     this.lockedUntil.delete(guid);
   }
   noteServerJam(server: string, seconds: number, why = ""): void {

@@ -1,10 +1,11 @@
 // What this node takes in (design doc §4.1). The catalog is every item the
 // game lets players trade; the owner decides which of them the node's bots
 // accept. Rules by category set the default — the stat potions, eggs, other
-// consumables, untiered gear, and a lowest tier per gear group — and a pin
+// consumables, lore, dungeon treasures, untiered gear, and a lowest tier per gear group — and a pin
 // per item beats the rule either way. Pure: the settings store keeps it, the
 // trade machine and the site both ask it.
 import { CATALOG, ITEM_BY_ID, type CatalogItem, type EquipmentGroup } from "./catalog";
+import communismPolicyJson from "./communism-policy.json";
 
 export const GROUPS: EquipmentGroup[] = ["Weapon", "Armor", "Ring", "Ability"];
 
@@ -12,6 +13,12 @@ export interface ItemPolicy {
   potions: boolean;
   eggs: boolean;
   consumables: boolean;
+  /** Books, letters and journals. */
+  lore: boolean;
+  /** The dungeon treasure sets. */
+  treasures: boolean;
+  /** Character skins. */
+  skins: boolean;
   /** UT and ST gear. */
   untiered: boolean;
   /** Lowest tier taken per gear group; null takes none of that group. */
@@ -22,18 +29,21 @@ export interface ItemPolicy {
 
 /** Everything the game lets players trade. */
 export const DEFAULT_ITEM_POLICY: ItemPolicy = {
-  potions: true, eggs: true, consumables: true, untiered: true,
+  potions: true, eggs: true, consumables: true, lore: true, treasures: true, skins: true, untiered: true,
   minTier: { Weapon: 0, Armor: 0, Ring: 0, Ability: 0 },
   overrides: {},
 };
 
-export type CategoryKind = { kind: "tiered"; group: EquipmentGroup; tier: number } | { kind: "potion" | "egg" | "consumable" | "untiered" };
+export type CategoryKind = { kind: "tiered"; group: EquipmentGroup; tier: number } | { kind: "potion" | "egg" | "consumable" | "lore" | "treasure" | "skin" | "untiered" };
 export function parseCategory(category: string): CategoryKind {
   const m = /^T(\d+) (Weapon|Armor|Ring|Ability)$/.exec(category);
   if (m) return { kind: "tiered", group: m[2] as EquipmentGroup, tier: Number(m[1]) };
   if (category === "Potion") return { kind: "potion" };
   if (category === "Egg") return { kind: "egg" };
   if (category === "Consumable") return { kind: "consumable" };
+  if (category === "Lore") return { kind: "lore" };
+  if (category === "Treasure") return { kind: "treasure" };
+  if (category === "Skin") return { kind: "skin" };
   return { kind: "untiered" };
 }
 
@@ -48,6 +58,9 @@ export function ruleAccepts(policy: ItemPolicy, item: CatalogItem): boolean {
     case "potion": return policy.potions;
     case "egg": return policy.eggs;
     case "consumable": return policy.consumables;
+    case "lore": return policy.lore;
+    case "treasure": return policy.treasures;
+    case "skin": return policy.skins;
     case "untiered": return policy.untiered;
   }
 }
@@ -79,12 +92,12 @@ export function normalizeItemPolicy(raw: unknown): ItemPolicy {
   const overrides: Record<string, boolean> = {};
   const ov = (r.overrides && typeof r.overrides === "object" ? r.overrides : {}) as Record<string, unknown>;
   for (const [id, v] of Object.entries(ov)) if (typeof v === "boolean" && ITEM_BY_ID.has(id)) overrides[id] = v;
-  return { potions: bool(r.potions, true), eggs: bool(r.eggs, true), consumables: bool(r.consumables, true), untiered: bool(r.untiered, true), minTier, overrides };
+  return { potions: bool(r.potions, true), eggs: bool(r.eggs, true), consumables: bool(r.consumables, true), lore: bool(r.lore, true), treasures: bool(r.treasures, true), skins: bool(r.skins, true), untiered: bool(r.untiered, true), minTier, overrides };
 }
 
 /** Whether a policy is the default (everything tradeable). */
 export function acceptsEverything(policy: ItemPolicy): boolean {
-  return policy.potions && policy.eggs && policy.consumables && policy.untiered && GROUPS.every((g) => policy.minTier[g] === 0) && !Object.values(policy.overrides).some((v) => v === false);
+  return policy.potions && policy.eggs && policy.consumables && policy.lore && policy.treasures && policy.skins && policy.untiered && GROUPS.every((g) => policy.minTier[g] === 0) && !Object.values(policy.overrides).some((v) => v === false);
 }
 
 // --- the process-wide policy ------------------------------------------------------
@@ -101,4 +114,34 @@ export function currentItemPolicy(): ItemPolicy {
 /** The site's answer for one item, with the reason for the form. */
 export function nodeTakes(itemId: string): boolean {
   return acceptsItem(currentItemPolicy(), itemId);
+}
+
+// --- communism's own list ----------------------------------------------------------
+// Communism accounts do not follow the node's Accepted items setting: they
+// accept by a list fixed in the code (src/lib/communism-policy.json), taken
+// from the owner's node on 2026-09-22 — every category, minus the items
+// pinned off there. Changing the Accepted items tab never touches it.
+export const COMMUNISM_ITEM_POLICY: ItemPolicy = normalizeItemPolicy({
+  ...(communismPolicyJson as { rules: Partial<ItemPolicy> }).rules,
+  overrides: Object.fromEntries([
+    ...(communismPolicyJson as { excluded: string[] }).excluded.map((id) => [id, false] as const),
+    ...(communismPolicyJson as { pinnedOn: string[] }).pinnedOn.map((id) => [id, true] as const),
+  ]),
+});
+/** Whether a communism account takes this catalog item in. */
+export function communismTakes(itemId: string): boolean {
+  return acceptsItem(COMMUNISM_ITEM_POLICY, itemId);
+}
+/**
+ * Whether the node may trade this item AWAY from an account. A pool account
+ * gives anything in the catalog; a communism account gives only what
+ * communism takes — anything else on it counts as untradable there (not
+ * listed, never given) and is put into storage first (storage.ts, the tuck).
+ */
+export function tradeableOn(communism: boolean, itemId: string): boolean {
+  return !communism || communismTakes(itemId);
+}
+/** The accept check for a bot: the node's setting for a pool account, the fixed list for a communism account. */
+export function takesFor(communism: boolean): (itemId: string) => boolean {
+  return communism ? communismTakes : nodeTakes;
 }

@@ -3,9 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveUpdates } from "@/lib/useLive";
 import { SERVERS, WITHDRAW_SERVERS, isDepositOnly } from "@/lib/servers";
 import { serverOffLabel, useServerControls } from "@/lib/useServerControls";
-import { DEPOSIT_SIZES, type DepositSize } from "@/lib/depositSizes";
+import { MAX_TRADE_SLOTS } from "@/lib/depositSizes";
 import { POTION_STATS, STAT_LABELS, type PotionStat } from "@/lib/potionPlan";
-import type { PoolInstance, Tab, VaultHalfView } from "./Vault";
+import type { PoolInstance, Tab, CommunismRoom } from "./Vault";
 import { ItemSprite } from "./ItemSprite";
 import { TradeStepperBox } from "./TradeStepper";
 
@@ -19,13 +19,16 @@ type Capacity = {
   largestFree?: number;
   /** No 16-slot bot is ready, but the fleet can fit an empty one with a backpack for a deposit that asks. */
   canMake16?: boolean;
+  /** Advanced management: a deposit goes to an empty bot and continues with the next when it brings more than that bot holds (pool, then communism). */
+  continues?: boolean;
+  communismContinues?: boolean;
 };
 
 type GroupHint = {
   groupId: string;
   tradeCount: number;
   trades: { requestId: number; status: string; botIgn: string | null }[];
-  status: "polling" | "in-flight" | "fulfilled" | "partial" | "cancelled" | "timeout";
+  status: "polling" | "in-flight" | "fulfilled" | "partial" | "cancelled" | "gone";
   // Deposits only: why the chain stopped, when it stopped for a reason other
   // than the player under-filling a trade. 'vault-full' = the pool ran out
   // of room, so there was nothing left to chain to.
@@ -34,8 +37,9 @@ type GroupHint = {
 
 // Status for an open group. The live stream announces every change to it
 // (see useLiveUpdates.onRequest), so the poll here is only a slow safety net
-// for a dropped stream — not the mechanism. A 3-trade worst case is ~180s;
-// we give up at 240s.
+// for a dropped stream — not the mechanism. It follows the group until it
+// ends, however long its trades take; only a group the node no longer knows
+// (404) stops it.
 function pollGroup(
   url: string,
   groupId: string,
@@ -43,9 +47,7 @@ function pollGroup(
   wake: { current: (() => void) | null },
 ): () => void {
   let cancelled = false;
-  const start = Date.now();
   const POLL_MS = 15_000;
-  const TIMEOUT_MS = 240_000;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const tick = async () => {
     if (cancelled) return;
@@ -53,6 +55,10 @@ function pollGroup(
     timer = null;
     try {
       const r = await fetch(url, { cache: "no-store" });
+      if (r.status === 404) {
+        if (!cancelled) setter((cur) => (cur && cur.groupId === groupId ? { ...cur, status: "gone" } : cur));
+        return;
+      }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = (await r.json()) as {
         groupStatus: "in-flight" | "fulfilled" | "partial" | "cancelled";
@@ -76,10 +82,6 @@ function pollGroup(
     } catch {
       // ignore — next tick will retry
     }
-    if (Date.now() - start > TIMEOUT_MS) {
-      if (!cancelled) setter((cur) => (cur ? { ...cur, status: "timeout" } : cur));
-      return;
-    }
     timer = setTimeout(tick, POLL_MS);
   };
   wake.current = () => void tick();
@@ -97,8 +99,7 @@ export default function TxForm({
   onTabChange,
   mode,
   seasonal,
-  vault,
-  onVaultChanged,
+  communism,
   trayInstances,
   onRemoveFromTray,
   onClearTray,
@@ -110,16 +111,13 @@ export default function TxForm({
   ign: string | null;
   tab: Tab;
   onTabChange: (t: Tab) => void;
-  // "pool": deposit / withdraw / potions / claim against the commons.
-  // "vault": deposit into, withdraw from, or donate out of personal storage.
-  mode: "pool" | "vault";
-  // Active pool tab — deposits are routed to a bot of this type. In vault
-  // mode it is the half of the vault being looked at.
+  // "pool": deposit / withdraw / potions against the pool.
+  // "communism": deposit into, or take out of, communism accounts.
+  mode: "pool" | "communism";
+  // Active pool half — deposits are routed to a bot of this type.
   seasonal: boolean;
-  /** The account's vault for `seasonal`'s pool half. */
-  vault: VaultHalfView | null;
-  /** A claim, donate or vault trade changed what the account holds. */
-  onVaultChanged?: () => void;
+  /** Communism's room for `seasonal`'s half (communism mode). */
+  communism: CommunismRoom | null;
   trayInstances: (PoolInstance | null)[];
   onRemoveFromTray: (index: number) => void;
   onClearTray: () => void;
@@ -138,7 +136,7 @@ export default function TxForm({
   const [depositHint, setDepositHint] = useState<GroupHint | null>(null);
   // How big a trade the deposit asks for: an empty bot (8) or an empty bot
   // with a backpack (16). One trade either way.
-  const [depositSlots, setDepositSlots] = useState<DepositSize>(8);
+  const [depositSlots, setDepositSlots] = useState(8);
   // A prior submit was refused because this IGN already has something open. The
   // player's logged in, so we offer a one-click cancel of their own queue
   // (POST /api/cancel) rather than the old whispered-code box.
@@ -165,8 +163,9 @@ export default function TxForm({
     // Capacity is per pool — ask for the active pool's numbers so the
     // non-seasonal tab doesn't show seasonal storage. Clear first so a
     // slow response can't leave the other pool's numbers on screen.
+    // Communism reads only whether its deposits continue from it; its room
+    // comes with the communism view.
     setCapacity(null);
-    if (mode !== "pool") return;
     fetch(`/api/capacity?pool=${seasonal ? "seasonal" : "nonseasonal"}`, {
       cache: "no-store",
     })
@@ -180,11 +179,16 @@ export default function TxForm({
     };
   }, [submitting, seasonal, mode]);
 
-  // If the bigger trade stops being possible (the backpack bot went to
-  // someone else), fall back to the one that is.
+  // The most one deposit can be right now: a trade lands on one bot, so the
+  // biggest free space on one (the pool), or what communism has left. The
+  // count follows it down when that shrinks.
+  const depositMax = Math.min(MAX_TRADE_SLOTS, mode === "communism" ? Math.max(0, communism?.free ?? MAX_TRADE_SLOTS) : capacity?.largestFree ?? MAX_TRADE_SLOTS);
+  // Advanced management on the node: an empty bot meets the player, and a
+  // deposit bigger than it holds continues with the next empty bot.
+  const depositContinues = mode === "communism" ? !!capacity?.communismContinues : !!capacity?.continues;
   useEffect(() => {
-    if (depositSlots === 16 && mode === "pool" && capacity !== null && !capacity.full && capacity.largestFree !== undefined && capacity.largestFree < 16 && capacity.largestFree >= 8 && !capacity.canMake16) setDepositSlots(8);
-  }, [capacity, depositSlots, mode]);
+    if (depositMax >= 1 && depositSlots > depositMax) setDepositSlots(depositMax);
+  }, [depositMax, depositSlots]);
 
   const withdrawWake = useRef<(() => void) | null>(null);
   const depositWake = useRef<(() => void) | null>(null);
@@ -226,7 +230,7 @@ export default function TxForm({
   // If the user has items in the tray that are all from one server, default
   // the server picker to that. Removes a manual step in the common case.
   useEffect(() => {
-    if (tab !== "withdraw" && tab !== "claim" && tab !== "donate") return;
+    if (tab !== "withdraw") return;
     if (trayFilled.length === 0) return;
     const first = trayFilled[0].server;
     if (!first) return;
@@ -265,44 +269,6 @@ export default function TxForm({
     trayServers.size > 0 &&
     !trayServers.has(server);
 
-  // Claim (pool -> vault) and donate (vault -> pool) are instant: ownership
-  // changes in the ledger, nothing moves in game, so no server, no bot, no
-  // polling — just the tray.
-  async function submitInstant(kind: "claim" | "donate") {
-    if (trayFilled.length === 0) {
-      setMsg({ kind: "err", text: kind === "claim" ? "Click items in the pool to add them." : "Click items in your vault to add them." });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/vault/${kind}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instanceIds: trayFilled.map((t) => t.instanceId) }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setMsg({ kind: "err", text: data.error || "Request failed" });
-        return;
-      }
-      const n = Number(kind === "claim" ? data.claimed : data.donated);
-      setMsg({
-        kind: "ok",
-        text:
-          kind === "claim"
-            ? `Claimed ${n} item${n === 1 ? "" : "s"} into your ${data.seasonal ? "seasonal" : "non-seasonal"} vault (${data.used}/${data.slots} slots used). The fleet will gather them onto your bot; withdraw them from the My vault tab whenever you like.`
-            : `Donated ${n} item${n === 1 ? "" : "s"} to the pool (${data.used}/${data.slots} ${data.seasonal ? "seasonal" : "non-seasonal"} slots used). Thank you, comrade.`,
-      });
-      onClearTray();
-      onComplete();
-      onVaultChanged?.();
-    } catch {
-      setMsg({ kind: "err", text: "Network error" });
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
@@ -311,10 +277,6 @@ export default function TxForm({
     setHasOpen(false);
     if (!ign) {
       setMsg({ kind: "err", text: "Log in first — see the panel above." });
-      return;
-    }
-    if (tab === "claim" || tab === "donate") {
-      await submitInstant(tab);
       return;
     }
     if (!server) {
@@ -363,9 +325,8 @@ export default function TxForm({
       // much as the grid does.
       // No `ign` in the body — the server reads it from the session cookie, so
       // the client can't spoof someone else's character.
-      // `vault: true` sends the trade to personal storage instead of the pool:
-      // the account's own bot meets the player, and nothing hits the ledger.
-      const vaultFlag = mode === "vault" ? { vault: true } : {};
+      // `communism: true` sends the trade to communism accounts instead of the pool.
+      const vaultFlag = mode === "communism" ? { communism: true } : {};
       const body =
         tab === "deposit"
           ? { server, seasonal, slots: depositSlots, ...vaultFlag }
@@ -398,17 +359,18 @@ export default function TxForm({
         if (data.hasOpen) setHasOpen(true);
       } else if (tab === "deposit") {
         const tradeCount = Number(data.tradeCount ?? 1);
-        const vaultRoom = Math.max(0, (vault?.slots ?? 8) - (vault?.used ?? 0));
+        const communismRoom = Math.max(0, communism?.free ?? 0);
         setMsg({
           kind: "ok",
           text:
-            mode === "vault"
-              ? `Vault deposit queued for ${ign} on ${server}. Your own bot will meet you for one trade of up to ${Math.min(depositSlots, vaultRoom)} items — they stay yours.`
-              : willMake16
-                ? `Deposit queued for ${ign} on ${server}. No bot has 16 free slots right now, so one is being fitted with a backpack for you — allow a few minutes, then it meets you for one trade.`
-                : `Deposit queued for ${ign} on ${server}. A bot with ${depositSlots} free slots will meet you for one trade — whatever you hand over is deposited.`,
+            mode === "communism"
+              ? depositContinues
+                ? `Communism deposit queued for ${ign} on ${server}. An empty communism account will meet you for up to ${Math.min(depositSlots, communismRoom)} items; if you bring more than it holds, the next one comes for the rest. Anyone on the hub may take them afterwards.`
+                : `Communism deposit queued for ${ign} on ${server}. A communism account will meet you for one trade of up to ${Math.min(depositSlots, communismRoom)} items — anyone on the hub may take them afterwards.`
+              : depositContinues
+                ? `Deposit queued for ${ign} on ${server}. An empty bot will meet you — whatever you hand over is deposited, and if you bring more than it holds, the next one comes for the rest.`
+                : `Deposit queued for ${ign} on ${server}. A bot with ${depositSlots} free slot${depositSlots === 1 ? "" : "s"} will meet you for one trade — whatever you hand over is deposited.`,
         });
-        if (mode === "vault") onVaultChanged?.();
         if (data.groupId) {
           setDepositHint({
             groupId: String(data.groupId),
@@ -461,7 +423,7 @@ export default function TxForm({
         const fetchNote = fetched > 0 ? ` ${fetched === trayFilled.length ? "They are" : `${fetched} of them are`} in storage: the bot fetches ${fetched === 1 ? "it" : "them"} first, so allow a few extra minutes.` : "";
         setMsg({
           kind: "ok",
-          text: `${mode === "vault" ? "Vault withdraw" : "Withdraw"} queued: ${trayFilled.length} item${trayFilled.length === 1 ? "" : "s"} → ${ign} on ${server}${fragNote}.${fetchNote}`,
+          text: `${mode === "communism" ? "Communism withdraw" : "Withdraw"} queued: ${trayFilled.length} item${trayFilled.length === 1 ? "" : "s"} → ${ign} on ${server}${fragNote}.${fetchNote}`,
         });
         setWithdrawHint({
           groupId: String(data.groupId),
@@ -471,7 +433,6 @@ export default function TxForm({
         });
         onClearTray();
         onComplete();
-        if (mode === "vault") onVaultChanged?.();
       }
     } catch {
       setMsg({ kind: "err", text: "Network error" });
@@ -484,27 +445,22 @@ export default function TxForm({
   // bot with that much room: the capacity report says how big the biggest
   // possible trade is right now. The submit-time server check enforces the
   // same thing; this just disables the button proactively.
-  const sizeAvailable = (n: number) => capacity === null || (!capacity.full && (capacity.largestFree === undefined || capacity.largestFree >= n || (n > 8 && !!capacity.canMake16)));
-  const willMake16 = mode === "pool" && depositSlots === 16 && capacity !== null && capacity.largestFree !== undefined && capacity.largestFree < 16 && !!capacity.canMake16;
+  const sizeAvailable = (n: number) => capacity === null || (!capacity.full && (capacity.largestFree === undefined || capacity.largestFree >= n));
   const depositBlockedByCapacity =
     mode === "pool" && tab === "deposit" && capacity !== null && !sizeAvailable(depositSlots);
-  // Vault deposits stop at the slots this half holds.
-  const vaultSlotsLeft = vault ? Math.max(0, vault.slots - vault.used) : null;
-  const vaultUnallocated = vault !== null && vault.slots === 0;
-  const vaultDepositBlocked = mode === "vault" && tab === "deposit" && vaultSlotsLeft === 0;
-  const claimBlocked = mode === "pool" && tab === "claim" && vaultUnallocated;
-  const instantTab = tab === "claim" || tab === "donate";
+  // Communism deposits stop at the room its accounts have for this half.
+  const communismFree = communism ? Math.max(0, communism.free) : null;
+  const communismNone = communism !== null && communism.accounts === 0;
+  const communismDepositBlocked = mode === "communism" && tab === "deposit" && (communismNone || communismFree === 0);
 
   const submitDisabled =
     submitting ||
     !ign ||
-    (!instantTab && !server) ||
-    (instantTab && trayFilled.length === 0) ||
+    !server ||
     (tab === "withdraw" && (trayFilled.length === 0 || trayMultiServer || !!trayServerMismatch)) ||
-    claimBlocked ||
     (tab === "potions" && !(Number(potionPoints) >= 1)) ||
     depositBlockedByCapacity ||
-    vaultDepositBlocked;
+    communismDepositBlocked;
 
   // The request the current tab just kicked off, if it's still running. A hint
   // stays "polling" until the group reaches a terminal state (fulfilled /
@@ -559,30 +515,13 @@ export default function TxForm({
         >
           Withdraw
         </button>
-        {mode === "pool" ? (
-          <>
-            <button
-              type="button"
-              className={tab === "potions" ? "active" : ""}
-              onClick={() => setTab("potions")}
-            >
-              Potions
-            </button>
-            <button
-              type="button"
-              className={tab === "claim" ? "active" : ""}
-              onClick={() => setTab("claim")}
-            >
-              Claim
-            </button>
-          </>
-        ) : (
+        {mode === "pool" && (
           <button
             type="button"
-            className={tab === "donate" ? "active" : ""}
-            onClick={() => setTab("donate")}
+            className={tab === "potions" ? "active" : ""}
+            onClick={() => setTab("potions")}
           >
-            Donate
+            Potions
           </button>
         )}
       </div>
@@ -591,33 +530,15 @@ export default function TxForm({
         <p className="hint">Log in above to deposit or withdraw.</p>
       )}
 
-      {mode === "vault" && ign && (
+      {mode === "communism" && ign && (
         <p className="hint">
-          {seasonal ? "Seasonal" : "Non-seasonal"} vault: {vault ? `${vault.used} of ${vault.slots} slots used` : "…"}
-          {vault?.bot?.ign ? ` · your bot is ${vault.bot.ign}` : ""}
+          {seasonal ? "Seasonal" : "Non-seasonal"} communism: {communism ? `${communism.used} of ${communism.slots} slots used on ${communism.accounts} account${communism.accounts === 1 ? "" : "s"}` : "…"}
         </p>
       )}
 
-      {instantTab && (
-        <>
-          <label>{tab === "claim" ? "Claim Tray" : "Donate Tray"} ({trayFilled.length}/{maxTray})</label>
-          <WithdrawTray
-            slots={trayInstances}
-            maxTray={maxTray}
-            onRemove={onRemoveFromTray}
-          />
-          <p className="hint">
-            {tab === "claim"
-              ? vaultUnallocated
-                ? `You have no vault slots allocated to the ${seasonal ? "seasonal" : "non-seasonal"} pool. Open My Vault and give its ${seasonal ? "Seasonal" : "Non-seasonal"} tab some slots first.`
-                : `Click items in the pool to add them. Claiming moves them into your ${seasonal ? "seasonal" : "non-seasonal"} vault instantly${vault ? ` (${Math.max(0, vault.slots - vault.used)} slot${vault.slots - vault.used === 1 ? "" : "s"} free)` : ""}.`
-              : "Click items in your vault to add them. Donating gives them back to the pool instantly."}
-          </p>
-        </>
-      )}
 
-      {!instantTab && <label htmlFor="server">Server</label>}
-      {!instantTab && <select
+      <label htmlFor="server">Server</label>
+      <select
         id="server"
         value={server}
         onChange={(e) => setServer(e.target.value)}
@@ -635,57 +556,54 @@ export default function TxForm({
             </option>
           );
         })}
-      </select>}
+      </select>
 
       {tab === "deposit" && (
         <>
-          <label>Trade size</label>
-          <div className="deposit-size" role="group" aria-label="Trade size">
-            {DEPOSIT_SIZES.map((n) => {
-              const noBot = mode === "pool" && capacity !== null && !sizeAvailable(n);
-              // A vault trade is as big as the room left, so the bigger size
-              // only means something with more than 8 slots free.
-              const noRoom = mode === "vault" && vaultSlotsLeft !== null && n > 8 && vaultSlotsLeft <= 8;
-              const off = noBot || noRoom;
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  className={"login-char-btn" + (depositSlots === n ? " wish-pool-active" : "")}
-                  aria-pressed={depositSlots === n}
-                  disabled={off}
-                  title={n === 8 ? "An empty bot: 8 free slots" : "An empty bot with a backpack: 16 free slots"}
-                  onClick={() => setDepositSlots(n)}
-                >
-                  {n} slots
-                </button>
-              );
-            })}
+          <label htmlFor="deposit-count">How many items</label>
+          <div className="deposit-size">
+            <input
+              id="deposit-count"
+              type="number"
+              min={1}
+              max={Math.max(1, depositMax)}
+              value={depositSlots}
+              onChange={(e) => setDepositSlots(Math.max(1, Math.min(Math.max(1, depositMax), Math.floor(Number(e.target.value) || 1))))}
+              style={{ width: 72 }}
+            />
             <span className="pool-option-hint">
-              {depositSlots === 8 ? "an empty bot" : "an empty bot with a backpack"}
-              {mode === "pool" && capacity?.largestFree !== undefined && capacity.largestFree < 16 && capacity.largestFree >= 8 && (capacity.canMake16 ? " · none ready — one will be fitted with a backpack for you, allow a few minutes" : " · no bot has 16 free right now")}
-              {mode === "vault" && vaultSlotsLeft !== null && vaultSlotsLeft > 0 && vaultSlotsLeft < depositSlots && ` · capped at the ${vaultSlotsLeft} slot${vaultSlotsLeft === 1 ? "" : "s"} your vault has left`}
+              {depositMax >= 1
+                ? depositContinues
+                  ? `up to ${depositMax}: what the empty ${mode === "communism" ? "communism accounts" : "bots"} can take right now, one bot after another`
+                  : `up to ${depositMax} in one trade: ${mode === "communism" ? "what communism has left" : "the most free space on one bot right now"}`
+                : mode === "communism" ? "communism is full" : "no bot has room right now"}
             </span>
           </div>
         </>
       )}
       {tab === "deposit" && mode === "pool" && (
         <p className="hint">
-          Submit and a bot with {depositSlots} free slots meets {ign || "you"} on the chosen server. It&rsquo;s one trade: whatever you put in the window is deposited. For more, open another request afterwards.
+          {depositContinues ? (
+            <>Submit and an empty bot meets {ign || "you"} on the chosen server. Whatever you put in the window is deposited; if you bring more than one bot holds, the next empty bot comes for the rest.</>
+          ) : (
+            <>Submit and a bot with {depositSlots} free slot{depositSlots === 1 ? "" : "s"} meets {ign || "you"} on the chosen server. It&rsquo;s one trade: whatever you put in the window is deposited. For more, open another request afterwards.</>
+          )}
         </p>
       )}
-      {tab === "deposit" && mode === "vault" && (
+      {tab === "deposit" && mode === "communism" && (
         <p className="hint">
-          {vaultUnallocated
-            ? `Your ${seasonal ? "seasonal" : "non-seasonal"} vault has no slots yet. Give it some with the buttons above.`
-            : vaultSlotsLeft === 0
-              ? `Your ${seasonal ? "seasonal" : "non-seasonal"} vault is full. Withdraw or donate something to make room.`
-              : `Submit and your own ${seasonal ? "seasonal" : "non-seasonal"} bot meets ${ign || "you"} on the chosen server for one trade. Trade in what you want to keep — it stays yours, off the ledger, and only you can see or withdraw it.`}
+          {communismNone
+            ? `No ${seasonal ? "seasonal" : "non-seasonal"} account is set aside for communism on this node. Tick "communism" on one under Control panel → Accounts.`
+            : communismFree === 0
+              ? `The ${seasonal ? "seasonal" : "non-seasonal"} communism is full. It has room again when someone takes something.`
+              : depositContinues
+                ? `Submit and an empty ${seasonal ? "seasonal" : "non-seasonal"} communism account meets ${ign || "you"} on the chosen server; if you bring more than it holds, the next one comes for the rest. Whatever you hand over is free for anyone on the hub to take.`
+                : `Submit and a ${seasonal ? "seasonal" : "non-seasonal"} communism account meets ${ign || "you"} on the chosen server for one trade. Whatever you hand over is free for anyone on the hub to take.`}
         </p>
       )}
-      {tab === "withdraw" && mode === "vault" && (
+      {tab === "withdraw" && mode === "communism" && (
         <p className="hint">
-          Click items in your vault to add them; your bot brings them to the chosen server.
+          Click items in communism to add them; the account holding them brings them to the chosen server.
         </p>
       )}
 
@@ -709,7 +627,6 @@ export default function TxForm({
             id="ppoints"
             type="number"
             min={1}
-            max={250}
             inputMode="numeric"
             value={potionPoints}
             onChange={(e) => setPotionPoints(e.target.value)}
@@ -757,7 +674,7 @@ export default function TxForm({
         >
           Vault: {capacity.usedSlots} / {capacity.totalSlots} stored
           {capacity.totalSlots > 0 && ` · ${capacity.availableSlots} free`}
-          {capacity.largestFree !== undefined && capacity.totalSlots > 0 && ` · biggest trade ${Math.min(16, capacity.largestFree)}`}
+          {capacity.largestFree !== undefined && capacity.totalSlots > 0 && ` · biggest ${capacity.continues ? "deposit" : "trade"} ${Math.min(MAX_TRADE_SLOTS, capacity.largestFree)}`}
           {capacity.full && " · FULL"}
         </div>
       )}
@@ -777,17 +694,13 @@ export default function TxForm({
         <button className="submit" type="submit" disabled={submitDisabled}>
           {submitting
             ? "Working…"
-            : tab === "claim"
-              ? `Claim ${trayFilled.length} Item${trayFilled.length === 1 ? "" : "s"}`
-              : tab === "donate"
-                ? `Donate ${trayFilled.length} Item${trayFilled.length === 1 ? "" : "s"}`
-                : tab === "deposit"
+            : tab === "deposit"
                   ? depositBlockedByCapacity
-                    ? "Vault is full"
-                    : vaultDepositBlocked
-                      ? vaultUnallocated ? "No slots in this vault" : "Your vault is full"
-                      : mode === "vault"
-                        ? "Deposit Into My Vault"
+                    ? "Pool is full"
+                    : communismDepositBlocked
+                      ? communismNone ? "No communism account" : "Communism is full"
+                      : mode === "communism"
+                        ? "Deposit Into The Communism"
                         : "Open Deposit Request"
                   : tab === "potions"
                     ? Number(potionPoints) >= 1
@@ -823,7 +736,7 @@ export default function TxForm({
           trade and no sign that trades were being paced. */}
       {/* While a request is open it is listed (and cancellable) in the In
           Flight panel above, so the form only reports how it ended. */}
-      {(tab === "withdraw" || tab === "potions") && withdrawHint && withdrawHint.status !== "polling" && withdrawHint.status !== "timeout" && (
+      {(tab === "withdraw" || tab === "potions") && withdrawHint && withdrawHint.status !== "polling" && withdrawHint.status !== "gone" && (
         <TradeStepperBox
           kind="withdraw"
           trades={withdrawHint.trades}
@@ -831,14 +744,14 @@ export default function TxForm({
           status={withdrawHint.status}
         />
       )}
-      {tab === "deposit" && depositHint && depositHint.status !== "polling" && depositHint.status !== "timeout" && (
+      {tab === "deposit" && depositHint && depositHint.status !== "polling" && depositHint.status !== "gone" && (
         <TradeStepperBox
           kind="deposit"
           trades={depositHint.trades}
           tradeCount={depositHint.tradeCount}
           status={depositHint.status}
           endReason={depositHint.endReason ?? null}
-          personal={mode === "vault"}
+          communism={mode === "communism"}
         />
       )}
     </form>

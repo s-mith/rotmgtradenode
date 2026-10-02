@@ -2,17 +2,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type Database from "better-sqlite3";
 import { openDatabase } from "../db";
-import { ignsOf, linkIgn, unlinkIgn, userForIgn, userHoldsItems } from "../users";
+import { ignsOf, linkIgn, unlinkIgn, userForIgn } from "../users";
 
 let db: Database.Database;
 beforeEach(() => {
   db = openDatabase(":memory:");
 });
 afterEach(() => db.close());
-
-function holdItem(userId: number, instanceId = "inst-1") {
-  db.prepare("INSERT INTO vault_items (instance_id, user_id, item_id, enchants, seasonal, bot_guid, source, created_at) VALUES (?, ?, 'ubatk', 0, 1, NULL, 'claim', ?)").run(instanceId, userId, Date.now());
-}
 
 describe("users and linked IGNs", () => {
   it("creates a user on first sight of a name and keeps the casing current", () => {
@@ -31,17 +27,13 @@ describe("users and linked IGNs", () => {
     // Linking a name already on the account is a no-op.
     expect(linkIgn(db, a, "Alt", "alt")).toEqual({ ok: true, absorbed: false });
   });
-  it("refuses to take a name off an account that holds items or other names", () => {
+  it("refuses to take a name off an account with other names", () => {
     const a = userForIgn(db, "Main", "main");
-    const rich = userForIgn(db, "Rich", "rich");
-    holdItem(rich);
-    expect(userHoldsItems(db, rich)).toBe(true);
-    const r = linkIgn(db, a, "Rich", "rich");
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.status).toBe(409);
     const twoNames = userForIgn(db, "Twin", "twin");
     linkIgn(db, twoNames, "Twinb", "twinb");
-    expect(linkIgn(db, a, "Twin", "twin").ok).toBe(false);
+    const r = linkIgn(db, a, "Twin", "twin");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.status).toBe(409);
     expect(ignsOf(db, a).map((i) => i.ign)).toEqual(["Main"]);
   });
   it("unlinks any name but the last", () => {

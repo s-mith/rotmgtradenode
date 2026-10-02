@@ -116,9 +116,11 @@ export function planPotionFill(
 }
 
 
-// Items one bot can hand over in a single trade window. Realm's trade UI
-// exposes 8 slots, so a bot holding more than that needs a second trade — which
-// is a second row targeting the same bot, not a reason to involve another one.
+// Items one bot can hand over in a single trade window when its trade slots
+// are not known: a character without a backpack. Callers that know pass each
+// bot's own (8, 16 or 24); the player's free slots then bound each window, the
+// trade handing over what fits and the rest following in the next one. A bot
+// holding more than one window's worth gets a second row, not another bot.
 export const MAX_ITEMS_PER_TRADE = 8;
 
 /** What one bot can contribute to a potion withdraw, post-reservation. */
@@ -129,6 +131,17 @@ export type PotionFragment = { botGuid: string; items: Record<string, number> };
 
 export type PotionWithdrawPlan = PotionFill & { fragments: PotionFragment[] };
 
+export type PotionPlanOptions = {
+  /**
+   * Advanced management (docs/relay/ADVANCED.md): when one bot can fill the
+   * request by itself, take it from the one whose stock just covers it —
+   * the fewest trades, then no wasted point, then the least left over — so
+   * the big stacks stay whole for big requests. Otherwise the biggest stacks
+   * first, as without it.
+   */
+  bestFit?: boolean;
+};
+
 /**
  * Choose potions covering `points`, packing each bot as full as the request
  * allows before moving to the next.
@@ -137,14 +150,17 @@ export type PotionWithdrawPlan = PotionFill & { fragments: PotionFragment[] };
  * fewest bots are involved; ties break on botGuid so a resubmit against
  * unchanged stock produces an identical plan. A bot holding more than one
  * trade's worth gets several fragments — sequential trades with the same bot,
- * still cheaper for the player than pulling in another one.
+ * still cheaper for the player than pulling in another one. With `bestFit`
+ * a bot that covers the request alone is used alone (bestFitBot).
  */
 export function planPotionWithdraw(
   points: number,
   bots: BotStock[],
   ids: { normal: string; greater: string },
-  maxItemsPerTrade: number = MAX_ITEMS_PER_TRADE,
+  maxItemsPerTrade: number | ((botGuid: string) => number) = MAX_ITEMS_PER_TRADE,
+  opts: PotionPlanOptions = {},
 ): PotionWithdrawPlan {
+  const capOf = (botGuid: string): number => Math.max(1, typeof maxItemsPerTrade === "function" ? maxItemsPerTrade(botGuid) : maxItemsPerTrade);
   let need = Math.max(0, Math.floor(points));
   const fragments: PotionFragment[] = [];
   const totals: Record<string, number> = {};
@@ -172,13 +188,17 @@ export function planPotionWithdraw(
     if (normals > 0) totals[ids.normal] = (totals[ids.normal] ?? 0) + normals;
   };
 
-  for (const bot of stock) {
+  // Best fit: one bot that covers the request alone serves all of it, even a
+  // last point it can only give as a greater (the overshoot below).
+  const alone = opts.bestFit ? bestFitBot(points, stock, ids, capOf) : null;
+  for (const bot of alone ? [alone] : stock) {
     // Keep pulling trade-sized chunks from this bot until it's spent or the
     // request is satisfied — only then consider the next bot.
+    const cap = capOf(bot.botGuid);
     while (need > 0 && bot.normal + bot.greater > 0) {
-      const greaters = Math.min(bot.greater, Math.floor(need / 2), maxItemsPerTrade);
+      const greaters = Math.min(bot.greater, Math.floor(need / 2), cap);
       const afterGreaters = need - greaters * 2;
-      const normals = Math.min(bot.normal, afterGreaters, maxItemsPerTrade - greaters);
+      const normals = Math.min(bot.normal, afterGreaters, cap - greaters);
       if (greaters === 0 && normals === 0) break; // can't help with what's left
       record(bot, greaters, normals);
       bot.greater -= greaters;
@@ -200,7 +220,7 @@ export function planPotionWithdraw(
       const existing = fragments.find(
         (f) =>
           f.botGuid === donor.botGuid &&
-          Object.values(f.items).reduce((a, c) => a + c, 0) < maxItemsPerTrade,
+          Object.values(f.items).reduce((a, c) => a + c, 0) < capOf(donor.botGuid),
       );
       if (existing) {
         existing.items[ids.greater] = (existing.items[ids.greater] ?? 0) + 1;
@@ -227,4 +247,22 @@ export function planPotionWithdraw(
     shortfall: Math.max(0, requested - pointsFilled),
     overshoot,
   };
+}
+
+/**
+ * The bot that can fill `points` by itself with the fewest trades, then no
+ * wasted point, then the least stock left over (ties on botGuid), or null
+ * when no one bot covers the request.
+ */
+export function bestFitBot<T extends BotStock>(points: number, bots: T[], ids: { normal: string; greater: string }, capOf: (botGuid: string) => number): T | null {
+  let best: { bot: T; key: [number, number, number] } | null = null;
+  for (const b of bots) {
+    const fill = planPotionFill(points, b.normal, b.greater, ids);
+    if (fill.shortfall > 0 || fill.pointsFilled === 0) continue;
+    const items = Object.values(fill.items).reduce((a, c) => a + c, 0);
+    const key: [number, number, number] = [Math.ceil(items / Math.max(1, capOf(b.botGuid))), fill.overshoot, b.greater * 2 + b.normal - fill.pointsFilled];
+    const cmp = best ? key[0] - best.key[0] || key[1] - best.key[1] || key[2] - best.key[2] || b.botGuid.localeCompare(best.bot.botGuid) : -1;
+    if (cmp < 0) best = { bot: b, key };
+  }
+  return best?.bot ?? null;
 }

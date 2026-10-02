@@ -219,6 +219,72 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    id: 7,
+    name: "drop_wishlist",
+    up(db) {
+      db.exec(`
+        -- My Wishlist (standing claims) and the per-IGN feature grants that
+        -- gated it are gone; nothing else used either table.
+        DROP TABLE IF EXISTS wishlist_rules;
+        DROP TABLE IF EXISTS feature_grants;
+      `);
+    },
+  },
+  {
+    id: 8,
+    name: "drop_vaults",
+    up(db) {
+      db.exec(`
+        -- Personal storage and shared vaults are gone (2026-09-21): the pool
+        -- is everything on the pool accounts, communism everything on the
+        -- accounts set aside for it. A request row now says which of the two
+        -- it is for instead of naming a vault user.
+        DROP TABLE IF EXISTS vault_items;
+        DROP TABLE IF EXISTS vault_events;
+        DROP TABLE IF EXISTS vault_halves;
+        DROP TABLE IF EXISTS hub_guests;
+        DROP TABLE IF EXISTS communism_items;
+        ALTER TABLE deposit_requests ADD COLUMN communism INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE withdraw_requests ADD COLUMN communism INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE deposit_requests DROP COLUMN vault_user_id;
+        ALTER TABLE withdraw_requests DROP COLUMN vault_user_id;
+        -- users.vault_bot_guid is UNIQUE and cannot be dropped in place; it
+        -- stays as an always-NULL column (user_igns cascades on a users
+        -- rebuild while foreign keys are on). The entitlement column goes.
+        ALTER TABLE users DROP COLUMN vault_slots;
+      `);
+      const cols = (db.prepare("PRAGMA table_info(swap_offers)").all() as { name: string }[]).map((c) => c.name);
+      if (cols.includes("local_user_id")) db.exec("ALTER TABLE swap_offers DROP COLUMN local_user_id");
+    },
+  },
+  {
+    id: 9,
+    name: "communism_rename",
+    up(db) {
+      // The thing was renamed on 2026-09-22: a database from before carries the request flag under
+      // the old column name. A fresh database (migration 8 ran after the rename) already has the new one.
+      const oldName = "com" + "mons";
+      for (const table of ["deposit_requests", "withdraw_requests"]) {
+        const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
+        if (cols.includes(oldName) && !cols.includes("communism")) db.exec(`ALTER TABLE ${table} RENAME COLUMN ${oldName} TO communism`);
+      }
+    },
+  },
+  {
+    id: 10,
+    name: "deposit_continues",
+    up(db) {
+      // Advanced management (docs/relay/ADVANCED.md): a deposit claimed by an
+      // empty character that cannot hold all of it continues on the next
+      // empty character. Set at claim time; 0 = the deposit ends with its
+      // one trade, as before. The player's rows are also looked up by IGN
+      // (the stale sweep's "was anything of theirs touched lately").
+      const cols = (db.prepare("PRAGMA table_info(deposit_requests)").all() as { name: string }[]).map((c) => c.name);
+      if (!cols.includes("continues")) db.exec("ALTER TABLE deposit_requests ADD COLUMN continues INTEGER NOT NULL DEFAULT 0");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_dreq_ign_lower ON deposit_requests(ign_lower)");
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database, migrations: Migration[] = MIGRATIONS): number[] {

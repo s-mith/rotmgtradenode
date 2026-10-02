@@ -1,6 +1,7 @@
 import { json } from "@/server/http";
 import { checkDevPassword, pyrelay } from "@/lib/devauth";
 import { ITEM_BY_ID } from "@/lib/catalog";
+import { tradeableOn } from "@/lib/itemPolicy";
 import { enchantName } from "@/lib/enchants";
 import { realmIdForItemName } from "@/lib/sprites";
 import { whereLabel } from "@/lib/poolWire";
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
 
   const q = new URL(req.url).searchParams.get("q") ?? "";
   const limitRaw = Number(new URL(req.url).searchParams.get("limit"));
-  const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 25;
+  const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 10000) : 25;
 
   const res = await pyrelay.accountLookup(q, limit);
   if (!res.ok) return json({ error: res.error }, { status: res.status });
@@ -57,6 +58,8 @@ export async function GET(req: Request) {
           capturedAt: it.capturedAt === null ? null : Math.round(it.capturedAt * 1000),
           name,
           known: ITEM_BY_ID.has(it.itemId),
+          // Whether this account may trade the item away: a communism account only gives what communism takes.
+          tradeable: ITEM_BY_ID.has(it.itemId) && tradeableOn(!!a.communism, it.itemId),
           category: ITEM_BY_ID.get(it.itemId)?.category ?? null,
           realmId: realmIdForItemName(name),
           enchantNames: it.enchantments.map((id) => enchantName(id)),
@@ -69,7 +72,7 @@ export async function GET(req: Request) {
     // What the account keeps beyond the character (docs/relay/STORAGE.md), named the same way; `where` in words.
     stored: (a.stored ?? []).map((s) => {
       const name = ITEM_BY_ID.get(s.itemId)?.name ?? s.itemId;
-      return { instanceId: s.instanceId, itemId: s.itemId, name, known: ITEM_BY_ID.has(s.itemId), realmId: realmIdForItemName(name), enchantments: s.enchantments, enchantNames: s.enchantments.map((id) => enchantName(id)), where: whereLabel(s.where), pools: s.pools };
+      return { instanceId: s.instanceId, itemId: s.itemId, name, known: ITEM_BY_ID.has(s.itemId), tradeable: ITEM_BY_ID.has(s.itemId) && tradeableOn(!!a.communism, s.itemId), realmId: realmIdForItemName(name), enchantments: s.enchantments, char: s.where.kind === "char" || s.where.kind === "worn" || s.where.kind === "quickslot" ? { id: s.where.charId, className: s.where.className, level: s.where.level, seasonal: s.where.seasonal } : null, tucked: s.where.kind === "worn" || s.where.kind === "quickslot" ? s.where.kind : null, enchantNames: s.enchantments.map((id) => enchantName(id)), where: whereLabel(s.where), whereKind: s.where.kind, pools: s.pools };
     }),
   }));
 

@@ -3,7 +3,11 @@
 export const Stat = {
   MAXHP: 0, HP: 1, SIZE: 2, MAXMP: 3, MP: 4, NEXTLEVELEXP: 5, EXP: 6, LEVEL: 7,
   INVENTORY0: 8, INVENTORY11: 19,
-  ATTACK: 20, DEFENSE: 21, SPEED: 22, TEXTURE: 25, VITALITY: 26, WISDOM: 27, DEXTERITY: 28,
+  ATTACK: 20, DEFENSE: 21, SPEED: 22,
+  // 23 and 24 came on the wire 2026-09-22 (USSouth3 Nexus) as compressed ints (1 and 0) with the
+  // usual -1 secondary, the stream staying aligned through ATTACK right after; the game names them nowhere readable.
+  UNKNOWN23: 23, UNKNOWN24: 24,
+  TEXTURE: 25, VITALITY: 26, WISDOM: 27, DEXTERITY: 28,
   CONDITION: 29, NUMSTARS: 30, NAME: 31, TEX1: 32, TEX2: 33, MERCHANDISETYPE: 34, CREDITS: 35,
   MERCHANDISEPRICE: 36, ACTIVE: 37, ACCOUNTID: 38, FAME: 39, MERCHANDISECURRENCY: 40, CONNECT: 41,
   MERCHANDISECOUNT: 42, MERCHANDISEMINSLEFT: 43, MERCHANDISEDISCOUNT: 44, MERCHANDISERANKREQ: 45,
@@ -31,7 +35,12 @@ export const Stat = {
   ABILITYUSEDISCOUNT: 125, SAVLOCK: 126, DUSTAMOUNT: 127, CRUCIBLE: 128, CRUCIBLECURRENT: 129,
   DAMAGERECEIVEDMULT: 130, BACKPACK0: 131, BACKPACK7: 138, BACKPACK15: 146, DUSTCAP: 147,
   ACCOUNTLEVEL: 148, ACCOUNTLEVELPROGRESS: 149, ACCOUNTLEVELTARGET: 150, SEASONLEVEL: 151,
+  // 152 and 153 (2026-09-22): compressed ints (15 and 30578 on a player in the Nexus), between the
+  // season level and DISCOVERABLE, which followed in step; likely more season or account-level counters.
+  UNKNOWN152: 152, UNKNOWN153: 153,
   DISCOVERABLE: 154, BLOODRITUAL: 155, SEASONID: 156, COMPETITIONSCORE: 157, COMPETITIONTIER: 158,
+  // 159 (2026-09-22): a compressed int (0) after the competition tier, SINKLEVEL following in step.
+  UNKNOWN159: 159,
 } as const;
 
 /** Stats whose value is a string on the wire rather than a compressed int. */

@@ -156,7 +156,7 @@ export class GameVersion {
   }
 
   /**
-   * Env wiring shared by the fleet and accountgen:
+   * Env wiring for the fleet:
    *  - `GAME_VERSION_URL`: feed to follow (default the public metadata feed);
    *    `off` pins the seed and never polls.
    *  - `GAME_VERSION_POLL_S`: feed poll interval.

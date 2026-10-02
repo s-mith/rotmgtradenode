@@ -3,7 +3,7 @@
 // site's validators following the registered policy.
 import { afterEach, describe, expect, it } from "vitest";
 import { CATALOG } from "../catalog";
-import { acceptedIds, acceptsEverything, acceptsItem, DEFAULT_ITEM_POLICY, normalizeItemPolicy, registerItemPolicy, type ItemPolicy } from "../itemPolicy";
+import { acceptedIds, acceptsEverything, acceptsItem, COMMUNISM_ITEM_POLICY, communismTakes, DEFAULT_ITEM_POLICY, normalizeItemPolicy, registerItemPolicy, type ItemPolicy } from "../itemPolicy";
 import { parseDeclaredItems } from "../validation";
 import { parseWantInput } from "../offers";
 
@@ -41,7 +41,7 @@ describe("item policy", () => {
   });
   it("normalizes a form or file: unknown fields dropped, bad tiers defaulted, pins on unknown items dropped", () => {
     const p = normalizeItemPolicy({ potions: "yes", eggs: false, minTier: { Weapon: "10", Armor: null, Ring: -3, Ability: 2.5, Bogus: 1 }, overrides: { pdef: false, nope: true, patk: "x" }, extra: 1 });
-    expect(p).toEqual({ potions: true, eggs: false, consumables: true, untiered: true, minTier: { Weapon: 10, Armor: null, Ring: 0, Ability: 0 }, overrides: { pdef: false } });
+    expect(p).toEqual({ potions: true, eggs: false, consumables: true, lore: true, treasures: true, skins: true, untiered: true, minTier: { Weapon: 10, Armor: null, Ring: 0, Ability: 0 }, overrides: { pdef: false } });
     expect(normalizeItemPolicy(undefined)).toEqual(DEFAULT_ITEM_POLICY);
   });
   it("the site's declared deposits and offer wants follow the registered policy", () => {
@@ -51,5 +51,16 @@ describe("item policy", () => {
     expect(parseDeclaredItems([{ itemId: "patk", qty: 1 }])).toMatchObject({ ok: true });
     expect(parseWantInput([{ itemId: "pdef", qty: 1 }])).toMatchObject({ ok: false, error: expect.stringContaining("not taken") });
     expect(parseWantInput([{ itemId: "patk", qty: 1 }])).toMatchObject({ ok: true });
+  });
+  it("communism accepts by its own fixed list, whatever the node's setting says", () => {
+    // The list taken from the owner's node: every category on, a set of items pinned off.
+    expect(acceptedIds(COMMUNISM_ITEM_POLICY).size).toBeGreaterThan(600);
+    expect(communismTakes("energy_staff")).toBe(false);
+    expect(communismTakes("pdef")).toBe(true);
+    registerItemPolicy(() => only({ overrides: { pdef: false } }));
+    expect(communismTakes("pdef")).toBe(true);
+    expect(parseDeclaredItems([{ itemId: "pdef", qty: 1 }], true)).toMatchObject({ ok: true });
+    expect(parseDeclaredItems([{ itemId: "energy_staff", qty: 1 }], true)).toMatchObject({ ok: false, error: expect.stringContaining("not taken into communism") });
+    expect(parseDeclaredItems([{ itemId: "pdef", qty: 1 }])).toMatchObject({ ok: false });
   });
 });

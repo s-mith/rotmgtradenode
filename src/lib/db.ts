@@ -270,10 +270,12 @@ function init(db: Database.Database) {
   }
 
   // end_reason: why an open-ended deposit stopped, when it ended some way
-  // other than the player simply under-filling a trade. Currently only
-  // 'vault-full' (no bot in the pool has a free slot left, so there is
-  // nothing more to chain to) — NULL on every normal ending. The vault page
-  // reads it so "deposit complete" can say which of the two happened.
+  // other than the player simply under-filling a trade: 'vault-full' (no
+  // bot in the pool has a free slot left, so there is nothing more to chain
+  // to), or, on a deposit the fleet cancelled, why no bot could take it
+  // (lib/queue.ts cancelRequest) — NULL on every normal ending. The vault
+  // page reads it so "deposit complete" can say which of the two happened,
+  // and a cancelled deposit why.
   //
   // Added AFTER the rebuild above, and re-reading the column list, because
   // the rebuild recreates the table from a fixed column list and would drop
@@ -321,6 +323,13 @@ function init(db: Database.Database) {
   if (wreqCols.length > 0 && !wreqCols.some((c) => c.name === "swap_json")) {
     console.log("[db.init] adding withdraw_requests.swap_json");
     db.exec("ALTER TABLE withdraw_requests ADD COLUMN swap_json TEXT");
+  }
+  // end_reason: why a withdraw ended without being fulfilled (the bot gave
+  // up, the player never opened the window, the stale sweep), as on
+  // deposit_requests, so the player's page can say why. NULL otherwise.
+  if (wreqCols.length > 0 && !wreqCols.some((c) => c.name === "end_reason")) {
+    console.log("[db.init] adding withdraw_requests.end_reason");
+    db.exec("ALTER TABLE withdraw_requests ADD COLUMN end_reason TEXT");
   }
 
   // Seasonal / non-seasonal pool split: bots carry which pool they serve

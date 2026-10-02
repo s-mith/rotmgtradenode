@@ -36,8 +36,22 @@ const VERIFIED_TTL_MS = 120_000;
 export class LoginCodes {
   private expected = new Map<string, number>();
   private verified = new Map<string, { ign: string; expiresAt: number }>();
-  register(code: string): void {
-    this.expected.set(code, Date.now() + EXPECT_TTL_MS);
+  private listeners = new Set<(code: string, ign: string) => void>();
+  /** `ttlMs`: how long the code is good for (the hub's sign-in codes last longer than the node's own). */
+  register(code: string, ttlMs = EXPECT_TTL_MS): void {
+    this.expected.set(code, Date.now() + Math.max(1_000, ttlMs));
+  }
+  /** Codes still waiting for their tell: while any is, the login desk is wanted (the dispatcher staffs it on demand). */
+  pendingCount(): number {
+    const now = Date.now();
+    let n = 0;
+    for (const exp of this.expected.values()) if (exp > now) n++;
+    return n;
+  }
+  /** Hear every code the moment its tell arrives (the hub's login node passes them on). */
+  onVerified(fn: (code: string, ign: string) => void): () => void {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
   }
   /** Feed every inbound tell. True when a registered code was found. */
   noteTell(name: string, text: string): boolean {
@@ -49,6 +63,13 @@ export class LoginCodes {
       if (exp === undefined || exp <= now) continue;
       this.expected.delete(code);
       this.verified.set(code, { ign: name, expiresAt: now + VERIFIED_TTL_MS });
+      for (const fn of this.listeners) {
+        try {
+          fn(code, name);
+        } catch (e) {
+          console.error("[login] code listener raised:", e);
+        }
+      }
       return true;
     }
     return false;

@@ -8,15 +8,24 @@ most are overridable through the environment variable named beside them.
 
 - **Online cap**: the number of enabled proxy hosts — every exit IP on the
   list can carry a bot. `MAX_ONLINE_BOTS` (0 = off) is an optional ceiling
-  on top; `DIRECT_ONLINE_BOTS` (20) is the budget when no pool is loaded.
+  on top; `DIRECT_ONLINE_BOTS` (1: one account at a time from this
+  computer's own IP) is the budget when no pool is loaded.
   Both economies share one budget. In-flight logins count.
-- **List refresh**: `PROXIES_URL` is re-downloaded every
-  `PROXIES_REFRESH_SECONDS` (900) while running, so hosts added at the
-  provider start carrying bots without a restart (and removed ones stop
-  being handed out). Pins are recomputed on every change.
+- **The list**: the owner pastes it in the console's Proxies tab; it is
+  saved to `PROXIES_FILE` (the data dir's `proxies.txt`) and read back at
+  boot. Nothing downloads it. Pins are recomputed on every change.
 - **One bot per exit IP.** A proxy host with a live client (including one
   still authenticating) is never handed to another account. No free host
   means the wake is refused, never a direct connection.
+- **HTTP-only calls wait for a free host.** A storage read, a character
+  delete, an account check from the console and the suspended re-check make
+  their Realm calls through a host with no bot on it. With a list loaded and
+  every host carrying a bot they wait for one, looking every half second,
+  for as long as the job would otherwise wait (a read, an account check or
+  the re-check: the 90 s a maintenance login waits for the login gate; a
+  queued delete: the queue's ten minutes), then fail saying so. They never
+  go out from this computer's address; with every host switched off they
+  fail at once.
 - **Proxy pinning**: each account ranks hosts by rendezvous hash
   (md5(host+guid), descending). It takes the highest-ranked free host within
   `PROXY_PIN_DEPTH` (3); past that, least-recently-used free host, logged at
@@ -60,10 +69,19 @@ most are overridable through the environment variable named beside them.
 - **Suspended** (any auth step says SUSPENDED): retire the account
   (`suspended: true` persisted in Accounts.json, year-long lockout).
 - **Reconnect grace**: after WE disconnect a bot, its account is locked out
-  for `RECONNECT_GRACE_SECONDS` (20).
+  for `RECONNECT_GRACE_SECONDS` (10).
 - **Wake retry**: a failed wake is not retried for
   `WAKE_RETRY_COOLDOWN_SECONDS` (15).
 - **Bad message received** (FAILURE): disconnect, watchdog re-dials.
+- **Re-dial backoff**: the watchdog re-dials a lost session after 2.5 s of
+  silence, then waits twice as long before each further try (5 s, 10 s, 20 s
+  and so on, at most 60 s) until a session reaches the world again, so a
+  server that is down is not hammered.
+- **HTTP checks respect the gate**: account probes (adding an account,
+  correcting credentials) and Retry suspended ask Realm nothing while
+  logins are paused after its attempt limit or while the account waits out
+  a cooldown of its own (a suspension alone does not stop a re-check), and
+  an attempt limit they meet counts at the gate like a login's.
   `s.update_client` / bad credentials: stop.
 
 ## 3. Supervisor (every `SUPERVISE_INTERVAL_S` = 2s)
@@ -78,35 +96,61 @@ inventory tracker.
   never candidates.
 - **Distinct work count** per server: one per uniquely-pinned withdraw plus
   one per other row; at least 1 when anything is pending.
+- **Login queue**: a bot that finds itself in a server's login queue (a
+  queue packet since its last connect, on any server) disconnects on the
+  next tick. The deposit or withdraw it had claimed is cancelled with the
+  reason "<server> had a login queue", and so are the rows its wake was for
+  that no bot already in world there can take; a cross-node swap or player
+  meeting row is only handed back (it lives by the hub's deadline). The
+  server is benched `LOGIN_QUEUE_BENCH_S` (45, the bench a FAILURE saying
+  the queue is full gets) so the next wake, the login desk's above all,
+  does not walk into the same queue.
+- **Rows no account can serve**: every pass, before any wake, a pending
+  deposit that no account of its side (pool or communism, suspended ones
+  aside) has the room for — on the character it plays or on a living
+  character of the same side it would rotate to — is cancelled with the
+  reason ("no seasonal account has room for a 16-slot trade", "every
+  non-seasonal account that could take it is suspended"). A pending
+  withdraw with no candidate, no fetch and no character switch is cancelled
+  when what it asks for is nowhere on the node: a pick whose account left
+  the roster or is suspended, or whose item is on no account any more; a
+  withdraw by type when no account of its side that can trade holds that
+  many, on a character or in storage it can reach. Never a swap or meeting
+  row. A row waiting for a login, a cooldown, a proxy, a fetch or a busy
+  bot is left alone. A pending withdraw still ages out after 10 minutes
+  (`lib/timeouts.ts`); a pending deposit has no clock.
 - **Disconnect rules** for an online, unassigned bot, in order:
   1. sole candidate for a withdraw stranded on another server -> force swap;
-  2. still in a protected realm's login queue -> leave it;
-  3. on a server with no work while other servers have work -> wait
+  2. on a server with no work while other servers have work -> wait
      `SERVER_SWAP_GRACE_S` (3) of uninterrupted quiet, then swap unless an
      offline bot could cover (then wake that instead);
-  4. on a server with work it cannot fulfil, past `WAKE_GRACE_S` (5) -> drop;
-  5. no work anywhere, past the wake grace -> drop.
-  Exempt from 3-5: residents, standby posts, the login desk, consolidation
-  holds, potion collectors.
+  3. on a server with work it cannot fulfil, past `WAKE_GRACE_S` (5) -> drop
+     (when a deposit there needs more room than its character has and a
+     roomier character of its side has it, it comes back as that one);
+  4. no work anywhere, past the wake grace -> drop.
+  Exempt from 2-4: the login desk, consolidation holds, potion collectors.
 - **Wake selection** per short server: withdraw candidates first; then the
   emptiest same-pool bot with a free slot (by items held, ties by free
-  slots) for deposits; then pull from accountgen if the pool is exhausted.
+  slots) for deposits. A bot whose character is short of the room the
+  deposit needs counts with a roomier living character of its side, and
+  logs in as that one (character rotation, STORAGE.md).
   Nothing else is woken: a bot that is neither could not claim the work,
   and the old "any same-pool bot" fallback looped (land, fail to fulfil,
   drop, wake another) whenever a withdraw's only candidate was on a login
   cooldown. Bots on a login cooldown are not offline cover either. Skip
   benched servers. Skip entirely under a trade hold.
 - **Unjam**: when the cap is full and a server is short, evict surplus idle
-  bots in tiers — ordinary idle, collectors, queueing, residents — only as
-  many as the shortfall.
+  bots in tiers — ordinary idle, then collectors — only as many as the
+  shortfall.
 - **Register pool size and free slots per pool** (every account on the
-  roster, online or not) with the site every pass. The site's fulfill-time
-  "is the vault full?" check reads the latter; only the bots online right
-  now would call a fleet of thousands full the moment one of them filled.
+  roster, online or not; communism accounts summed apart) with the site every
+  pass. The site's fulfill-time "is the pool full?" check reads the latter;
+  only the bots online right now would call a fleet of thousands full the
+  moment one of them filled.
 
 ## 4. Per-bot tick (every `TICK_INTERVAL_S` = 0.5s)
 
-1. Adopt finished logins.
+1. Adopt finished logins. A bot in a server's login queue leaves it (§3).
 2. Refresh the tracker from live inventory once the bot is in world, named,
    and has seen the ENCHANTMENTS stat. Slots 4..11, plus 12..19 only when
    the pool-wide backpack setting is on. Capacity is pool-wide (8 or 16).
@@ -126,7 +170,7 @@ inventory tracker.
 7. **Deposit steering**: yield a deposit when an emptier bot is online on
    the same server (bounded by `DEPOSIT_DEFER_MAX_SECONDS` = 20) or when an
    empty account is being woken for it (`DEPOSIT_EMPTY_WAKE_WAIT_SECONDS`
-   = 90). Collectors yield deposits while another deposit-capable bot is
+   = 20). Collectors yield deposits while another deposit-capable bot is
    on the server, and to the supervisor a collector only covers a deposit
    routed to it — for any other deposit it yields like every bot carrying
    items, so an empty bot gets woken while it waits.
@@ -139,27 +183,29 @@ inventory tracker.
   (`FULFILL_RETRY_MAX_ATTEMPTS` = 8, linear backoff
   `FULFILL_RETRY_BACKOFF_SECONDS` = 5). Terminal server errors stop retries.
   Exhausted retries go to `unreported_fulfills.jsonl`.
-- Partner absent: `give-up` (cancel the row), and disconnect unless on a
-  resident or queue-protected realm.
+- Partner absent: `give-up` (cancel the row), and disconnect.
 - Other failure: clear the assignment; the site's stale-claim sweep owns it.
 - A deposit that leaves the bot at 0 free slots does not refresh wake grace.
 
 ## 6. Standing posts
 
-- **Login desk** (communism only): always one in-world bot on a quiet realm
-  (`LOGIN_DESK_SERVERS`, avoiding `LOGIN_DESK_AVOID_SERVERS`). Adopt an
-  in-world bot if one exists, else wake the emptiest offline account.
-- **Standby**: `STANDBY_BOTS` (e.g. `USEast:3s+1n`) empty bots kept in
-  world per server and pool; a standby wake is counted for
-  `STANDBY_WAKE_GRACE_SECONDS` (30) or while verifiably queueing.
-- **Residents**: empty bots on `RESIDENT_EMPTY_SERVERS` stay with no timer,
-  at most `RESIDENT_MAX_PER_SERVER` (8) and half the online cap in total.
-- **Queue protection**: on `QUEUE_PROTECTED_SERVERS`, a bot reporting a
-  queue position is never recycled, up to `QUEUE_PROTECT_MAX_SECONDS`
-  (420) from the wake, with `QUEUE_PROTECT_WARMUP_SECONDS` (20) before the
-  first queue packet must arrive.
+- **Login desk** (communism only): always one in-world bot on an empty
+  server: any server Realm's fresh load reading (account/servers, under
+  90 s old) reports empty, the configured `LOGIN_DESK_SERVERS` first, then
+  the account's own server, then any other; without a fresh reading, or
+  with no empty server, the configured ones. Never a jammed server or one in
+  `LOGIN_DESK_AVOID_SERVERS` (empty by default). Adopt an in-world bot if
+  one exists, else wake the emptiest offline account. A bot woken within `LOGIN_DESK_WARMUP_SECONDS` (20) and
+  not in world yet is about to staff it: no second one is woken meanwhile.
+
+No other post keeps a bot online: a bot with nothing to do logs out by the
+rules of §3.
 
 ## 7. Potion consolidation (`CONSOLIDATION_ENABLED`, default off)
+
+Advanced management (`ADVANCED.md`, a node setting per pool) replaces this
+planner for the pools it is on: its accounts are left out of the planner
+below, and their potions are merged by kind instead (`fleet/advancedPlan.ts`).
 
 Pure planner over the tracker (see `fleet/potionConsolidation.ts`). The site
 splits a withdraw across bots and pins each fragment to one, so what a player
@@ -193,8 +239,8 @@ auto|always|never), and everything that isn't a potion is one more bucket,
   still untangle), *give*. A stack nobody else holds is left where it is:
   carting it elsewhere costs a trade and frees nothing.
 - **Never moved**: items a pending withdraw counts on (any candidate bot's
-  share of it); bots that are withdraw candidates, standby, or the login desk
-  are not planned at all. Moved items keep their instance ids (the tracker
+  share of it); bots that are withdraw candidates or the login desk are not
+  planned at all. Moved items keep their instance ids (the tracker
   carries them over to the receiving bot), so a per-instance withdraw picked
   before the move still names the same item on its new bot.
 - **Setup**: a move holds both bots, wakes them if allowed
@@ -225,12 +271,7 @@ the Python fleet has stale 16s).
 
 ## 8. Capacity growth
 
-Every `ACCOUNTGEN_PULL_COOLDOWN_SECONDS` (10), pull one account from
-accountgen: non-seasonal while below `FREE_SLOTS_TARGET` (128) free slots,
-otherwise seasonal. The seasonal side is unbounded unless
-`SEASONAL_FREE_SLOTS_TARGET` (0 = unbounded) is set: at or above that many
-free seasonal slots nothing is pulled, accountgen's ready stock fills to its
-`POOL_TARGET` and its mint and walk workers idle until the fleet dips below.
+The roster is the owner's own accounts; nothing is pulled from anywhere to grow it.
 
 ## 9. Maintenance
 
@@ -240,8 +281,7 @@ free seasonal slots nothing is pulled, accountgen's ready stock fills to its
 - **Ban sweep**: takes a trade hold, drains in-flight trades (180s max),
   then logs in every account (6 concurrent, 1.5s apart), skipping online,
   busy, locked and archived ones; stops after two breaker trips.
-- **Trade hold**: no claims, no wakes for player work, no standby fills, no
-  new moves. Heartbeats, in-flight trades and the login desk continue.
+- **Trade hold**: no claims, no wakes for player work, no new moves. Heartbeats, in-flight trades and the login desk continue.
 
 ## 10. Site-facing control plane
 
@@ -250,77 +290,35 @@ free seasonal slots nothing is pulled, accountgen's ready stock fills to its
 `/healthz`. In the unified codebase these become direct calls; the HTTP
 shape is kept for the transition.
 
-## 7. Personal storage
+## 11. Communism (node)
 
-A player's vault is a set of physical items (tracker instances) recorded in
-the site's `vault_items` table, packed onto bots of their own. An account has
-two vaults, one per pool half (a seasonal bot cannot trade a non-seasonal
-player), each with its own bot; the account's slot entitlement is split
-between them in blocks of 8 from My Vault (`vault_halves`,
-`POST /api/vault/allocate`). The site is the source of truth; the fleet
-reads it every supervise pass (`listPending().vaultBots`, `listVaults()` —
-one entry per half with items) and never guesses.
+An account the operator ticks "communism" on (Control panel → Accounts,
+`BotPool.setCommunism`) is a communism account: its trade slots are communism's
+room and everything on it, character slots and storage alike, is a communism
+item (`lib/communismPool.ts`). The pool is everything on the other accounts.
+The fleet treats communism accounts the way it once treated vault bots: never
+woken for pool work, never a collector, never in consolidation or the login
+desk, never counted as pool capacity (`freeSlotsByPool().communism` reports
+their room separately). A communism deposit (`deposit_requests.communism = 1`)
+is claimable only by a communism account of its half, with whatever room it
+has; the dispatcher wakes the roomiest one. A communism withdraw is a
+per-instance row pinned to the holding account (`withdraw_requests.communism =
+1`); a pool withdraw by type never comes off a communism account. Unticking
+the account makes it a pool account again with whatever it holds. Requests
+come from the node's own page (the Communism bookmark) and from hub users
+through `src/node/requests.ts`.
 
-- **Vault bots** are not pool bots: never woken for pool deposits, never
-  cover for pool work, never standby or the login desk, never a giver or
-  taker in potion consolidation, and their slots are not pool room. They
-  claim only their own account's vault deposits (the site enforces this on
-  the claim), pinned by request id, with no deferral.
-- **Pinned deposits**: a vault deposit is routed to its bot exactly like a
-  single-candidate withdraw — it counts as a target in the work count, the
-  bot is woken for the player's server (or force-swapped there if idle
-  elsewhere), and nobody else is a candidate. A vault deposit whose account
-  has no bot yet is left out of the routing entirely.
-- **Received items**: when a vault deposit trade lands, the fulfill waits up
-  to `VAULT_ATTACH_MAX_MS` (8s) for the tracker to show the new instances so
-  the site can record exactly which physical items the account owns; units
-  it cannot match are reported without an instance and logged on the site.
-- **Owned items are not stock**: an owned instance sitting on a pool bot (a
-  claim waiting to be packed) is subtracted from that bot's inventory for
-  withdraw routing, from the claim it offers the site, from the potion
-  planner's view, and its slot is never part of an aggregate offer.
-- **Packing** (`VAULT_PACK_INTERVAL_SECONDS` = 5, at most
-  `VAULT_PACK_MAX_CONCURRENT` = 2 at once): for every owned item the tracker
-  sees on a bot other than its owner's, one instance-exact give from that
-  bot to the vault bot, driven like a consolidation move (wake both, meet in
-  the nexus, the vault bot accepts first), bounded by the vault bot's free
-  slots and eight per trade. Items named by an open withdraw are left where
-  they are — the withdraw is pinned to their current bot. A finished move
-  carries the instance ids across in the tracker and is reported to the
-  site (`vaultMoved`).
-
-
-### Wishlist (standing claims)
-
-A player with the `wishlist` feature (granted per character from the dev
-console, Players → Feature access) keeps rules: a pool half (seasonal or
-non-seasonal — every wish must say which), an item, a slot requirement
-(at least N / exactly N enchantments), and one filter per slot — rows of
-chips where a row describes one enchantment (a name, or effect flags like
-`+HP` it must carry) and any one row fitting is enough; an empty slot takes
-any enchantment. An item fits when its enchantments can be handed to the
-slot filters one each, none used twice, so the filters are unordered.
-`lib/wishlist.ts` runs every enabled rule over
-the relay's `/pool` payload and claims a fit through the same
-`claimInstances` path as a manual claim: ledger withdraw row, vault room and
-pool-half checks, withdraw rate limit, reservation check. A rule is one
-wish: the claim deletes it and logs a `wishlist` vault event, so donating
-the item back does not hand it straight to the same wish. Wishes are capped
-by the free slots of the vault for their half (items held plus wishes never
-exceed that vault), and they hold those slots against reallocation.
-
-Every scan serves wishes oldest first, across all users: each wish in turn
-takes one item it fits from the whole pool, whatever the item's age,
-preferring the item the fewest other wishes could use so a broad older wish
-leaves a contested copy for a narrower newer one. Making a wish runs the
-same scan from the create route, so a new wish gets what is already there
-unless an older wish fits it too. A full vault or a rate limit skips that
-user's wishes for the rest of the scan.
-
-`lib/wishlistScan.ts` drives it: the pool-changed signal (raised by the
-embedded fleet on every inventory change, and by claims and donates) is
-debounced to one scan per 1.5 s burst, and a 30 s interval backstops a relay
-reached over HTTP. No relay fetch happens while no rule is enabled.
+Staying current and staying ready: the coordinator publishes to the hub
+within `COMMUNISM_PUBLISH_DEBOUNCE_MS` (1.5 s) of any change on a communism
+account, as the difference since the hub's last reply (`base` + `added` +
+`removed`, a few hundred bytes per trade) rather than the whole listing; a
+tick every `COMMUNISM_PUBLISH_SECONDS` (10) catches an account logging in or
+out and sends nothing when nothing changed; every 10 minutes an empty
+difference checks the hub still holds the listing. Hub requests are pulled
+with a long poll (`GUEST_WAIT_SECONDS`, 25): the hub answers the moment one
+is queued. A communism account follows the ordinary idle disconnect like
+every bot (it no longer lingers online): the next request logs it in again.
+Progress on a hub request is reported when the queue moves, not on a timer.
 
 ## Accepted items (node)
 
@@ -330,5 +328,16 @@ Trading → Accepted items) narrows what its bots take in: switches for stat
 potions, eggs, other consumables and UT/ST gear, a lowest tier per gear
 group, and per-item pins that beat the rules. The trade machine holds a
 deposit that offers a refused item (`TradeSessionOptions.acceptsType`);
-declared deposits, offer wants, accepting an offer and taking from the
-commons are refused up front. Items already in the pool are unaffected.
+declared deposits, offer wants and accepting an offer are refused up front.
+Items already in the pool are unaffected.
+
+Communism accounts do not follow this setting. They accept by a list fixed
+in the code (`src/lib/communism-policy.json`, `COMMUNISM_ITEM_POLICY`,
+`communismTakes`): every category, minus the items the owner had pinned off
+on their node on 2026-09-22. It applies in game (`acceptsType` for a
+communism account), to declared communism deposits and to taking another
+node's item into communism; the Accepted items tab never touches it.
+\n
+### On a communism account, what the list does not take
+
+An item already on a communism account that the fixed list does not take is treated as untradable there: never listed for communism, never given, greyed on the account card, and put into the vault first by the storage chore (docs/relay/STORAGE.md, "Communism accounts: what communism does not take"). Flagging an account for communism does not throw anything away.

@@ -1,14 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { acceptedIds, COMMUNISM_ITEM_POLICY } from "@/lib/itemPolicy";
+const COMMUNISM_ACCEPTED = acceptedIds(COMMUNISM_ITEM_POLICY).size;
 import { ItemSprite } from "@/components/ItemSprite";
 // Which catalog items this node takes in (src/lib/itemPolicy.ts). The
 // catalog is every item the game lets players trade; the rules below set
 // what the bots accept by default, and a pin per item beats the rules.
 // Saved into the node's settings; the bots and the site's forms follow at
 // once. Items already in the pool stay withdrawable whatever the policy.
+//
+// The whole catalog is on screen, grouped (stat potions, eggs, consumables,
+// UT/ST gear, one section per tier) as small tiles: green is taken, red
+// refused. Clicking a tile flips it; a section's buttons flip every item in
+// it; the bulk switches above set whole groups. Underneath, the policy is
+// still rules plus per-item exceptions (src/lib/itemPolicy.ts) — a click
+// records an exception, a bulk switch clears the exceptions it covers, so
+// what you see is always what the bots do. ~1000 tiles are cheap to draw:
+// the sprite is a background on a span, not an image, and nothing polls.
 
 type Group = "Weapon" | "Armor" | "Ring" | "Ability";
-type Policy = { potions: boolean; eggs: boolean; consumables: boolean; untiered: boolean; minTier: Record<Group, number | null>; overrides: Record<string, boolean> };
-type Entry = { id: string; name: string; category: string };
+type Policy = { potions: boolean; eggs: boolean; consumables: boolean; lore: boolean; treasures: boolean; skins: boolean; untiered: boolean; minTier: Record<Group, number | null>; overrides: Record<string, boolean> };
+type Entry = { id: string; name: string; category: string; subtype?: string | null };
 type State = { policy: Policy; accepted: number; total: number; everything: boolean; catalog: Entry[] };
 
 const GROUPS: { id: Group; label: string; maxTier: number }[] = [
@@ -24,15 +35,50 @@ function ruleAccepts(p: Policy, e: Entry): boolean {
   if (e.category === "Potion") return p.potions;
   if (e.category === "Egg") return p.eggs;
   if (e.category === "Consumable") return p.consumables;
+  if (e.category === "Lore") return p.lore;
+  if (e.category === "Treasure") return p.treasures;
+  if (e.category === "Skin") return p.skins;
   return p.untiered;
 }
 const accepts = (p: Policy, e: Entry): boolean => p.overrides[e.id] ?? ruleAccepts(p, e);
+
+/** The sections the catalog is shown in, in order. Tiered gear is one section per tier, highest first. */
+type Section = { id: string; label: string; entries: Entry[]; note?: string };
+function sectionsOf(catalog: Entry[]): Section[] {
+  const by = (pred: (e: Entry) => boolean) => catalog.filter(pred);
+  const byName = (a: Entry, b: Entry) => a.name.localeCompare(b.name);
+  const out: Section[] = [
+    { id: "potions", label: "Stat potions", entries: by((e) => e.category === "Potion").sort(byName) },
+    { id: "eggs", label: "Eggs", entries: by((e) => e.category === "Egg").sort(byName) },
+    { id: "consumables", label: "Other consumables", entries: by((e) => e.category === "Consumable").sort(byName) },
+    { id: "lore", label: "Lore", entries: by((e) => e.category === "Lore").sort(byName), note: "books, letters and journals" },
+    { id: "treasures", label: "Dungeon treasures", entries: by((e) => e.category === "Treasure").sort(byName), note: "the old dungeon treasure sets" },
+    // Skins by class, then name, so a class's skins sit together.
+    { id: "skins", label: "Skins", entries: by((e) => e.category === "Skin").sort((a, b) => (a.subtype ?? "zz").localeCompare(b.subtype ?? "zz") || a.name.localeCompare(b.name)), note: "every tradeable character skin" },
+  ];
+  // UT/ST as one section, sorted by slot so a staff is next to the other staves.
+  const ut = by((e) => e.category === "UT/ST").sort((a, b) => (a.subtype ?? "zz").localeCompare(b.subtype ?? "zz") || a.name.localeCompare(b.name));
+  out.push({ id: "ut", label: "UT and ST gear", entries: ut });
+  // Tiered gear: one section per tier, highest first; inside it weapons, armor, rings, abilities, each by name.
+  const tiered = by((e) => tierOf(e.category) !== null);
+  const tiers = [...new Set(tiered.map((e) => tierOf(e.category)!.tier))].sort((a, b) => b - a);
+  const groupOrder = (e: Entry) => GROUPS.findIndex((g) => g.id === tierOf(e.category)!.group);
+  for (const t of tiers) {
+    const entries = tiered.filter((e) => tierOf(e.category)!.tier === t).sort((a, b) => groupOrder(a) - groupOrder(b) || a.name.localeCompare(b.name));
+    out.push({ id: `tier-${t}`, label: `T${t} gear`, entries });
+  }
+  const placed = new Set(out.flatMap((s) => s.entries.map((e) => e.id)));
+  const rest = catalog.filter((e) => !placed.has(e.id)).sort(byName);
+  if (rest.length) out.push({ id: "other", label: "Everything else", entries: rest });
+  return out.filter((s) => s.entries.length);
+}
 
 export default function AcceptedItemsTab({ password }: { password: string }) {
   const [state, setState] = useState<State | null>(null);
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [query, setQuery] = useState("");
-  const [only, setOnly] = useState<"all" | "taken" | "refused" | "pinned">("all");
+  const [only, setOnly] = useState<"all" | "taken" | "refused">("all");
+  const [closed, setClosed] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -71,88 +117,136 @@ export default function AcceptedItemsTab({ password }: { password: string }) {
     }
   }
   const dirty = !!state && !!policy && JSON.stringify(policy) !== JSON.stringify(state.policy);
+  const sections = useMemo(() => (state ? sectionsOf(state.catalog) : []), [state]);
   const counts = useMemo(() => {
     if (!state || !policy) return { taken: 0, total: 0 };
     return { taken: state.catalog.filter((e) => accepts(policy, e)).length, total: state.catalog.length };
   }, [state, policy]);
-  const rows = useMemo(() => {
-    if (!state || !policy) return [];
+  // The filter narrows every section; a section with nothing left is skipped.
+  const visible = useMemo(() => {
+    if (!policy) return [];
     const q = query.trim().toLowerCase();
-    return state.catalog.filter((e) => {
-      if (q && !e.name.toLowerCase().includes(q) && !e.category.toLowerCase().includes(q)) return false;
-      const a = accepts(policy, e);
-      if (only === "taken") return a;
-      if (only === "refused") return !a;
-      if (only === "pinned") return policy.overrides[e.id] !== undefined;
-      return true;
-    });
-  }, [state, policy, query, only]);
-  const setPin = (id: string, v: boolean | undefined) => setPolicy((p) => {
+    return sections.map((s) => ({
+      ...s,
+      entries: s.entries.filter((e) => {
+        if (q && !e.name.toLowerCase().includes(q) && !e.category.toLowerCase().includes(q) && !(e.subtype ?? "").toLowerCase().includes(q)) return false;
+        const a = accepts(policy, e);
+        if (only === "taken") return a;
+        if (only === "refused") return !a;
+        return true;
+      }),
+    })).filter((s) => s.entries.length);
+  }, [sections, policy, query, only]);
+  /** Set these items to taken or refused: an exception where the rule says otherwise, none where it agrees. */
+  const setItems = (items: Entry[], v: boolean) => setPolicy((p) => {
     if (!p) return p;
     const overrides = { ...p.overrides };
-    if (v === undefined) delete overrides[id]; else overrides[id] = v;
+    for (const e of items) { if (ruleAccepts(p, e) === v) delete overrides[e.id]; else overrides[e.id] = v; }
     return { ...p, overrides };
+  });
+  const toggle = (e: Entry) => { if (policy) setItems([e], !accepts(policy, e)); };
+  /** A bulk switch changes the rule and drops the exceptions it covers, so it visibly takes effect. */
+  const setRule = (patch: Partial<Policy>, covers: (e: Entry) => boolean) => setPolicy((p) => {
+    if (!p || !state) return p;
+    const overrides = { ...p.overrides };
+    for (const e of state.catalog) if (covers(e)) delete overrides[e.id];
+    return { ...p, ...patch, overrides };
   });
 
   if (!state || !policy) return <section>{error ? <p style={{ color: "var(--bad)" }}>{error}</p> : <p className="hint">loading…</p>}</section>;
-  const everything: Policy = { potions: true, eggs: true, consumables: true, untiered: true, minTier: { Weapon: 0, Armor: 0, Ring: 0, Ability: 0 }, overrides: {} };
+  const everything: Policy = { potions: true, eggs: true, consumables: true, lore: true, treasures: true, skins: true, untiered: true, minTier: { Weapon: 0, Armor: 0, Ring: 0, Ability: 0 }, overrides: {} };
+  const shown = visible.reduce((n, s) => n + s.entries.length, 0);
   return (
     <section>
       {error && <p style={{ color: "var(--bad)" }}>{error}</p>}
       {notice && <p style={{ color: "var(--good, #5aa86a)" }}>{notice}</p>}
-      <p style={{ color: "var(--muted, #999)", fontSize: 13, maxWidth: 760 }}>
-        The catalog is every item the game lets players trade ({state.total}). Choose what this node's bots take in: a deposit that offers
+      <p style={{ color: "var(--muted, #999)", fontSize: 13, maxWidth: 760, marginTop: 0 }}>
+        The catalog is every item the game lets players trade ({state.total}). Choose what this node&apos;s bots take in: a deposit that offers
         anything else is held until the player takes it back out of the window, and offers, hand-overs and declared deposits are refused up front.
-        Items already in the pool stay withdrawable. Pins on single items beat the rules.
+        Items already in the pool stay withdrawable. The switches set whole groups; click any item to flip it on its own.
       </p>
-      <p><b>Taking {counts.taken} of {counts.total} items.</b>{dirty ? " (unsaved changes)" : ""}</p>
+      <p style={{ color: "var(--muted, #999)", fontSize: 13, maxWidth: 760, marginTop: 0 }}>
+        <b>Communism accounts are not affected.</b> They accept by a list fixed in the node ({COMMUNISM_ACCEPTED} of {state.total} items, taken from this
+        node&apos;s selection on 2026-09-22), whatever is set here.
+      </p>
 
-      <div style={{ display: "grid", gap: 6, maxWidth: 560, margin: "8px 0 12px" }}>
-        {([["potions", "Stat potions (Potion of X, Greater Potion of X)"], ["eggs", "Eggs"], ["consumables", "Other consumables (wines, tinctures, keys, event items)"], ["untiered", "UT and ST gear"]] as const).map(([k, label]) => (
-          <label key={k}><input type="checkbox" checked={policy[k]} onChange={(e) => setPolicy({ ...policy, [k]: e.target.checked })} /> {label}</label>
-        ))}
-        {GROUPS.map((g) => (
-          <label key={g.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ width: 90 }}>{g.label}</span>
-            <select value={policy.minTier[g.id] === null ? "none" : String(policy.minTier[g.id])} onChange={(e) => setPolicy({ ...policy, minTier: { ...policy.minTier, [g.id]: e.target.value === "none" ? null : Number(e.target.value) } })}>
-              <option value="none">none</option>
-              {Array.from({ length: g.maxTier + 1 }, (_, t) => <option key={t} value={t}>{t === 0 ? "every tier" : `T${t} and up`}</option>)}
-            </select>
-          </label>
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-        <button disabled={busy || !dirty} onClick={() => void save(policy)}>Save</button>
-        <button className="nav-link" disabled={busy || !dirty} onClick={() => setPolicy(state.policy)}>discard changes</button>
-        <button className="nav-link" disabled={busy} onClick={() => setPolicy(everything)}>take everything</button>
-        <button className="nav-link" disabled={busy} onClick={() => setPolicy({ ...everything, eggs: false, consumables: false, untiered: false, minTier: { Weapon: null, Armor: null, Ring: null, Ability: null } })}>only stat potions</button>
-        <button className="nav-link" disabled={busy || !Object.keys(policy.overrides).length} onClick={() => setPolicy({ ...policy, overrides: {} })}>clear all pins</button>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search items or categories…" style={{ width: 260 }} />
-        <select value={only} onChange={(e) => setOnly(e.target.value as typeof only)}>
-          <option value="all">all</option><option value="taken">taken</option><option value="refused">refused</option><option value="pinned">pinned</option>
-        </select>
-        <span className="hint">{rows.length} shown</span>
-      </div>
-      <ul className="storage-list" style={{ marginTop: 8 }}>
-        {rows.slice(0, 300).map((e) => {
-          const pin = policy.overrides[e.id];
-          const a = accepts(policy, e);
-          return (
-            <li key={e.id} className={a ? "" : "muted"}>
-              <span className="storage-item" style={{ minWidth: 260 }}><ItemSprite name={e.name} size={18} /> {e.name}</span>
-              <span className="muted" style={{ minWidth: 110 }}>{e.category}</span>
-              <span style={{ minWidth: 70, color: a ? "var(--good, #5aa86a)" : "var(--bad)" }}>{a ? "taken" : "refused"}</span>
-              <select value={pin === undefined ? "rules" : pin ? "always" : "never"} onChange={(ev) => setPin(e.id, ev.target.value === "rules" ? undefined : ev.target.value === "always")}>
-                <option value="rules">follow rules</option><option value="always">always take</option><option value="never">never take</option>
+      <div className="items-rules">
+        <div className="items-rules-col">
+          {([["potions", "Stat potions", "Potion"], ["eggs", "Eggs", "Egg"], ["consumables", "Other consumables (wines, tinctures, keys, event items)", "Consumable"], ["lore", "Lore (books, letters, journals)", "Lore"], ["treasures", "Dungeon treasures", "Treasure"], ["skins", "Skins", "Skin"], ["untiered", "UT and ST gear", "UT/ST"]] as const).map(([k, label, cat]) => (
+            <label key={k}><input type="checkbox" checked={policy[k]} onChange={(e) => setRule({ [k]: e.target.checked }, (it) => it.category === cat)} /> {label}</label>
+          ))}
+        </div>
+        <div className="items-rules-col">
+          {GROUPS.map((g) => (
+            <label key={g.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ width: 80 }}>{g.label}</span>
+              <select value={policy.minTier[g.id] === null ? "none" : String(policy.minTier[g.id])} onChange={(e) => setRule({ minTier: { ...policy.minTier, [g.id]: e.target.value === "none" ? null : Number(e.target.value) } }, (it) => tierOf(it.category)?.group === g.id)}>
+                <option value="none">none</option>
+                {Array.from({ length: g.maxTier + 1 }, (_, t) => <option key={t} value={t}>{t === 0 ? "every tier" : `T${t} and up`}</option>)}
               </select>
-            </li>
-          );
-        })}
-        {rows.length > 300 && <li className="muted">…{rows.length - 300} more; narrow the search</li>}
-      </ul>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="items-bar">
+        <b>Taking {counts.taken} of {counts.total} items.</b>{dirty && <span className="warn"> unsaved changes</span>}
+        <button disabled={busy || !dirty} onClick={() => void save(policy)}>Save</button>
+        <button className="login-char-btn" disabled={busy || !dirty} onClick={() => setPolicy(state.policy)}>discard</button>
+        <button className="login-char-btn" disabled={busy} onClick={() => setPolicy(everything)}>take everything</button>
+        <button className="login-char-btn" disabled={busy} onClick={() => setPolicy({ ...everything, eggs: false, consumables: false, untiered: false, minTier: { Weapon: null, Armor: null, Ring: null, Ability: null } })}>only stat potions</button>
+      </div>
+
+      <div className="items-bar" style={{ marginTop: 8 }}>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="filter by name, category or slot…" style={{ width: 260 }} />
+        <select value={only} onChange={(e) => setOnly(e.target.value as typeof only)}>
+          <option value="all">all</option><option value="taken">taken</option><option value="refused">refused</option>
+        </select>
+        <span className="hint" style={{ margin: 0, padding: 0, border: 0, background: "none" }}>{shown} of {counts.total} shown · click an item to flip it</span>
+        <button className="login-char-btn" onClick={() => setClosed(new Set())} disabled={!closed.size}>expand all</button>
+        <button className="login-char-btn" onClick={() => setClosed(new Set(sections.map((s) => s.id)))}>collapse all</button>
+      </div>
+
+      {visible.map((s) => {
+        const taken = s.entries.filter((e) => accepts(policy, e)).length;
+        const open = !closed.has(s.id);
+        return (
+          <section key={s.id} className="items-section">
+            <header className="items-head">
+              <button className="nav-link items-toggle" onClick={() => setClosed((prev) => { const n = new Set(prev); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} aria-expanded={open}>
+                {open ? "▾" : "▸"} {s.label}
+              </button>
+              <span className="muted">{taken}/{s.entries.length} taken</span>
+              <span className="items-head-actions">
+                <button className="login-char-btn" title="Take every item in this section" onClick={() => setItems(s.entries, true)}>take all</button>
+                <button className="login-char-btn" title="Refuse every item in this section" onClick={() => setItems(s.entries, false)}>refuse all</button>
+                <button className={"login-char-btn" + (dirty ? " active" : "")} disabled={busy || !dirty} title={dirty ? "Save every change on this tab" : "Nothing to save"} onClick={() => void save(policy)}>{busy ? "…" : dirty ? "save" : "saved"}</button>
+              </span>
+            </header>
+            {open && (
+              <div className="items-grid">
+                {s.entries.map((e) => {
+                  const a = accepts(policy, e);
+                  return (
+                    <button
+                      key={e.id}
+                      type="button"
+                      className={"item-chip" + (a ? " taken" : " refused")}
+                      title={`${e.name} · ${e.category}${e.subtype ? ` · ${e.subtype}` : ""} · ${a ? "taken" : "refused"} · click to flip`}
+                      aria-pressed={a}
+                      onClick={() => toggle(e)}
+                    >
+                      <ItemSprite name={e.name} size={22} className="item-chip-spr" fallbackClassName="item-chip-fallback" />
+                      <span className="item-chip-name">{e.name}</span>
+                      <span className="item-chip-state" aria-hidden="true">{a ? "✓" : "✕"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        );
+      })}
+      {visible.length === 0 && <p className="muted">Nothing matches.</p>}
     </section>
   );
 }

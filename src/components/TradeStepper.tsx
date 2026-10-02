@@ -13,15 +13,15 @@ export function TradeStepperBox({
   tradeCount,
   status,
   endReason = null,
-  personal = false,
+  communism = false,
 }: {
   kind: "withdraw" | "deposit";
   trades: TradeStep[];
   tradeCount: number;
   status: "polling" | "in-flight" | "fulfilled" | "partial" | "cancelled" | "timeout";
   endReason?: string | null;
-  /** Personal storage: "vault full" means the account's own slots, not the pool. */
-  personal?: boolean;
+  /** A communism trade: "full" means communism accounts, not the pool. */
+  communism?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   function copy(text: string) {
@@ -48,13 +48,15 @@ export function TradeStepperBox({
   }
 
   if (status === "cancelled") {
+    // A request the node ended says why (the server had a login queue, no
+    // bot has the room, the trade window never opened); anything else timed out.
+    const why = endReason && endReason !== "vault-full" ? endReason : null;
     return (
       <div className="hint-box hint-box-bad">
         <p style={{ margin: 0 }}>
           <strong>{kind === "withdraw" ? "Withdraw" : "Deposit"} cancelled.</strong>{" "}
           <span style={{ color: "var(--muted)", fontSize: 13 }}>
-            The request timed out before it could be fulfilled. Try again
-            later.
+            {why ? `${why.replace(/\.$/, "")}.` : "The request timed out before it could be fulfilled. Try again later."}
           </span>
         </p>
       </div>
@@ -117,15 +119,15 @@ export function TradeStepperBox({
         <p style={{ margin: 0 }}>
           <strong>
             {vaultFull
-              ? personal
-                ? "Deposit complete — your vault is now full."
+              ? communism
+                ? "Deposit complete — communism is now full."
                 : "Deposit complete — the pool is now full."
               : `${kind === "withdraw" ? "Withdraw" : "Deposit"} complete.`}
           </strong>{" "}
           <span style={{ color: "var(--muted)", fontSize: 13 }}>
             {vaultFull
-              ? personal
-                ? "The trade went through. Every one of your slots is taken now — withdraw or donate something before depositing more."
+              ? communism
+                ? "The trade went through. Every communism slot on this node is taken now — another deposit will have to wait for someone to take something."
                 : "The trade went through. No bot in this pool has a free slot left — another deposit will have to wait for a withdrawal."
               : totalSteps > 1
                 ? `All ${totalSteps} trades fulfilled.`

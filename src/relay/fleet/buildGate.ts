@@ -133,6 +133,9 @@ export class BuildGate {
       client.on("failure", (ev) => done({ ok: false, build, reason: `FAILURE ${ev.kind}${"description" in ev ? `: ${ev.description}` : ""}` }));
       client.on("stopped", () => done({ ok: false, build, reason: "session dropped" }));
       client.on("inWorld", () => {
+        // A second arrival (a RECONNECT) restarts the hold: the session has to
+        // hold the world it is in now, not the one it left.
+        if (holdTimer) clearTimeout(holdTimer);
         holdTimer = setTimeout(() => done({ ok: true, build, ign: client.playerData.name, seconds: Math.round((Date.now() - t0) / 1000) }), CANARY_HOLD_MS);
       });
       if (client.objectId !== -1) client.emit("inWorld", client.objectId);

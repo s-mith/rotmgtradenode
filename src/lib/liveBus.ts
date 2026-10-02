@@ -78,12 +78,20 @@ function publish(ev: LiveEvent): void {
 export function emitRequest(groupId: string | null | undefined): void {
   if (!groupId) return;
   publish({ kind: "request", at: Date.now(), groupId });
+  for (const fn of requestHooks) fn();
+}
+// Server-side listeners for request movement (the hub request runner reports progress on it), independent of any browser stream.
+const requestHooks = new Set<() => void>();
+export function onRequestChanged(fn: () => void): () => void {
+  requestHooks.add(fn);
+  return () => {
+    requestHooks.delete(fn);
+  };
 }
 
 /** The fleet's tracked inventory changed (called by the embedded relay). */
 // Server-side listeners for the same signal, independent of any browser
-// stream: the wishlist scanner registers here so a deposit landing on a bot
-// is matched even when nobody has the site open.
+// stream, for work that should run even when nobody has the site open.
 const poolHooks = new Set<() => void>();
 export function onPoolChanged(fn: () => void): () => void {
   poolHooks.add(fn);

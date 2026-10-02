@@ -15,11 +15,11 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function deposit(ign: string, group: string, vault: number | null = null, at = Date.now()) {
+function deposit(ign: string, group: string, communism = 0, at = Date.now()) {
   return Number(db.prepare(
-    `INSERT INTO deposit_requests (ign, ign_lower, server, item_count, remaining_count, status, group_id, seasonal, vault_user_id, created_at, updated_at)
+    `INSERT INTO deposit_requests (ign, ign_lower, server, item_count, remaining_count, status, group_id, seasonal, communism, created_at, updated_at)
      VALUES (?, ?, 'USEast', 16, 16, 'pending', ?, 1, ?, ?, ?)`,
-  ).run(ign, ign.toLowerCase(), group, vault, at, at).lastInsertRowid);
+  ).run(ign, ign.toLowerCase(), group, communism, at, at).lastInsertRowid);
 }
 function withdraw(ign: string, group: string, items: string, at = Date.now(), status = "pending") {
   return Number(db.prepare(
@@ -30,13 +30,13 @@ function withdraw(ign: string, group: string, items: string, at = Date.now(), st
 
 describe("open requests", () => {
   it("lists a character's open groups oldest first, rolling up fragments", () => {
-    deposit("Me", "g-dep", 7, 100);
+    deposit("Me", "g-dep", 1, 100);
     withdraw("Me", "g-wd", '[{"itemId":"ubatk","qty":1}]', 200);
     withdraw("Me", "g-wd", '[{"itemId":"ubatk","qty":1},{"itemId":"patk","qty":2}]', 200);
     withdraw("Me", "g-done", '[{"itemId":"patk","qty":1}]', 50, "fulfilled");
     withdraw("Other", "g-other", '[{"itemId":"patk","qty":1}]', 10);
     const groups = openGroupsFor(db, "me");
-    expect(groups.map((g) => [g.groupId, g.kind, g.vault, g.itemCount])).toEqual([
+    expect(groups.map((g) => [g.groupId, g.kind, g.communism, g.itemCount])).toEqual([
       ["g-dep", "deposit", true, 16],
       ["g-wd", "withdraw", false, 4],
     ]);

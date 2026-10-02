@@ -1,0 +1,226 @@
+# Tests on Linux and Windows for every push and pull request, and the desktop
+# app's installers for a version tag (docs/release.md).
+#
+#   push / pull request  typecheck + npm test, on ubuntu-latest and windows-latest
+#   pull request, manual the above, then a test build of the Windows installer:
+#                        installed on the runner, started, its server checked,
+#                        uninstalled; kept 3 days as an artifact, never published
+#   tag v<version>       the tests, then the Windows installer (windows-latest)
+#                        and the Linux AppImage, published to a DRAFT release
+#
+# The tag must match package.json's version. The installer is signed when the
+# signing secrets exist (Azure Artifact Signing, formerly Trusted Signing, or a .pfx certificate) and is
+# built unsigned, with a warning on the run, when they do not.
+name: node-desktop
+
+on:
+  push:
+    branches: [main, rewrite]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: node-desktop-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+  windows-installer:
+    name: Windows installer
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    env:
+      # A version tag publishes; anything else is a test build.
+      RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      # The update feed the installed app reads: this repository's releases (they must be public).
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_OWNER: ${{ github.repository_owner }}
+      GH_REPO: ${{ github.event.repository.name }}
+      # Azure Artifact Signing (preferred). The three AZURE_SIGNING_* name the certificate;
+      # the AZURE_TENANT/CLIENT values are the app registration allowed to sign with it.
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+      AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+      AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+      AZURE_SIGNING_PUBLISHER: ${{ secrets.AZURE_SIGNING_PUBLISHER }}
+      # Or a classic code-signing certificate: the .pfx as base64, and its password.
+      CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: The tag matches package.json
+        if: env.RELEASE == 'true'
+        shell: bash
+        run: |
+          want="v$(node -p "require('./package.json').version")"
+          if [ "$want" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version ($want)"
+            exit 1
+          fi
+
+      - name: Signing
+        shell: bash
+        run: |
+          if [ -n "$AZURE_SIGNING_ENDPOINT" ] && [ -n "$AZURE_SIGNING_ACCOUNT" ] && [ -n "$AZURE_SIGNING_PROFILE" ]; then
+            echo "signing with Azure Artifact Signing (profile $AZURE_SIGNING_PROFILE)"
+          elif [ -n "$CSC_LINK" ]; then
+            echo "signing with the certificate in WIN_CSC_LINK"
+          elif [ "$RELEASE" = "true" ]; then
+            echo "::warning title=UNSIGNED INSTALLER::No code-signing secrets are set. This installer is UNSIGNED: Windows SmartScreen will warn every user and antivirus may block it. See docs/release.md."
+          else
+            echo "unsigned test build"
+          fi
+
+      - run: npm ci
+
+      # Builds the site and server, the icons, rebuilds better-sqlite3 for Electron, packs the NSIS installer,
+      # signs it when the secrets are there, and (for a tag) uploads it with latest.yml to a draft release.
+      - name: Build the installer
+        shell: bash
+        run: node scripts/desktop.mjs dist --win --x64 --publish "$([ "$RELEASE" = "true" ] && echo always || echo never)"
+
+      # What a person does after downloading it, minus the clicks: install for this user, start the app
+      # (in the tray), wait for its server, ask it a few questions, quit, uninstall, and check the data
+      # folder survives the uninstall.
+      - name: Install, start and check the app
+        if: env.RELEASE != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue  # the app must not inherit the job's token
+          $setup = Get-ChildItem release -Filter "*-Setup-*.exe" | Select-Object -First 1
+          if (-not $setup) { throw "no installer in release/" }
+          "installing $($setup.Name) ($([math]::Round($setup.Length / 1MB)) MB)"
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/S" -PassThru
+          if (-not $p.WaitForExit(180000)) { throw "the installer did not finish in 3 minutes" }
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter "rotmgtradenode.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw "the installer did not put rotmgtradenode.exe under $env:LOCALAPPDATA\Programs" }
+          "installed at $($exe.FullName)"
+          $userData = Join-Path $env:APPDATA "rotmgtradenode"
+          $log = Join-Path $userData "node.log"
+          New-Item -ItemType Directory -Force smoke | Out-Null
+          try {
+            Start-Process -FilePath $exe.FullName -ArgumentList "--hidden" | Out-Null
+            $port = $null
+            for ($i = 0; $i -lt 180 -and -not $port; $i++) {
+              Start-Sleep -Milliseconds 500
+              if (Test-Path $log) {
+                $m = Select-String -Path $log -Pattern "listening on http://127\.0\.0\.1:(\d+)" | Select-Object -Last 1
+                if ($m) { $port = $m.Matches[0].Groups[1].Value }
+              }
+            }
+            if (-not $port) { throw "the app's server did not start within 90 s" }
+            $base = "http://127.0.0.1:$port"
+            "server on $base"
+            $health = Invoke-WebRequest "$base/api/healthz" -UseBasicParsing
+            if ($health.StatusCode -ne 200) { throw "/api/healthz answered $($health.StatusCode)" }
+            $state = Invoke-RestMethod "$base/api/dev/setup"
+            if ($state.complete -ne $false) { throw "a fresh install should start with the setup (complete = $($state.complete))" }
+            $status = Invoke-RestMethod "$base/api/dev/status"
+            "status: $($status.state) | $($status.headline)"
+            if ($status.state -ne "needs-setup") { throw "a fresh install should say it needs setting up" }
+            $diag = Invoke-RestMethod "$base/api/dev/diagnostics"
+            if ($diag.text -notmatch "App version") { throw "diagnostics are missing" }
+            $page = Invoke-WebRequest "$base/setup" -UseBasicParsing
+            if ($page.Content -notmatch 'id="root"') { throw "/setup did not serve the app's page" }
+            "the installed app answers: health, setup, status, diagnostics and the setup page"
+          } finally {
+            Stop-Process -Name rotmgtradenode -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+            if (Test-Path $log) { Copy-Item $log smoke\node.log; "--- node.log ---"; Get-Content $log }
+          }
+          $uninstaller = Join-Path $exe.DirectoryName "Uninstall rotmgtradenode.exe"
+          if (-not (Test-Path $uninstaller)) { throw "no uninstaller at $uninstaller" }
+          $u = Start-Process -FilePath $uninstaller -ArgumentList "/S" -PassThru
+          [void]$u.WaitForExit(120000)
+          for ($i = 0; $i -lt 120 -and (Test-Path $exe.FullName); $i++) { Start-Sleep -Milliseconds 500 }
+          if (Test-Path $exe.FullName) { throw "uninstalling left the app behind" }
+          if (-not (Test-Path (Join-Path $userData "data"))) { throw "uninstalling removed the data folder" }
+          "uninstalled; the data folder is kept"
+
+      - name: Keep the test build
+        if: always() && env.RELEASE != 'true'
+        continue-on-error: true  # a full artifact quota must not fail the check
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-build
+          path: |
+            release/*.exe
+            smoke/node.log
+          retention-days: 3
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: env.RELEASE == 'true'
+        with:
+          name: windows-installer
+          path: |
+            release/*.exe
+            release/latest.yml
+          if-no-files-found: error
+
+  linux-appimage:
+    name: Linux AppImage
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_OWNER: ${{ github.repository_owner }}
+      GH_REPO: ${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: node scripts/desktop.mjs dist --linux AppImage --publish always
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: |
+            release/*.AppImage
+            release/latest-linux.yml
+          if-no-files-found: error

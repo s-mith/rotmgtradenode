@@ -11,11 +11,32 @@ function buckets() {
   return globalThis.__rl_buckets__;
 }
 
+/** The connection's own address per request, noted by the HTTP adapter (h() in server/http.ts). */
+const socketAddresses = new WeakMap<Request, string>();
+export function noteSocketAddress(req: Request, address: string | undefined): void {
+  if (address) socketAddresses.set(req, address);
+}
+
+/** Whether a peer may speak for the client through X-Real-IP / X-Forwarded-For: loopback (a local reverse proxy, Vite's dev proxy) or one listed in TRUSTED_PROXIES. */
+function trustedProxy(address: string): boolean {
+  const a = address.replace(/^::ffff:/, "");
+  if (a === "::1" || /^127\./.test(a)) return true;
+  return (process.env.TRUSTED_PROXIES ?? "").split(",").map((s) => s.trim()).filter(Boolean).includes(a);
+}
+
 // Trust order: x-real-ip first (proxy sets it, one hop, not user-controllable),
 // then the RIGHTMOST entry of x-forwarded-for (= the closest hop to us, which
 // the proxy appended). Taking the leftmost would let any caller spoof a fresh
-// rate-limit bucket per request by sending their own X-Forwarded-For.
+// rate-limit bucket per request by sending their own X-Forwarded-For. With
+// neither (reached directly, or through a proxy that sets no header), the
+// connection's own address, so players are not all one bucket.
+//
+// The headers only count when the connection comes from a trusted proxy.
+// Reached directly (a LAN bind), anyone could send them and get a fresh
+// bucket per request, so the socket's own address is used instead.
 export function clientIp(req: Request): string {
+  const socket = socketAddresses.get(req);
+  if (socket && !trustedProxy(socket)) return socket;
   const real = req.headers.get("x-real-ip");
   if (real) return real.trim();
   const fwd = req.headers.get("x-forwarded-for");
@@ -23,7 +44,7 @@ export function clientIp(req: Request): string {
     const parts = fwd.split(",").map((s) => s.trim()).filter(Boolean);
     if (parts.length > 0) return parts[parts.length - 1]!;
   }
-  return "unknown";
+  return socket ?? "unknown";
 }
 
 // Token bucket: `capacity` tokens, refilled at `refillPerSec`.

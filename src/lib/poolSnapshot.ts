@@ -8,6 +8,7 @@
 // 13.5 MB of JSON per request, several times a second, and that was ~99% of
 // the site's egress and most of its CPU (2026-09-10).
 import { createHash } from "node:crypto";
+import { tradeableEnchants } from "../relay/protocol/enchants";
 import { gzipSync } from "node:zlib";
 import { ITEM_BY_ID } from "./catalog";
 import { getDb } from "./db";
@@ -15,7 +16,7 @@ import { pyrelay, type PyrelayPool } from "./devauth";
 import { enchantName } from "./enchants";
 import { projectCatalog } from "./pool";
 import { whereLabel, wirePools, type WireBot, type WireStored } from "./poolWire";
-import { ownedInstanceIds } from "./vault";
+import { communismInstanceIds } from "./communismPool";
 
 /** One bot's wire entry, serialized once; `items`/`enchants` are the ids its slots reference. */
 export interface BotFragment {
@@ -63,14 +64,14 @@ export function buildFragments(pool: PyrelayPool, owned: ReadonlySet<string>): M
     const items = new Set<string>();
     const enchants = new Set<number>();
     for (const info of Object.values(pool.instances?.[botGuid] ?? {})) {
-      if (!info || owned.has(info.instanceId) || !ITEM_BY_ID.has(info.itemId)) continue;
+      if (!info || owned.has(info.instanceId) || !ITEM_BY_ID.has(info.itemId) || !tradeableEnchants((info.enchantments ?? []).length)) continue;
       const ids = info.enchantments ?? [];
       wire.push([info.instanceId, info.itemId, ids]);
       items.add(info.itemId);
       for (const e of ids) enchants.add(e);
     }
     for (const s of stored[botGuid] ?? []) {
-      if (!s || owned.has(s.instanceId) || !ITEM_BY_ID.has(s.itemId)) continue;
+      if (!s || owned.has(s.instanceId) || !ITEM_BY_ID.has(s.itemId) || !tradeableEnchants((s.enchantments ?? []).length)) continue;
       const ids = s.enchantments ?? [];
       kept.push([s.instanceId, s.itemId, ids, whereLabel(s.where), wirePools(s.pools)]);
       items.add(s.itemId);
@@ -122,7 +123,7 @@ function botsJson(entries: Iterable<[string, BotFragment | null]>): string {
 
 /**
  * The snapshot for `pool`, or `prev` itself when nothing visible changed.
- * Pure: the caller supplies the owned set and the catalog JSON.
+ * Pure: the caller supplies the excluded set (communism's instances) and the catalog JSON.
  */
 export function computeSnapshot(prev: PoolSnapshot | null, pool: PyrelayPool, owned: ReadonlySet<string>, catalogJson: string, now = Date.now()): PoolSnapshot {
   const fragments = buildFragments(pool, owned);
@@ -239,7 +240,7 @@ function ownedSignature(owned: Set<string>): string {
 }
 
 /**
- * The current snapshot, rebuilt first if the fleet, the owned set or the
+ * The current snapshot, rebuilt first if the fleet, communism set or the
  * catalog moved. Cheap when nothing did: the embedded fleet hands back the
  * same payload object until something changes, so the check is an identity
  * comparison. Concurrent callers share one refresh. Returns the last good
@@ -272,7 +273,7 @@ async function doRefresh(now: number): Promise<PoolSnapshot | null> {
     pool = r.data;
   }
   lastError = null;
-  const owned = ownedInstanceIds(getDb());
+  const owned = communismInstanceIds(pool);
   const ownedSig = ownedSignature(owned);
   const catalogJson = catalogJsonNow(now);
   if (current && pool === lastPool && ownedSig === lastOwnedSig && catalogJson === current.catalogJson) return current;

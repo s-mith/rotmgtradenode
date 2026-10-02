@@ -21,8 +21,6 @@ const { projectInstances } = await import("../pool");
 const { applyPoolWire, emptyPoolState, inPool, instancesFromState } = await import("../poolWire");
 const { computeSnapshot, markPoolDirty, poolDelta, refreshPoolSnapshot, resetPoolSnapshot } = await import("../poolSnapshot");
 const { GET } = await import("../../server/api/pool/route");
-const { userForIgn } = await import("../users");
-const { claimInstances, vaultBotCandidates } = await import("../vault");
 
 type Slots = PyrelayPool["instances"][string];
 const T0 = 1_800_000_000_000;
@@ -53,12 +51,14 @@ describe("pool wire form", () => {
   it("reproduces the per-instance projection, names included", () => {
     const pool = fleet({
       "bot-A": { "4": slot("inst-1"), "5": slot("inst-2", "acsl", [283]) },
-      "bot-B": { "4": slot("inst-3", "ubatk", [283, 999999]) },
+      "bot-B": { "4": slot("inst-3", "ubatk", [283, 999999]), "5": slot("inst-divine", "ubatk", [1, 2, 3, 4]) },
     });
     const snap = computeSnapshot(null, pool, NONE, "[]");
     const full = parse(snap.fullJson);
     expect(full.full).toBe(true);
     expect(decode(full)).toEqual(projectInstances(pool));
+    // The divine item (four enchantments) is on neither side: the game will not trade it.
+    expect(decode(full).map((i) => i.instanceId)).not.toContain("inst-divine");
     // Names travel once, in dictionaries.
     const f = full as Extract<PoolWire, { full: true }>;
     expect(f.items).toEqual({ ubatk: expect.any(String), acsl: "Acidic Slasher" });
@@ -188,17 +188,16 @@ describe("GET /api/pool", () => {
     expect(full.full).toBe(true);
   });
 
-  it("drops an instance the moment it becomes somebody's property", async () => {
+  it("drops an account's instances the moment it is set aside for communism", async () => {
     const before = parse<Extract<PoolWire, { full: true }>>(await (await get("/api/pool?v=2")).text());
     expect(before.bots["bot-A"].slots.map((s) => s[0])).toEqual(["inst-1", "inst-2"]);
-    const userId = userForIgn(db, "Comrade", "comrade");
-    const actor = { userId, ign: "Comrade", ignLower: "comrade" };
-    const r = claimInstances(db, actor, [{ instanceId: "inst-1", itemId: "ubatk", enchants: 0, botGuid: "bot-A", seasonal: true }], vaultBotCandidates(db, poolNow, true, userId));
-    expect(r).toMatchObject({ ok: true, claimed: 1 });
-    // claimInstances raises the pool-changed signal itself; the snapshot is
-    // re-checked on the next read whether or not the fleet object changed.
+    poolNow = fleet({ "bot-A": { "4": slot("inst-1"), "5": slot("inst-2", "acsl", [283]) } }, { ...META, "bot-A": { ...META["bot-A"], communism: true } });
+    markPoolDirty();
     const after = parse<Extract<PoolWire, { full: false }>>(await (await get(`/api/pool?since=${before.rev}`)).text());
-    expect(after.bots["bot-A"]!.slots.map((s) => s[0])).toEqual(["inst-2"]);
+    const st = emptyPoolState();
+    applyPoolWire(st, before);
+    expect(applyPoolWire(st, after)).toBe("patched");
+    expect(instancesFromState(st).map((i) => i.instanceId)).toEqual([]);
     expect((await refreshPoolSnapshot())!.rev).toBe(after.rev);
   });
 });
@@ -240,3 +239,17 @@ describe("stored items on the wire", () => {
     expect(parse<Extract<PoolWire, { full: true }>>(s3.fullJson).bots["bot-A"].stored).toBeUndefined();
   });
 });
+
+describe("projectInstances and the enchantment cap", () => {
+  it("never lists an item with three or four enchantments: the game will not trade legendary or divine items", () => {
+    const meta = { b1: { ign: "Bot", server: "USEast", online: true, seasonal: true } };
+    const inst = (instanceId: string, enchantments: number[]) => ({ instanceId, itemId: "pdef", enchantments, capturedAt: 1 });
+    const data = {
+      ok: true, bots: { b1: { pdef: 4 } }, capacities: { b1: 8 }, botMeta: meta,
+      instances: { b1: { 4: inst("plain", []), 5: inst("rare", [7, 8]), 6: inst("legendary", [7, 8, 9]), 7: inst("divine", [7, 8, 9, 10]) } },
+      stored: { b1: [{ instanceId: "stored-divine", itemId: "pdef", enchantments: [1, 2, 3, 4], where: { kind: "vault", slot: 0 }, pools: { seasonal: true, nonseasonal: true } }, { instanceId: "stored-ok", itemId: "pdef", enchantments: [1], where: { kind: "vault", slot: 1 }, pools: { seasonal: true, nonseasonal: true } }] },
+    } as unknown as Parameters<typeof projectInstances>[0];
+    expect(projectInstances(data).map((i) => i.instanceId).sort()).toEqual(["plain", "rare", "stored-ok"]);
+  });
+});
+

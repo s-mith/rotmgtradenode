@@ -19,7 +19,6 @@ export async function GET(): Promise<Response> {
     db,
     uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
     fleet: process.env.RELAY_EMBEDDED === "1" ? { online: presence.online().length, ready: presence.readyCount() } : null,
-    accountgen: process.env.ACCOUNTGEN_EMBEDDED === "1",
   };
   return json(body, { status: body.ok ? 200 : 503 });
 }

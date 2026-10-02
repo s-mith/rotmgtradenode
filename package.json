@@ -1,6 +1,7 @@
 {
   "name": "rotmgtradenode",
   "version": "0.1.0",
+  "author": "rotmg trade",
   "private": true,
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"tsx watch src/server/main.ts\" \"vite\"",
@@ -15,11 +16,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:fixtures": "python3 scripts/gen-relay-fixtures.py ../rotmgcommunismpyrelay && python3 scripts/gen-relay-fleet-fixtures.py ../rotmgcommunismpyrelay && python3 scripts/gen-walker-fixtures.py ../accountgen/tutorial-state/pyrelay",
-    "build:resources": "node scripts/build-realm-resources.mjs ../accountgen/tutorial-state/pyrelay/Resources",
+    "gen:fixtures": "python3 scripts/gen-relay-fixtures.py ../rotmgcommunismpyrelay && python3 scripts/gen-relay-fleet-fixtures.py ../rotmgcommunismpyrelay",
+    "build:resources": "node scripts/build-realm-resources.mjs",
     "desktop": "node scripts/desktop.mjs run",
     "desktop:pack": "node scripts/desktop.mjs pack",
-    "desktop:dist": "node scripts/desktop.mjs dist"
+    "desktop:dist": "node scripts/desktop.mjs dist",
+    "desktop:icons": "node build/make-icons.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
@@ -31,7 +33,6 @@
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.18.3",
     "react-virtuoso": "^4.18.11",
-    "sharp": "^0.34.5",
     "socks": "^2.8.9",
     "socks-proxy-agent": "^10.1.0"
   },
@@ -45,6 +46,7 @@
     "electron": "^44.4.1",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
+    "sharp": "^0.34.5",
     "tsx": "^4.23.13",
     "typescript": "5.7.3",
     "vite": "^8.2.2",
@@ -58,51 +60,15 @@
   "description": "Self-hosted RotMG vault: your own alts, your own computer.",
   "license": "MIT",
   "main": "electron/main.mjs",
-  "build": {
-    "appId": "trade.rotmg.rotmgtradenode",
-    "productName": "rotmgtradenode",
-    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
-    "directories": {
-      "output": "release"
-    },
-    "asar": false,
-    "files": [
-      "electron/**",
-      "dist/**",
-      "public/**",
-      "realm-items.json",
-      "realm-enchants.json",
-      "package.json",
-      "!dist/**/*.map",
-      "!node_modules/**/test/**",
-      "!node_modules/**/*.md"
-    ],
-    "publish": {
-      "provider": "github"
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ],
-      "signAndEditExecutable": true
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "category": "Game"
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ]
-    }
-  },
   "exports": {
-    "./shared/*": "./src/shared/*.ts"
+    "./shared/*": "./src/shared/*.ts",
+    "./catalog": "./src/lib/catalog.ts",
+    "./enchant-effects": "./src/lib/enchantEffects.ts",
+    "./servers": "./src/lib/servers.ts",
+    "./sprite-atlas": "./src/lib/sprite-atlas.json",
+    "./item-index": "./src/lib/item-index.json",
+    "./item-tooltips": "./src/lib/item-tooltips.json",
+    "./enchant-mods": "./src/lib/enchant-mods.json",
+    "./package.json": "./package.json"
   }
 }

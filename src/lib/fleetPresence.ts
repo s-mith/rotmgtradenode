@@ -14,6 +14,16 @@ export interface PresenceBot {
   freeSlots: number;
   status: BotStatus;
   seasonal: boolean;
+  /** Set aside for communism: takes communism requests only, never pool work. */
+  communism?: boolean;
+  /** The played character's trade slots (8, 16 or 24), when the fleet says. */
+  capacity?: number;
+  /**
+   * Advanced management (docs/relay/ADVANCED.md): this bot claims a deposit
+   * only while its character is empty, and a deposit bigger than the
+   * character continues on the next empty one. Absent: the old rules.
+   */
+  emptyOnly?: boolean;
   /** Last report, ms epoch. */
   lastSeen: number;
 }
@@ -25,10 +35,11 @@ const READY_COUNT_FRESH_MS = 60_000;
 /** A fleet-wide room report older than this is ignored, the same way. */
 const POOL_ROOM_FRESH_MS = 60_000;
 
-/** Free trade slots per pool across every account on the roster. */
+/** Free trade slots per pool across every account on the roster; `communism` the same for communism accounts. */
 export interface PoolRoom {
   seasonal: number;
   nonseasonal: number;
+  communism?: { seasonal: number; nonseasonal: number };
 }
 
 type State = {
@@ -37,6 +48,8 @@ type State = {
   readyCountAt: number;
   poolRoom: PoolRoom | null;
   poolRoomAt: number;
+  /** Bots the fleet may have online at once (one per enabled exit IP), as last reported; null before any report. */
+  onlineCap?: number | null;
 };
 declare global {
   // eslint-disable-next-line no-var
@@ -96,14 +109,23 @@ export const presence = {
    *  online at any moment are a handful out of thousands. */
   setPoolRoom(room: PoolRoom, now = Date.now()): void {
     const s = state();
-    s.poolRoom = { seasonal: room.seasonal, nonseasonal: room.nonseasonal };
+    s.poolRoom = { seasonal: room.seasonal, nonseasonal: room.nonseasonal, ...(room.communism ? { communism: { seasonal: room.communism.seasonal, nonseasonal: room.communism.nonseasonal } } : {}) };
     s.poolRoomAt = now;
   },
-  /** Fleet-wide free slots for one pool if reported recently, else null. */
-  poolRoom(seasonal: boolean, now = Date.now()): number | null {
+  /** Fleet-wide free slots for one pool (or its communism accounts) if reported recently, else null. */
+  poolRoom(seasonal: boolean, communism = false, now = Date.now()): number | null {
     const s = state();
     if (!s.poolRoom || !s.poolRoomAt || now - s.poolRoomAt > POOL_ROOM_FRESH_MS) return null;
-    return seasonal ? s.poolRoom.seasonal : s.poolRoom.nonseasonal;
+    const r = communism ? s.poolRoom.communism : s.poolRoom;
+    if (!r) return null;
+    return seasonal ? r.seasonal : r.nonseasonal;
+  },
+  /** How many bots the fleet may have online at once: its proxies' budget (Dispatcher.onlineCap). */
+  setOnlineCap(n: number): void {
+    state().onlineCap = n;
+  },
+  onlineCap(): number | null {
+    return state().onlineCap ?? null;
   },
   /** Tests only. */
   reset(): void {

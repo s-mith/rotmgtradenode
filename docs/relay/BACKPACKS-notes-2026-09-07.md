@@ -1,3 +1,5 @@
+> Historical notes. The plan, chore, orders and lanes described here were removed on 2026-09-22; `BACKPACKS.md` describes what runs now (per-account claim and use, the daily login). The measurements and packet behaviours below still hold.
+
 # Backpacks for the communism fleet
 
 Plan drafted 2026-09-07, revised the same evening after live probes. Goal:
@@ -53,9 +55,8 @@ into `scripts/` as `realm-probe.ts` when the codecs land.
   the Gift Chest (`VAULTINFO` id 117), and apply a backpack with `USEITEM`
   addressing the chest's slot object (no free inventory slot needed).
 - **GameClient can already walk for real.** It has `setPath` / `moveTo`,
-  `findPath` + `smoothPath` (`accountgen/walker/pathfinding.ts`), a
+  `findPath` + `smoothPath` (`relay/client/pathfinding.ts`), a
   `WorldState` with object positions, and `USEPORTAL`/`INVSWAP` senders. The
-  tutorial walker (`accountgen/walker/tutorialWalker.ts`) is the working
   reference for "walk to an object and use it."
 - **Per-bot capacity is already modelled.** `playerData.hasBackpack` is
   evidence-based (stat `HASBACKPACK` = 1, or an item seen in a backpack
@@ -419,7 +420,7 @@ Consequences for the lifecycle:
   non-seasonal (the disposability rule). Never delete a character wearing a
   backpack (it dies with it).
 - Grow the seasonal pool from accounts whose claim is still available (fresh
-  accountgen mints, or accounts held back): create the seasonal character
+  accounts held back): create the seasonal character
   first, daily logins until the backpack day, then claim + equip in one trip.
 - Unclaimed days expire at the month reset by design; there is no automatic
   month-end backstop. Run `{"mode":"live","guids":[...]}` by hand if a
@@ -469,7 +470,7 @@ scheduler that keeps the fleet at the plan's target by itself.
   free audit row; the standalone audit is then only for accounts that never
   log in (and for retiring banned ones).
 - **Bans.** ~1 in 4 accounts minted since the cutover copy is banned; the
-  audit retires them. Pool growth from accountgen is therefore unreliable,
+  audit retires them. Pool growth is therefore unreliable,
   which makes recycling (delete an empty character, create one, equip a
   banked spare) the durable way to add capacity.
 - **State.** `backpack_state.json` already carries, per account, claim
@@ -528,7 +529,7 @@ inputs are always fresh for every account the fleet touches.
 ### Recycling (the answer to a starved pool)
 
 `recycle` run, plan-driven like the chore, only when a pool's free slots
-fall under `freeSlotsTarget` and accountgen has nothing ready: pick
+fall under `freeSlotsTarget` and nothing is ready: pick
 accounts the disposability rule clears — non-seasonal, empty, character
 without a backpack, `banked >= 1` — and per account: verify with char/list,
 `char/delete`, `CREATE` with the same seasonality, walk to the vault, equip

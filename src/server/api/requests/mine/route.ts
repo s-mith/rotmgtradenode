@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { ITEM_BY_ID } from "@/lib/catalog";
 import { sessionFromRequest } from "@/lib/session";
 import { sweepStaleRequests } from "@/lib/timeouts";
-import { openGroupsFor } from "@/lib/cancelCode";
+import { openGroupsFor, recentlyEndedGroupsFor } from "@/lib/cancelCode";
 import { depositGroupStatus } from "@/lib/depositStatus";
 import { withdrawGroupStatus } from "@/lib/withdrawStatus";
 
@@ -16,7 +16,9 @@ export async function GET(req: Request) {
   if (!session) return json({ error: "Log in to see your requests." }, { status: 401 });
   const db = getDb();
   sweepStaleRequests(db);
-  const groups = openGroupsFor(db, session.ignLower);
+  // Open groups, then lately ended ones the node gave a reason for, so a
+  // request the player never got does not just disappear from the list.
+  const groups = [...openGroupsFor(db, session.ignLower), ...recentlyEndedGroupsFor(db, session.ignLower)];
   const requests = [];
   for (const g of groups) {
     const status = g.kind === "deposit" ? await depositGroupStatus(db, g.groupId) : await withdrawGroupStatus(db, g.groupId);
@@ -25,7 +27,7 @@ export async function GET(req: Request) {
       groupId: g.groupId,
       kind: g.kind,
       server: g.server,
-      vault: g.vault,
+      communism: g.communism,
       seasonal: g.seasonal,
       createdAt: g.createdAt,
       itemCount: g.itemCount,
@@ -33,7 +35,7 @@ export async function GET(req: Request) {
       groupStatus: status.groupStatus,
       tradeCount: status.tradeCount,
       trades: status.trades,
-      endReason: g.kind === "deposit" ? (status as { endReason?: string | null }).endReason ?? null : null,
+      endReason: (status as { endReason?: string | null }).endReason ?? null,
     });
   }
   return json({ ok: true, ign: session.ign, requests });

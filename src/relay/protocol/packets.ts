@@ -45,6 +45,8 @@ export interface ChangeTradePacket { offer: boolean[] }
 export interface AcceptTradePacket { clientOffer: boolean[]; partnerOffer: boolean[] }
 export type CancelTradePacket = Record<string, never>;
 export interface InvSwapPacket { time: number; pos: WorldPos; slotObject1: SlotObject; slotObject2: SlotObject }
+/** Drop an item on the ground (it is gone): the slot on the player, `quickSlot` when the slot id names a quickslot (protocol.json InvDrop, 7.0.0.2.0). */
+export interface InvDropPacket { slotObject: SlotObject; quickSlot: boolean }
 export interface UsePortalPacket { objectId: number }
 export interface PlayerShootPacket {
   time: number; bulletId: number; weaponId: number; projectileId: number; startingPos: WorldPos;
@@ -246,7 +248,7 @@ export interface Packets {
   GOTOACK: GotoAckPacket; PONG: PongPacket; SHOOTACK: ShootAckPacket; SHOWALLYSHOOT: ShowAllyShootPacket;
   ESCAPE: EscapePacket; PLAYERTEXT: PlayerTextPacket; REQUESTTRADE: RequestTradePacket;
   CHANGETRADE: ChangeTradePacket; ACCEPTTRADE: AcceptTradePacket; CANCELTRADE: CancelTradePacket;
-  INVSWAP: InvSwapPacket; USEPORTAL: UsePortalPacket; PLAYERSHOOT: PlayerShootPacket; USEITEM: UseItemPacket;
+  INVSWAP: InvSwapPacket; INVDROP: InvDropPacket; USEPORTAL: UsePortalPacket; PLAYERSHOOT: PlayerShootPacket; USEITEM: UseItemPacket;
   ENEMYHIT: EnemyHitPacket; OTHERHIT: OtherHitPacket; SHOOTACKCOUNTER: ShootAckCounterPacket;
   DAMAGE: DamagePacket; ALLYSHOOT: AllyShootPacket; QUESTOBJID: QuestObjIdPacket;
   FAILURE: FailurePacket; MAPINFO: MapInfoPacket; CREATESUCCESS: CreateSuccessPacket; UPDATE: UpdatePacket;
@@ -408,6 +410,13 @@ export const CODECS: { [K in PacketName]: Codec<Packets[K]> } = {
       WorldPos.write(w, p.pos);
       SlotObject.write(w, p.slotObject1);
       SlotObject.write(w, p.slotObject2);
+    },
+  },
+  INVDROP: {
+    read: (r) => ({ slotObject: SlotObject.read(r), quickSlot: r.readBool() }),
+    write: (w, p) => {
+      SlotObject.write(w, p.slotObject);
+      w.writeBool(p.quickSlot);
     },
   },
   USEPORTAL: { read: (r) => ({ objectId: r.readInt32() }), write: (w, p) => w.writeInt32(p.objectId) },

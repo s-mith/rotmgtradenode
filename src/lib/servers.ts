@@ -15,6 +15,8 @@ export const SERVERS = [
   "EUSouthWest",
   "EUNorth",
   "EUEast",
+  "Asia",
+  "Australia",
 ] as const;
 
 export type Server = (typeof SERVERS)[number];

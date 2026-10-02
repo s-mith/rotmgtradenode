@@ -32,7 +32,7 @@ export const SERVER_IPS: Record<string, string> = {
   EUWest2: "52.16.86.215", Asia: "3.0.147.127", USSouth3: "52.207.206.31", EUWest: "15.237.60.223",
   USWest: "54.86.47.176", USMidWest2: "3.140.254.133", USMidWest: "18.221.120.59",
   USSouth: "3.82.126.16", USWest3: "18.144.30.153", USSouthWest: "54.153.13.68",
-  USNorthWest: "34.238.176.119", Australia: "13.236.87.250",
+  USNorthWest: "34.238.176.119", Australia: "3.107.164.237",
 };
 export const SERVER_NAMES: Record<string, string> = Object.fromEntries(
   Object.entries(SERVER_IPS).map(([n, ip]) => [ip, n]),

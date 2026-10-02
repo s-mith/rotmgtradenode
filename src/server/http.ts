@@ -2,6 +2,7 @@
 // Next. Handlers keep the shape `(req: Request, ctx: { params }) => Response`
 // so their bodies didn't have to change; `h()` wraps one into a Hono handler.
 import type { Context } from "hono";
+import { noteSocketAddress } from "@/lib/ratelimit";
 
 export type RouteContext<P = Record<string, string>> = { params: P };
 export type RouteHandler<P = Record<string, string>> = (
@@ -12,7 +13,11 @@ export type RouteHandler<P = Record<string, string>> = (
 /** Wrap a route handler for Hono. `P` is whatever the route file declares
  *  for its params; the registry pairs it with a matching `:name` path. */
 export function h<P = Record<string, string>>(fn: RouteHandler<P>) {
-  return (c: Context) => fn(c.req.raw, { params: c.req.param() as unknown as P });
+  return (c: Context) => {
+    // @hono/node-server hands over the Node request as `incoming`: its socket's address is the per-IP limits' last resort (lib/ratelimit).
+    noteSocketAddress(c.req.raw, (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress);
+    return fn(c.req.raw, { params: c.req.param() as unknown as P });
+  };
 }
 
 /** Whether the client takes gzip (an explicit q=0 opts out). Browsers all do; some scripts don't. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Browser end of the live-update stream (/api/live). One EventSource for the
 // whole page; the server says only "tx" or "pool" and the callers refetch the
@@ -31,6 +31,8 @@ export function useLiveUpdates(handlers: {
   // reopen the stream. The effect below must run exactly once.
   const ref = useRef(handlers);
   ref.current = handlers;
+  // Bumped when a page parked in the back-forward cache shows again: its stream was closed on the way out.
+  const [reopen, setReopen] = useState(0);
 
   const groupKey = (handlers.groups ?? []).join(",");
   useEffect(() => {
@@ -110,11 +112,21 @@ export function useLiveUpdates(handlers: {
       for (const which of due) fire(which);
     };
 
+    // A page navigated away from (or parked in the back-forward cache) must
+    // not keep its stream: browsers allow few connections to one host, and a
+    // stream left open makes the next page wait for one to free.
+    const onPageHide = () => es.close();
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setReopen((n) => n + 1);
+    };
+
     es.addEventListener("tx", onTx);
     es.addEventListener("pool", onPool);
     es.addEventListener("request", onRequest);
     es.addEventListener("open", onOpen);
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("pageshow", onPageShow);
     // No error handler on purpose: EventSource retries by itself, and the
     // reconnect path above is what repairs the missed window. Logging every
     // blip would just fill the console during a deploy.
@@ -125,9 +137,11 @@ export function useLiveUpdates(handlers: {
       es.removeEventListener("request", onRequest);
       es.removeEventListener("open", onOpen);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("pageshow", onPageShow);
       if (timers.tx !== null) clearTimeout(timers.tx);
       if (timers.pool !== null) clearTimeout(timers.pool);
       es.close();
     };
-  }, [groupKey]);
+  }, [groupKey, reopen]);
 }

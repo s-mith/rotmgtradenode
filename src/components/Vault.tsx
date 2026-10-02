@@ -7,9 +7,8 @@ import RecentActivity from "./RecentActivity"
 import { useLiveUpdates } from "@/lib/useLive"
 import { applyPoolWire, emptyPoolState, inPool, instancesFromState, type PoolInstance, type PoolState, type PoolWire, type Rarity } from "@/lib/poolWire";
 import LoginPanel from "./LoginPanel";
-import WishlistPanel from "./WishlistPanel";
-import TradePanel from "./TradePanel";
-import CommonsPanel from "./CommonsPanel";
+import TradePanel, { type TradeSection } from "./TradePanel";
+import CommunismPanel from "./CommunismPanel";
 import OpenRequests from "./OpenRequests";
 import PlayerName from "./PlayerName";
 import { ItemSprite } from "./ItemSprite";
@@ -292,59 +291,28 @@ function SliderValue({
 
 // "potions" is a withdraw variant: same endpoint, but sized in stat points
 // instead of picked item-by-item. It keeps the grid on the withdraw view so
-// the player can still see what stock backs their request. "claim" takes the
-// tray into personal storage (pool tabs); "donate" hands vault items back to
-// the pool (My vault tab).
-export type Tab = "deposit" | "withdraw" | "potions" | "claim" | "donate";
+// the player can still see what stock backs their request.
+export type Tab = "deposit" | "withdraw" | "potions";
 
 // The instance record and rarity grade come from the wire module the server
 // shares (lib/poolWire.ts); re-exported for the components that import them
 // from here.
 export type { PoolInstance, Rarity };
 
-export type PoolKind = "seasonal" | "nonseasonal" | "myvault" | "wishlist";
-/** What the right column is for while a pool tab is open: withdrawing, offering, or contributing. */
-type Desk = "none" | "trades" | "commons";
+export type PoolKind = "seasonal" | "nonseasonal";
+/** What the page is for: the pool (withdrawing / depositing), the trade desk (offering), or communism. */
+type Desk = "none" | "trades" | "communism";
 
-// GET /api/vault: the logged-in account's personal storage.
-export type VaultItemView = {
-  instanceId: string;
-  itemId: string;
-  itemName: string;
-  enchantments: { id: number; name: string | null }[];
-  rarity: Rarity;
-  seasonal: boolean;
-  botGuid: string;
-  botIgn: string;
-  server: string;
-  online: boolean;
-  inTransit: boolean;
-  reserved: boolean;
-  lost: boolean;
-  source: "claim" | "deposit";
-  since: number;
-};
-// One of the account's two vaults: the seasonal or the non-seasonal half.
-export type VaultHalfView = {
-  seasonal: boolean;
-  slots: number;
-  used: number;
-  wishes: number;
-  bot: { guid: string; ign: string; server: string; online: boolean } | null;
-};
-export type VaultView = {
-  total: number;
-  block: number;
-  unallocated: number;
-  seasonal: VaultHalfView;
-  nonseasonal: VaultHalfView;
-  items: VaultItemView[];
-  live: boolean;
-};
-export type VaultHalfKind = "seasonal" | "nonseasonal";
+// GET /api/communism: the accounts this node set aside for communism and their room, per pool half.
+export type CommunismRoom = { accounts: number; slots: number; used: number; free: number };
+export type CommunismAccountView = { botGuid: string; ign: string; seasonal: boolean; slots: number; used: number; free: number; online: boolean; server: string; suspended: boolean };
+type CommunismInfo = { linked: boolean; accounts: CommunismAccountView[]; room: { seasonal: CommunismRoom; nonseasonal: CommunismRoom }; instances: PoolInstance[] };
 
-const MAX_TRAY = 4;
-/** An offer can give up to a full trade window. */
+/** A pool withdraw has no count of its own (src/lib/validation.ts): the tray holds the biggest trade window, and the bots hand over in as many windows as the player has room for. */
+const MAX_TRAY = 24;
+/** A communism withdraw takes up to a character's eight slots. */
+const MAX_COMMUNISM_TRAY = 8;
+/** An offer's side holds up to the biggest trade window on this node: 8 until the trade desk says (TradePanel's onTradeSlots), 24 at most. */
 const MAX_TRADE_TRAY = 24;
 
 
@@ -454,19 +422,21 @@ export default function Vault() {
   // Seasonal / non-seasonal are disjoint economies (a seasonal char can
   // only trade seasonal players), so the page shows one at a time.
   const [pool, setPool] = useState<PoolKind>("seasonal");
-  // The pool tab to return to from My vault (the bookmark tabs switch between
-  // the two; the pool's own sub-tabs live under the Pool bookmark).
-  const [lastPoolKind, setLastPoolKind] = useState<Exclude<PoolKind, "myvault" | "wishlist">>("seasonal");
-  // My Vault shows one half at a time — an account has a seasonal and a
-  // non-seasonal vault, each on its own bot.
-  const [vaultHalf, setVaultHalf] = useState<VaultHalfKind>("seasonal");
-  const vaultHalfTouched = useRef(false);
-  // Trades and the commons: the pool grid stays as the picker, the tray feeds
-  // an offer or a contribution instead of a withdraw.
+  // The trade desk: the pool grid stays as the picker, the tray feeds an
+  // offer instead of a withdraw. Communism: the grid shows what sits on the
+  // communism accounts, the form deposits into or takes out of them.
   const [desk, setDesk] = useState<Desk>("none");
-  const tradeMode = desk !== "none";
-  const view: "pool" | "vault" | "wishlist" | "trades" | "commons" = pool === "myvault" ? "vault" : pool === "wishlist" ? "wishlist" : desk === "trades" ? "trades" : desk === "commons" ? "commons" : "pool";
-  const maxTray = tradeMode ? MAX_TRADE_TRAY : MAX_TRAY;
+  const tradeMode = desk === "trades";
+  // Trading: the Seasonal / Non-seasonal tabs show the desk over the picker; the
+  // Seasonal offers / Non-seasonal offers / My offers tabs replace both with the offers.
+  const [tradeSection, setTradeSection] = useState<TradeSection>("desk");
+  const listMode = tradeMode && tradeSection !== "desk";
+  // A half's offers take the page's whole width, as RealmEye's board does; the side column moves below.
+  const wideBoard = tradeMode && (tradeSection === "seasonalOffers" || tradeSection === "nonseasonalOffers");
+  const view: "pool" | "trades" | "communism" = desk === "trades" ? "trades" : desk === "communism" ? "communism" : "pool";
+  // The trade desk: as many as the biggest character on the node trades at once (the desk reports it).
+  const [tradeTray, setTradeTray] = useState(8);
+  const maxTray = tradeMode ? tradeTray : view === "communism" ? MAX_COMMUNISM_TRAY : MAX_TRAY;
   const [tray, setTray] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   // Search tags (item / enchantment / effect chips) picked from the search
@@ -535,43 +505,26 @@ export default function Vault() {
   // /api/login/me and updated by the LoginPanel; the trade form reads it
   // instead of the old free-text field.
   const [sessionIgn, setSessionIgn] = useState<string | null>(null);
-  // Operator-granted features on the account (see lib/features.ts); "wishlist"
-  // is what shows the My Wishlist bookmark.
-  const [features, setFeatures] = useState<string[]>([]);
-  // The account's personal storage, for the My vault tab. Refetched on every
-  // pool/feed refresh while that tab is open, and whenever a vault action
-  // completes (vaultKey).
-  const [vault, setVault] = useState<VaultView | null>(null);
-  const [vaultErr, setVaultErr] = useState<string | null>(null);
-  const [vaultKey, setVaultKey] = useState(0);
-  const bumpVault = useCallback(() => setVaultKey((k) => k + 1), []);
+  // This node's communism, for the Communism bookmark. Refetched on every
+  // pool/feed refresh while that view is open.
+  const [communismInfo, setCommunismInfo] = useState<CommunismInfo | null>(null);
+  const [communismErr, setCommunismErr] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/login/me")
       .then((r) => r.json())
-      .then((d: { ign: string | null; features?: string[] }) => {
+      .then((d: { ign: string | null }) => {
         if (cancelled) return;
         setSessionIgn(d.ign ?? null);
-        setFeatures(d.features ?? []);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
-  // Logging in, switching or linking a character can change what the
-  // account is entitled to; ask again rather than trust the old answer.
   const onSessionChange = useCallback((ign: string | null) => {
     setSessionIgn(ign);
-    if (!ign) {
-      setFeatures([]);
-      return;
-    }
-    fetch("/api/login/me")
-      .then((r) => r.json())
-      .then((d: { features?: string[] }) => setFeatures(d.features ?? []))
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -680,58 +633,37 @@ export default function Vault() {
   }, []);
 
   useEffect(() => {
-    if (!sessionIgn) {
-      setVault(null);
-      return;
-    }
+    if (view !== "communism") return;
     let cancelled = false;
-    fetch("/api/vault", { cache: "no-store" })
+    fetch("/api/communism", { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json();
         if (cancelled) return;
         if (!r.ok) {
-          setVaultErr(d.error ?? `HTTP ${r.status}`);
+          setCommunismErr(d.error ?? `HTTP ${r.status}`);
           return;
         }
-        setVaultErr(null);
-        setVault(d as VaultView);
-        // Land on the half that has slots until the player picks one.
-        if (!vaultHalfTouched.current) {
-          const v = d as VaultView;
-          if (v.seasonal.slots === 0 && v.nonseasonal.slots > 0) setVaultHalf("nonseasonal");
-        }
+        setCommunismErr(null);
+        setCommunismInfo(d as CommunismInfo);
       })
       .catch((e: Error) => {
-        if (!cancelled) setVaultErr(e.message);
+        if (!cancelled) setCommunismErr(e.message);
       });
     return () => {
       cancelled = true;
     };
-    // poolKey/feedKey: a trade or a fleet move changes where items are.
-  }, [sessionIgn, vaultKey, poolKey, feedKey]);
+    // poolKey/feedKey: a trade or a fleet move changes what communism holds.
+  }, [view, poolKey, feedKey]);
 
   // Everything below the tab bar sees only the active pool's instances. The
-  // My vault tab shows the account's own items in the same tile shape, so the
-  // filters, sort, stacks and tray all work unchanged.
+  // Communism view shows communism accounts' items in the same tile shape, so
+  // the filters, sort, stacks and tray all work unchanged.
   const poolInstances = useMemo<PoolInstance[]>(() => {
-    if (pool === "myvault") {
-      return (vault?.items ?? []).filter((v) => v.seasonal === (vaultHalf === "seasonal")).map((v) => ({
-        instanceId: v.instanceId,
-        itemId: v.itemId,
-        itemName: v.itemName,
-        sprite: null,
-        botGuid: v.botGuid,
-        botIgn: v.botIgn,
-        server: v.server,
-        seasonal: v.seasonal,
-        enchantments: v.enchantments,
-        rarity: v.rarity,
-      }));
-    }
+    if (view === "communism") return (communismInfo?.instances ?? []).filter((i) => inPool(i, pool === "seasonal"));
     // An item in an account's storage may serve both halves (a vault chest
     // on an account with a character of each side); inPool reads that.
     return instances.filter((i) => inPool(i, pool === "seasonal"));
-  }, [instances, pool, vault, vaultHalf]);
+  }, [instances, pool, view, communismInfo]);
 
   const trayInstances = useMemo(
     () => tray.map((id) => poolInstances.find((i) => i.instanceId === id) ?? null),
@@ -740,8 +672,7 @@ export default function Vault() {
 
   // Switching pools clears the tray — a withdraw can't mix bots from both
   // economies, and stale cross-pool picks would 404 anyway.
-  // The whole site's accent follows the view: gold for the pool, pastel blue
-  // for personal storage (see :root[data-view="vault"] in globals.css).
+  // The whole site's accent follows the view (see :root[data-view] in globals.css).
   useEffect(() => {
     document.documentElement.dataset.view = view;
     return () => {
@@ -751,46 +682,15 @@ export default function Vault() {
 
   const switchPool = useCallback((next: PoolKind, nextDesk: Desk = "none") => {
     setPool(next);
-    if (next !== "myvault" && next !== "wishlist") setLastPoolKind(next);
-    setDesk(next === "myvault" || next === "wishlist" ? "none" : nextDesk);
+    setDesk(nextDesk);
     setTray([]);
-    // Claim and potions belong to the pool tabs, donate to My vault; land on
-    // withdraw when the current tab has no meaning where we're going.
-    setTab((t) => (next === "myvault" ? (t === "claim" || t === "potions" ? "withdraw" : t) : t === "donate" ? "withdraw" : t));
+    // Potions belong to the pool; land on withdraw when the current tab has
+    // no meaning where we're going.
+    setTab((t) => (nextDesk === "communism" && t === "potions" ? "withdraw" : t));
   }, []);
 
-  // Switching halves clears the tray too: the two vaults ride different bots.
-  const switchVaultHalf = useCallback((next: VaultHalfKind) => {
-    vaultHalfTouched.current = true;
-    setVaultHalf(next);
-    setTray([]);
-  }, []);
-
-  // Give a half more (or fewer) of the account's slots, a block at a time.
-  const [vaultAllocBusy, setVaultAllocBusy] = useState(false);
-  const allocateVault = useCallback(async (seasonal: boolean, slots: number) => {
-    setVaultAllocBusy(true);
-    try {
-      const r = await fetch("/api/vault/allocate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seasonal, slots }),
-      });
-      const d = await r.json();
-      if (!r.ok) setVaultErr(d.error ?? `HTTP ${r.status}`);
-      else setVaultErr(null);
-      setVaultKey((k) => k + 1);
-    } catch (e) {
-      setVaultErr((e as Error).message);
-    } finally {
-      setVaultAllocBusy(false);
-    }
-  }, []);
-
-  // The vault half the page is looking at (or, on a pool tab, the one a
-  // claim from that tab would fill).
-  const ctxSeasonal = pool === "myvault" ? vaultHalf === "seasonal" : pool === "seasonal";
-  const ctxHalf = vault ? (ctxSeasonal ? vault.seasonal : vault.nonseasonal) : null;
+  const ctxSeasonal = pool === "seasonal";
+  const ctxRoom = communismInfo ? (ctxSeasonal ? communismInfo.room.seasonal : communismInfo.room.nonseasonal) : null;
 
   // Adds one not-yet-picked member of a stack. The pick happens inside
   // the functional update so back-to-back clicks each grab a DIFFERENT
@@ -833,6 +733,7 @@ export default function Vault() {
   }, []);
 
   const clearTray = useCallback(() => setTray([]), []);
+  const onTradeSlots = useCallback((biggest: number) => setTradeTray(Math.max(1, Math.min(MAX_TRADE_TRAY, biggest))), []);
 
   // itemId → category, for the consumable rail in the withdraw grid.
   const catalogCategory = useMemo(() => {
@@ -1056,7 +957,7 @@ export default function Vault() {
   );
 
   return (
-    <div className="layout">
+    <div className={"layout" + (wideBoard ? " wide" : "")}>
       {/* Left column: the pool with the blog underneath. */}
       <div className="layout-left">
         <div className="pool-stack">
@@ -1064,161 +965,76 @@ export default function Vault() {
           <button
             type="button"
             className={"bookmark" + (view === "pool" ? " active" : "")}
-            onClick={() => switchPool(lastPoolKind, "none")}
+            onClick={() => switchPool(pool, "none")}
           >
             The Pool
           </button>
           <button
             type="button"
-            className={"bookmark" + (view === "vault" ? " active" : "")}
-            onClick={() => switchPool("myvault")}
+            className={"bookmark" + (view === "communism" ? " active" : "")}
+            onClick={() => switchPool(pool, "communism")}
           >
-            My Vault
+            Communism
           </button>
-          {features.includes("wishlist") && (
-            <button
-              type="button"
-              className={"bookmark" + (view === "wishlist" ? " active" : "")}
-              onClick={() => switchPool("wishlist")}
-            >
-              My Wishlist
-            </button>
-          )}
           <button
             type="button"
             className={"bookmark" + (view === "trades" ? " active" : "")}
-            onClick={() => switchPool(lastPoolKind, "trades")}
+            onClick={() => switchPool(pool, "trades")}
           >
-            Trades
-          </button>
-          <button
-            type="button"
-            className={"bookmark" + (view === "commons" ? " active" : "")}
-            onClick={() => switchPool(lastPoolKind, "commons")}
-          >
-            Commons
+            Trading
           </button>
         </nav>
         <section className="panel pool-panel bookmarked">
         <div className="pool-head">
-          <h2>{pool === "myvault" ? "My Vault" : pool === "wishlist" ? "My Wishlist" : desk === "trades" ? "Trades" : desk === "commons" ? "Commons" : "The Pool"}</h2>
-          <span className="pool-count">
-            {pool === "wishlist"
-                ? ""
-                : pool === "myvault"
-                ? ctxHalf
-                  ? `${ctxHalf.used} / ${ctxHalf.slots} slots`
-                  : sessionIgn
-                    ? "…"
-                    : ""
+          <h2>{desk === "trades" ? "Trading" : desk === "communism" ? "Communism" : "The Pool"}</h2>
+          {!listMode && <span className="pool-count">
+            {view === "communism"
+                ? ctxRoom
+                  ? `${ctxRoom.used} / ${ctxRoom.slots} slots on ${ctxRoom.accounts} account${ctxRoom.accounts === 1 ? "" : "s"}`
+                  : "…"
                 : loading
                   ? "…"
                   : `${poolInstances.length} item${poolInstances.length === 1 ? "" : "s"}`}
-          </span>
+          </span>}
         </div>
-        {(view === "pool" || view === "trades" || view === "commons") && (
+        {(
           <div className="pool-tabs">
             <button
-              className={"nav-link" + (pool === "seasonal" ? " active" : "")}
-              onClick={() => switchPool("seasonal", desk)}
+              className={"nav-link" + (pool === "seasonal" && !listMode ? " active" : "")}
+              onClick={() => { setTradeSection("desk"); switchPool("seasonal", desk); }}
             >
               Seasonal
             </button>
             <button
-              className={"nav-link" + (pool === "nonseasonal" ? " active" : "")}
-              onClick={() => switchPool("nonseasonal", desk)}
+              className={"nav-link" + (pool === "nonseasonal" && !listMode ? " active" : "")}
+              onClick={() => { setTradeSection("desk"); switchPool("nonseasonal", desk); }}
             >
               Non-seasonal
             </button>
-          </div>
-        )}
-        {pool === "myvault" && (
-          <div className="pool-tabs">
-            <button
-              className={"nav-link" + (vaultHalf === "seasonal" ? " active" : "")}
-              onClick={() => switchVaultHalf("seasonal")}
-            >
-              Seasonal{vault ? ` · ${vault.seasonal.used}/${vault.seasonal.slots}` : ""}
-            </button>
-            <button
-              className={"nav-link" + (vaultHalf === "nonseasonal" ? " active" : "")}
-              onClick={() => switchVaultHalf("nonseasonal")}
-            >
-              Non-seasonal{vault ? ` · ${vault.nonseasonal.used}/${vault.nonseasonal.slots}` : ""}
-            </button>
-          </div>
-        )}
-        {pool === "myvault" && (
-          <div className="vault-head">
-            {!sessionIgn ? (
-              <p className="hint">Log in to see your vault. Every account gets its own slots, split between a seasonal and a non-seasonal vault, each on a bot of its own.</p>
-            ) : vault && ctxHalf ? (
+            {tradeMode && (
               <>
-                <div className="vault-alloc">
-                  <span className="vault-alloc-label">{ctxSeasonal ? "Seasonal" : "Non-seasonal"} slots</span>
-                  <button
-                    type="button"
-                    className="login-char-btn"
-                    disabled={vaultAllocBusy || ctxHalf.slots < vault.block || ctxHalf.used + ctxHalf.wishes > ctxHalf.slots - vault.block}
-                    onClick={() => allocateVault(ctxSeasonal, ctxHalf.slots - vault.block)}
-                    title={`Take ${vault.block} slots away from this vault`}
-                  >
-                    −{vault.block}
-                  </button>
-                  <span className="vault-alloc-count">{ctxHalf.slots}</span>
-                  <button
-                    type="button"
-                    className="login-char-btn"
-                    disabled={vaultAllocBusy || vault.unallocated < vault.block}
-                    onClick={() => allocateVault(ctxSeasonal, ctxHalf.slots + vault.block)}
-                    title={`Give this vault ${vault.block} more slots`}
-                  >
-                    +{vault.block}
-                  </button>
-                  <span className="pool-option-hint">
-                    {vault.unallocated > 0
-                      ? `${vault.unallocated} of your ${vault.total} slots unallocated`
-                      : `all ${vault.total} of your slots are allocated — free ${vault.block} from the ${ctxSeasonal ? "non-seasonal" : "seasonal"} vault to move them here`}
-                  </span>
-                  {ctxHalf.slots > 0 && ctxHalf.used + ctxHalf.wishes > ctxHalf.slots - vault.block && (
-                    <span className="pool-option-hint">
-                      · {ctxHalf.used} item{ctxHalf.used === 1 ? "" : "s"}{ctxHalf.wishes > 0 ? ` and ${ctxHalf.wishes} wish${ctxHalf.wishes === 1 ? "" : "es"}` : ""} keep these slots busy
-                    </span>
-                  )}
-                </div>
-                <div className="vault-bot">
-                  {ctxHalf.slots === 0 ? (
-                    `No slots here yet — press +${vault.block} to open your ${ctxSeasonal ? "seasonal" : "non-seasonal"} vault.`
-                  ) : ctxHalf.bot ? (
-                    <>
-                      Your {ctxSeasonal ? "seasonal" : "non-seasonal"} bot: <strong>{ctxHalf.bot.ign || "(logging in for the first time)"}</strong>
-                      {ctxHalf.bot.online ? ` · online on ${ctxHalf.bot.server}` : " · offline until you trade"}
-                    </>
-                  ) : (
-                    "No bot assigned yet — one is set aside the first time you store something here."
-                  )}
-                  {vault.items.some((i) => i.seasonal === ctxSeasonal && i.inTransit) && (
-                    <span className="pool-option-hint">
-                      {" "}· {vault.items.filter((i) => i.seasonal === ctxSeasonal && i.inTransit).length} item(s) still being moved to your bot
-                    </span>
-                  )}
-                  {vault.items.some((i) => i.seasonal === ctxSeasonal && i.lost) && (
-                    <span className="pool-option-hint" style={{ color: "var(--bad)" }}>
-                      {" "}· {vault.items.filter((i) => i.seasonal === ctxSeasonal && i.lost).length} item(s) on a bot the fleet no longer reaches
-                    </span>
-                  )}
-                </div>
-                {vaultErr && <p className="login-err">{vaultErr}</p>}
+                <span className="pool-tabs-sep" aria-hidden="true" />
+                <button className={"nav-link" + (tradeSection === "seasonalOffers" ? " active" : "")} onClick={() => setTradeSection("seasonalOffers")}>
+                  Seasonal offers
+                </button>
+                <button className={"nav-link" + (tradeSection === "nonseasonalOffers" ? " active" : "")} onClick={() => setTradeSection("nonseasonalOffers")}>
+                  Non-seasonal offers
+                </button>
+                <button className={"nav-link" + (tradeSection === "mine" ? " active" : "")} onClick={() => setTradeSection("mine")}>
+                  My offers
+                </button>
               </>
-            ) : (
-              <p className="hint">{vaultErr ?? "Loading your vault…"}</p>
             )}
           </div>
         )}
-        {pool === "wishlist" ? (
-          <WishlistPanel ign={sessionIgn} catalog={catalog} refreshKey={poolKey + feedKey + vaultKey} />
-        ) : (
-        <>
+        {desk === "trades" && (
+          <div className={listMode ? "trade-list-top" : "trade-desk-top"}>
+            {!listMode && <h3>Trade desk</h3>}
+            <TradePanel tray={trayInstances} onRemove={removeFromTrayAt} onClear={clearTray} seasonal={ctxSeasonal} onPosted={reload} maxTray={tradeTray} onTradeSlots={onTradeSlots} catalog={catalog} section={tradeSection} onSection={setTradeSection} onPostOwn={(seasonal) => { setTradeSection("desk"); switchPool(seasonal ? "seasonal" : "nonseasonal", desk); }} />
+          </div>
+        )}
+        {view === "communism" && communismErr && <p className="login-err">{communismErr}</p>}
+        {!listMode && (<>
         <div className="pool-controls">
           <TagSearch
             tags={tags}
@@ -1313,10 +1129,10 @@ export default function Vault() {
           ) : filtered.length === 0 ? (
             <p style={{ color: "var(--muted)" }}>
               {poolInstances.length === 0
-                ? pool === "myvault"
-                  ? sessionIgn
-                    ? `Your ${vaultHalf === "seasonal" ? "seasonal" : "non-seasonal"} vault is empty. Claim items from the ${vaultHalf === "seasonal" ? "seasonal" : "non-seasonal"} pool with the Claim tab, or deposit straight into it.`
-                    : "Log in to see your vault."
+                ? view === "communism"
+                  ? ctxRoom && ctxRoom.accounts === 0
+                    ? `No ${pool === "seasonal" ? "seasonal" : "non-seasonal"} account is set aside for communism. Tick "communism" on one under Control panel → Accounts.`
+                    : `The ${pool === "seasonal" ? "seasonal" : "non-seasonal"} communism is empty. Deposit something.`
                   : `The ${pool === "seasonal" ? "seasonal" : "non-seasonal"} pool is empty. Deposit something.`
                 : "No items match your search."}
             </p>
@@ -1349,25 +1165,12 @@ export default function Vault() {
         </div>
         </div>
         </div>
-        </>
-        )}
+        </>)}
       </section>
         </div>
       </div>
 
       <aside style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {desk === "trades" && (
-          <div className="panel trade-panel-wrap">
-            <h2>Trade desk</h2>
-            <TradePanel tray={trayInstances} onRemove={removeFromTrayAt} onClear={clearTray} seasonal={ctxSeasonal} onPosted={reload} maxTray={MAX_TRADE_TRAY} catalog={catalog} />
-          </div>
-        )}
-        {desk === "commons" && (
-          <div className="panel trade-panel-wrap">
-            <h2>Commons</h2>
-            <CommonsPanel tray={trayInstances} onRemove={removeFromTrayAt} onClear={clearTray} seasonal={ctxSeasonal} onChanged={reload} maxTray={MAX_TRADE_TRAY} />
-          </div>
-        )}
         <div className="panel">
           <h2>
             {sessionIgn ? (
@@ -1381,33 +1184,28 @@ export default function Vault() {
         {/* Server-backed: whatever this character has queued or mid-trade,
             with a cancel per request, surviving reloads and tab switches. */}
         <OpenRequests ign={sessionIgn} refreshKey={feedKey + poolKey} onChanged={reload} />
-        {pool === "wishlist" ? (
-          <div className="panel">
-            <h2>How it works</h2>
-            <ul className="wish-help">
-              <li>Pick an item and how many enchantment slots it should have. Each slot gets its own filter — by name, or by what the enchantment does.</li>
-              <li>A row describes one enchantment; add an &ldquo;or&rdquo; row for alternatives. Leave a slot empty to accept any enchantment there.</li>
-              <li>A wish is for the seasonal or the non-seasonal pool. A match that reaches that pool is claimed into your vault for it, priced like a claim, and the wish is spent. Items and wishes together can&apos;t exceed that vault&apos;s slots.</li>
-              <li>A wish is checked the moment you make it and on every pool change after. Older wishes are served first, across all players.</li>
-            </ul>
-          </div>
-        ) : tradeMode ? null : (
+        {tradeMode ? null : (
           <div className="panel">
             <h2>Transact</h2>
             <TxForm
               ign={sessionIgn}
               tab={tab}
               onTabChange={setTab}
-              mode={pool === "myvault" ? "vault" : "pool"}
+              mode={view === "communism" ? "communism" : "pool"}
               seasonal={ctxSeasonal}
-              vault={ctxHalf}
-              onVaultChanged={bumpVault}
+              communism={view === "communism" ? ctxRoom : null}
               trayInstances={trayInstances}
               onRemoveFromTray={removeFromTrayAt}
               onClearTray={clearTray}
               onComplete={reload}
-              maxTray={MAX_TRAY}
+              maxTray={maxTray}
             />
+          </div>
+        )}
+        {desk === "communism" && (
+          <div className="panel trade-panel-wrap">
+            <h2>Across the hub</h2>
+            <CommunismPanel seasonal={ctxSeasonal} accounts={communismInfo?.accounts ?? []} onChanged={reload} />
           </div>
         )}
         <div className="panel">
@@ -1814,11 +1612,6 @@ const StackTile = memo(function StackTile({
     >
       <ItemSprite name={inst.itemName} />
       {inst.rarity !== "common" && <RarityBadge rarity={inst.rarity} />}
-      {stack.stored > 0 && (
-        <span className="stored-badge" title="in an account's storage: fetched before the trade">
-          {stack.stored === total ? "stored" : `${stack.stored} stored`}
-        </span>
-      )}
       {(total > 1 || selected > 0) && (
         <span className="aggregate-count">
           {selected > 0 ? `${selected}/${total}` : `×${total}`}

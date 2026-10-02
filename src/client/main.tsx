@@ -4,8 +4,11 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import "./globals.css";
 import App from "@/components/App";
 
-// The control panel is its own chunk, fetched the first time it is opened.
+// The control panel is its own chunk, fetched the first time it is opened;
+// so are the first-run setup and the help page.
 const ControlPanel = lazy(() => import("./pages/dev/settings/page"));
+const SetupPage = lazy(() => import("./pages/setup/page"));
+const HelpPage = lazy(() => import("./pages/help/page"));
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -25,6 +28,22 @@ createRoot(document.getElementById("root")!).render(
             element={
               <main>
                 <ControlPanel />
+              </main>
+            }
+          />
+          <Route
+            path="/setup"
+            element={
+              <main>
+                <SetupPage />
+              </main>
+            }
+          />
+          <Route
+            path="/help"
+            element={
+              <main>
+                <HelpPage />
               </main>
             }
           />

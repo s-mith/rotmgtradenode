@@ -5,11 +5,12 @@ import { ITEM_BY_ID } from "@/lib/catalog";
 import { WITHDRAW_SERVERS } from "@/lib/servers";
 import type { OfferWire } from "@/shared/hubWire";
 
-// GET  /api/dev/offers?view=held|browse|mine|status
+// GET  /api/dev/offers?view=held|browse|mine|status   (browse: each other node's open offer carries `take`, whether this node could take it now and with what)
 // POST /api/dev/offers  { action: "create", instanceIds, want, server }
 //                       { action: "preview", offer }      what I'd give for it
 //                       { action: "accept", offer }
 //                       { action: "cancel", offerId }
+//                       { action: "renew", offerId }       another fourteen days; an expired offer comes back
 //                       { action: "abort", rendezvousId }   give a meeting up before its deadline
 //                       { action: "poll" }
 const names = (o: OfferWire) => ({
@@ -28,7 +29,17 @@ export async function GET(req: Request) {
   if (view === "browse" || view === "mine") {
     const r = view === "browse" ? await s.browse() : await s.mine();
     if (!r.ok) return json({ error: r.error }, { status: r.status });
-    return json({ ok: true, offers: r.offers.map(names), limits: r.limits });
+    if (view === "mine") return json({ ok: true, offers: r.offers.map(names), limits: r.limits });
+    // Every other node's open offer says whether this node could take it now, and with which of its items:
+    // the preview a click used to ask for, for all of them at once. Accepting checks again.
+    const take = (o: OfferWire) => {
+      if (o.mine || o.status !== "open") return undefined;
+      const pv = s.preview(o);
+      return pv.ok
+        ? { ok: true as const, picks: pv.picks.map((p) => ({ instanceId: p.instanceId, itemId: p.itemId, name: p.name, enchantIds: p.enchantIds, botIgn: p.botIgn, stored: p.stored, offers: p.offers })) }
+        : { ok: false as const, error: pv.error };
+    };
+    return json({ ok: true, offers: r.offers.map((o) => ({ ...names(o), take: take(o) })), limits: r.limits });
   }
   return json({ ok: true, ...s.status() });
 }
@@ -66,6 +77,11 @@ export async function POST(req: Request) {
       const r = await s.cancelOffer(Number(body.offerId));
       if (!r.ok) return json({ error: r.error }, { status: r.status });
       return json({ ok: true });
+    }
+    case "renew": {
+      const r = await s.renewOffer(Number(body.offerId));
+      if (!r.ok) return json({ error: r.error }, { status: r.status });
+      return json({ ok: true, offer: names(r.offer) });
     }
     case "abort": {
       const id = Number(body.rendezvousId);

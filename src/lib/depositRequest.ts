@@ -8,12 +8,13 @@
 // the two would mean one path could book a slot the other believes is taken.
 import crypto from "node:crypto";
 import type Database from "better-sqlite3";
-import { filterBotsByPool, largestFreeSlots, totalPoolSlots } from "./capacity";
+import { acrossRoomFor, committedDepositSlots, filterBotsByPool, largestFreeSlots, totalPoolSlots } from "./capacity";
 import { MAX_TRADE_SLOTS } from "./depositSizes";
 import { pyrelay } from "./devauth";
 import { openRequestsFor } from "./cancelCode";
 import { sweepStaleRequests } from "./timeouts";
-import { ensureVaultBot, poolName, sharedVaultBotCandidates, sharedVaultBots, vaultBotCandidates, vaultBotGuids, vaultCount, vaultHalf } from "./vault";
+import { advancedForPool } from "./advanced";
+import { notifyPendingChange } from "./queue";
 
 export type CreateDepositOk = {
   ok: true;
@@ -53,15 +54,15 @@ export async function createDepositRequest(
     /** What the player says they are bringing; routes the deposit to the
      *  bot already gathering those potions. Optional, never enforced. */
     items?: { itemId: string; qty: number }[];
-    /** Into this account's personal storage: only its vault bot may claim,
-     *  the cap is the slots it has left, and nothing hits the ledger. */
-    vaultUserId?: number;
+    /** Into communism: only a communism account of this half may claim it,
+     *  and the room is communism accounts' free slots. */
+    communism?: boolean;
   },
 ): Promise<CreateDepositResult> {
   const { ign, ignLower, server, seasonal } = args;
   const itemsJson = args.items?.length ? JSON.stringify(args.items) : null;
-  const vaultUserId = args.vaultUserId ?? null;
-  let slots = args.slots;
+  const communism = !!args.communism;
+  const slots = args.slots;
   if (!Number.isInteger(slots) || slots < 1 || slots > MAX_TRADE_SLOTS) {
     return { ok: false, status: 400, error: `Trade size must be 1-${MAX_TRADE_SLOTS} slots.` };
   }
@@ -95,28 +96,6 @@ export async function createDepositRequest(
   const capacities = poolResp.ok ? poolResp.data.capacities : undefined;
   const botMeta = poolResp.ok ? poolResp.data.botMeta : undefined;
 
-  // Personal storage has its own gate: the account's slots in this pool
-  // half, not the pool's. The row is capped at what is left, and the half
-  // gets its bot now so the fleet knows who to send.
-  let botCandidates: string[] = [];
-  if (vaultUserId !== null) {
-    const s = vaultHalf(db, vaultUserId, seasonal === 1);
-    if (s.slots < 1) {
-      return { ok: false, status: 409, error: `You have no vault slots allocated to the ${poolName(s.seasonal)} pool. Allocate some from My Vault first.` };
-    }
-    const left = s.slots - vaultCount(db, vaultUserId, s.seasonal);
-    if (left < 1) {
-      return { ok: false, status: 409, error: `Your ${poolName(s.seasonal)} vault is full (${s.slots} of ${s.slots} slots). Withdraw or donate something first.` };
-    }
-    // The vault bot is the only bot that can come, so the trade is as big
-    // as the room left, whatever size was asked for.
-    slots = Math.min(slots, left);
-    if (!s.botGuid) {
-      if (!poolResp.ok) return { ok: false, status: 503, error: "Bot service unavailable — try again in a minute." };
-      botCandidates = sharedVaultBots() ? sharedVaultBotCandidates(db, poolResp.data, s.seasonal, vaultUserId) : vaultBotCandidates(db, poolResp.data, s.seasonal, vaultUserId);
-      if (!botCandidates.length) return { ok: false, status: 503, error: "No free bot for your vault right now — try again in a minute." };
-    }
-  }
   // Capacity is per pool: only bots serving this deposit's pool can
   // ever claim it, so a full seasonal vault must not block a non-seasonal
   // deposit (and vice versa). The universe is tracker ∪ botMeta — the
@@ -124,14 +103,18 @@ export async function createDepositRequest(
   // registers every pool account in botMeta up front, and a fresh pool half
   // (first non-seasonal batch) exists only there. Meta-only bots hold
   // nothing and count the conservative 8 slots.
-  const vaultBots = vaultBotGuids(db);
+  // Communism accounts are communism's room, not the pool's, and the other
+  // way round.
   const trackerGuids = filterBotsByPool(
-    [...new Set([...Object.keys(tracker), ...Object.keys(botMeta ?? {})])].filter((g) => !vaultBots.has(g)),
+    [...new Set([...Object.keys(tracker), ...Object.keys(botMeta ?? {})])].filter((g) => !!botMeta?.[g]?.communism === communism),
     botMeta,
     seasonal ? "seasonal" : "nonseasonal",
   );
-  const totalSlots = totalPoolSlots(trackerGuids, capacities, trackerGuids.length);
-  let usedSlots = 0;
+  // Pool accounts playing the other side that have characters on this one
+  // serve it too, logging in as one of them: their slots there are room.
+  const across = communism ? { bots: 0, slots: 0, used: 0 } : acrossRoomFor(poolResp.ok ? poolResp.data.acrossRoom : undefined, seasonal ? "seasonal" : "nonseasonal", (g) => !!botMeta?.[g]?.suspended);
+  const totalSlots = totalPoolSlots(trackerGuids, capacities, trackerGuids.length) + across.slots;
+  let usedSlots = across.used;
   for (const guid of trackerGuids) {
     for (const qty of Object.values(tracker[guid] ?? {})) usedSlots += qty;
   }
@@ -139,27 +122,36 @@ export async function createDepositRequest(
   // The biggest single trade a bot could take right now. The embedded fleet
   // says so itself, counting only bots it would send (not suspended, held,
   // parked or locked out); a plain snapshot falls back to capacity minus load.
-  const room = poolResp.ok ? poolResp.data.room : undefined;
-  const largestFree = room ? room[seasonal ? "seasonal" : "nonseasonal"].largestFree : largestFreeSlots(trackerGuids, tracker, capacities);
-  // No bot with 16 free, but the fleet can fit an empty one with a backpack
-  // on request: the deposit is accepted and the fleet makes the bot.
+  // Under advanced management (docs/relay/ADVANCED.md) it is the biggest
+  // deposit the side takes now: one empty character after another, so it
+  // may be more than one bot holds. Communism has its own figure then.
+  const room = poolResp.ok && !communism ? poolResp.data.room : undefined;
+  const communismRoom = poolResp.ok && communism ? poolResp.data.room?.communism : undefined;
+  const advanced = advancedForPool(communism);
+  const largestFree = room
+    ? room[seasonal ? "seasonal" : "nonseasonal"].largestFree
+    : communismRoom
+      ? communismRoom[seasonal ? "seasonal" : "nonseasonal"].largestFree
+      : largestFreeSlots(trackerGuids, tracker, capacities);
+  // `canMake` was the automatic backpack fitting (removed 2026-09-22); the pool payload still carries it, always false.
   const canMake = !!room && slots > 8 && room[seasonal ? "seasonal" : "nonseasonal"].canMake;
-  if (totalSlots === 0 && vaultUserId === null) {
+  if (totalSlots === 0) {
     return {
       ok: false,
       status: 503,
-      error: "No bots online for this pool yet — try again in a minute.",
+      error: communism ? "No communism account for this pool on this node." : "No bots online for this pool yet — try again in a minute.",
     };
   }
 
   const now = Date.now();
   const groupId = crypto.randomUUID();
   const tx = db.transaction(() => {
-    // One deposit per IGN at a time. Multi-bot continuation already lets a
-    // single deposit chain across however many bots the player wants to fill;
-    // a second concurrent deposit for the same IGN just confuses the
-    // dispatcher (which row claims the next bot?) and the user (multiple
-    // "/trade <bot>" hints in the UI). Also still serves as the griefer gate.
+    // One deposit per IGN at a time. Under advanced management one deposit
+    // already continues across empty bots by itself (lib/queue.ts
+    // fulfillDeposit); a second concurrent deposit for the same IGN just
+    // confuses the dispatcher (which row claims the next bot?) and the user
+    // (multiple "/trade <bot>" hints in the UI). Also still serves as the
+    // griefer gate.
     //
     // Checked INSIDE the immediate transaction, alongside the insert it
     // guards. Outside it, two submits for the same IGN arriving together
@@ -200,51 +192,41 @@ export async function createDepositRequest(
     // item_count (16 by default) and a player depositing 40 items reserved
     // slots for 16. The ledger has one row per item actually received, so
     // summing it tracks the real occupancy however far the chain runs.
-    const committedSlots = (
-      db
-        .prepare(
-          `SELECT COALESCE(SUM(
-             (SELECT COALESCE(SUM(t.qty), 0) FROM transactions t
-               WHERE t.kind = 'deposit' AND t.request_id = dr.id)
-             + CASE WHEN dr.status = 'claimed' THEN COALESCE(dr.current_cap, 0) ELSE 0 END
-           ), 0) AS n
-           FROM deposit_requests dr
-           WHERE dr.status IN ('pending','claimed') AND dr.seasonal = ?`,
-        )
-        .get(seasonal) as { n: number }
-    ).n;
+    const committedSlots = committedDepositSlots(db, { seasonal: seasonal ? 1 : 0, communism });
     const availableSlots = Math.max(0, freeSlotsGlobal - committedSlots);
-    if (vaultUserId === null && availableSlots < slots) {
+    const where = communism ? "communism" : "this pool";
+    if (availableSlots < slots) {
       return {
         kind: "err" as const,
         status: 409,
-        error: availableSlots < 1 ? "Vault is full — wait for a withdrawal to free up space." : `Only ${availableSlots} slot${availableSlots === 1 ? "" : "s"} of room left in this pool right now — not enough for a ${slots}-slot trade.`,
+        error: availableSlots < 1 ? `${communism ? "Communism is" : "Vault is"} full — wait for a withdrawal to free up space.` : `Only ${availableSlots} slot${availableSlots === 1 ? "" : "s"} of room left in ${where} right now — not enough for a ${slots}-slot trade.`,
       };
     }
-    if (vaultUserId === null && largestFree < slots && !canMake) {
+    if (largestFree < slots && !canMake) {
       return {
         kind: "err" as const,
         status: 409,
-        error: `No bot has ${slots} free slots right now${slots > 8 ? ", and none can be fitted with a backpack at the moment" : ""}${slots > 8 && largestFree >= 8 ? " — ask for an 8-slot trade instead" : ""}. Try again later.`,
+        error:
+          largestFree < 1
+            ? `No ${communism ? "communism account" : "bot"} has room right now. Try again later.`
+            : advanced
+              ? `${communism ? "Communism" : "This pool"} can take ${largestFree} item${largestFree === 1 ? "" : "s"} right now, not ${slots}. Bring fewer, or try again later.`
+              : `No ${communism ? "communism account" : "bot"} has ${slots} free slots right now; the most one trade can take is ${largestFree}. Bring fewer, or try again later.`,
       };
-    }
-    if (vaultUserId !== null && botCandidates.length) {
-      if (!ensureVaultBot(db, vaultUserId, seasonal === 1, botCandidates, now)) {
-        return { kind: "err" as const, status: 503, error: "No free bot for your vault right now — try again in a minute." };
-      }
     }
     const result = db
       .prepare(
         `INSERT INTO deposit_requests
-           (ign, ign_lower, server, item_count, remaining_count, status, group_id, seasonal, items_json, vault_user_id, created_at, updated_at)
+           (ign, ign_lower, server, item_count, remaining_count, status, group_id, seasonal, items_json, communism, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
       )
-      .run(ign, ignLower, server, slots, slots, groupId, seasonal, itemsJson, vaultUserId, now, now);
+      .run(ign, ignLower, server, slots, slots, groupId, seasonal, itemsJson, communism ? 1 : 0, now, now);
     return { kind: "ok" as const, requestId: Number(result.lastInsertRowid) };
   }).immediate();
 
   if (tx.kind === "err") {
     return { ok: false, status: tx.status, error: tx.error };
   }
+  notifyPendingChange();
   return { ok: true, requestId: tx.requestId, groupId };
 }
