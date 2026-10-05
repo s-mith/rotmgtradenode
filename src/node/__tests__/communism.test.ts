@@ -179,6 +179,19 @@ describe("CommunismCoordinator", () => {
     expect(calls.find((c) => c.path === "/api/v1/communism/publish")!.body).toMatchObject({ accounts: [{ ign: "CommunismBot", slots: 840, free: 289 }] });
   });
 
+  it("a communism account with characters on the other side of the split is room on both sides, published once per side", async () => {
+    const { calls, communism } = make({}, () => pool({ accountRoom: { [COMMUNISM]: { slots: 840, used: 551 } }, communismAcross: { [COMMUNISM]: { seasonal: false, slots: 80, used: 3 } } }));
+    expect(communism.accounts()).toMatchObject([
+      { botGuid: COMMUNISM, seasonal: true, slots: 840, free: 289, online: true },
+      { botGuid: COMMUNISM, seasonal: false, slots: 80, used: 3, free: 77, online: false },
+    ]);
+    expect(communism.room(false)).toEqual({ accounts: 1, slots: 80, used: 3, free: 77 });
+    expect(await communism.publish()).toBe(true);
+    expect(calls.find((c) => c.path === "/api/v1/communism/publish")!.body).toMatchObject({
+      accounts: [{ ign: "CommunismBot", seasonal: true, slots: 840, free: 289 }, { ign: "CommunismBot", seasonal: false, slots: 80, free: 77, online: false }],
+    });
+  });
+
   it("an open communism deposit takes room away; an item in an open withdraw is not published", async () => {
     const { calls, communism } = make();
     const now = Date.now();

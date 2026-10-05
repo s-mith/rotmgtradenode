@@ -16,6 +16,7 @@ import type { ApiResult, Assignment, ItemQty, PendingDeposit, PendingWithdraw, S
 import { ApiStats } from "../siteApi";
 import { dataDirWith as dataDirWithIn, FakeRealm, loginsTo, sleep, UBATK, waitFor, writeStorage } from "./fleetHarness";
 import { noteAccountLogin, resetAccountLogins } from "../tokenCache";
+import { poolPayload } from "../../controlPlane";
 
 type Beat = { botGuid: string; status: string; freeSlots: number; capacity?: number; emptyOnly?: boolean };
 
@@ -440,5 +441,61 @@ describe("advanced management: background work and Realm's patience", () => {
     d.advancedChores(d.advancedFleet(), Date.now());
     await waitFor(() => runs.length === 1, 2000);
     expect(runs[0].maxChars).toBe(4);
+  });
+});
+
+describe("advanced management: a communism account on both sides of the seasonal split", () => {
+  /** A non-seasonal communism account whose played character holds an item, with one empty seasonal character. */
+  function bothSides(o: { communism?: boolean; deposits?: PendingDeposit[]; withdraws?: PendingWithdraw[] } = {}) {
+    const dataDir = dataDirWith([{ alias: "Comm", guid: "c@example.com", password: "pw", server: "USSouth3", seasonal: false, communism: true }]);
+    writeStorage(dataDir, [{ email: "c@example.com", chars: [{ id: 1, seasonal: false }, { id: 2, seasonal: true }] }]);
+    const nodeSettings = advancedOn(dataDir, { communism: o.communism ?? true });
+    const logs: string[] = [];
+    const logins: { alias: string; charId: number | null }[] = [];
+    const fleet = new Fleet({
+      dataDir, proxies: { file: path.join(dataDir, "none.txt") }, buildVersion: "7.0.0.0.0", api: new AdvSite(o.deposits ?? [], "Partner", o.withdraws ?? []), nodeSettings, log: (l) => logs.push(l),
+      bringUp: async (_d, acc) => {
+        logins.push({ alias: acc.alias, charId: acc.info.charId ?? null });
+        throw new Error("the test ends the login here");
+      },
+    });
+    cleanup.push(() => fleet.stop());
+    fleet.tracker.updateFromSlots(deriveBotGuid("c@example.com"), { 4: { itemId: "ubatk", enchantments: [] } }, 8);
+    return { fleet, logs, logins, botGuid: deriveBotGuid("c@example.com") };
+  }
+
+  it("takes a deposit for the other side by logging in as an empty character of that side", async () => {
+    const { fleet, logs, logins } = bothSides({ deposits: [deposit(201, 1, { seasonal: true, communism: true })] });
+    await fleet.start({ sweep: false });
+    await waitFor(() => logins.length > 0, 10_000, logs);
+    expect(logins[0]).toEqual({ alias: "Comm", charId: 2 });
+    expect(logs.some((l) => l.includes("chose Comm for seasonal communism deposit #201 on USSouth3 — an empty 8-slot character (switching to 2)"))).toBe(true);
+  }, 15_000);
+
+  it("receives a hand-over on the other side as a character of that side", async () => {
+    const handOver: PendingWithdraw = { id: 301, server: "USSouth3", items: [], targetBotGuid: deriveBotGuid("c@example.com"), instanceIds: null, seasonal: true, communism: true, swap: { rendezvousId: 9, role: "take", gets: [{ itemId: "patk", qty: 2 }] } };
+    const { fleet, logs, logins } = bothSides({ withdraws: [handOver] });
+    await fleet.start({ sweep: false });
+    await waitFor(() => logins.length > 0, 10_000, logs);
+    expect(logs.some((l) => l.includes("withdraw #301: Comm will play character 2, of the side the hand-over is on"))).toBe(true);
+    expect(logins[0]).toEqual({ alias: "Comm", charId: 2 });
+  }, 15_000);
+
+  it("counts its room on both sides for the site, the hub and the surplus rule", () => {
+    const { fleet, botGuid } = bothSides();
+    privately(fleet).rebuildAdvancedState();
+    expect(fleet.dispatcher!.communismRoom().sort((a, b) => Number(a.seasonal) - Number(b.seasonal))).toEqual([
+      { seasonal: false, accounts: 1, emptyChars: 0, vaultFree: 0 },
+      { seasonal: true, accounts: 1, emptyChars: 1, vaultFree: 0 },
+    ]);
+    expect(fleet.dispatcher!.largestFreeByPool().communism).toEqual({ seasonal: 8, nonseasonal: 7 });
+    expect(poolPayload(fleet).communismAcross).toEqual({ [botGuid]: { seasonal: true, slots: 8, used: 0 } });
+  });
+
+  it("keeps to the side it plays while advanced management leaves communism alone", () => {
+    const { fleet } = bothSides({ communism: false });
+    privately(fleet).rebuildAdvancedState();
+    expect(fleet.dispatcher!.communismRoom()).toEqual([]);
+    expect(poolPayload(fleet).communismAcross).toBeUndefined();
   });
 });

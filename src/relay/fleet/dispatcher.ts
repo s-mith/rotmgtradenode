@@ -1574,7 +1574,14 @@ export class Dispatcher {
       } else if (w.targetBotGuid) {
         const inv = inPool(w.targetBotGuid) ? tracker[w.targetBotGuid] : undefined;
         if (inPool(w.targetBotGuid) && covers(inv, w.items)) candidates = [w.targetBotGuid];
-        else {
+        else if (w.swap && !w.items.length && !inPool(w.targetBotGuid)) {
+          // A hand-over a communism account only receives, on the other side of the split from the one it plays: it logs in as a character of that side.
+          const to = this.receivingCharAcross(w.targetBotGuid, want, w.swap.gets.reduce((n, it) => n + it.qty, 0));
+          if (to !== null) {
+            switchChar = to;
+            candidates = [w.targetBotGuid];
+          }
+        } else {
           // A count of a type is filled from the account's containers (never another character).
           const stock: Record<string, number> = {};
           for (const s of storedOf(w.targetBotGuid, want)) if (s.where.kind !== "char") stock[s.itemId] = (stock[s.itemId] ?? 0) + 1;
@@ -1771,10 +1778,11 @@ export class Dispatcher {
    * A bot that is busy (a trade, a login, a chore) is simply tried next pass.
    */
   /**
-   * A withdraw whose picks sit on another character of its account: make
-   * that character the one the account logs in with. An offline account
-   * just gets the preference; an idle online one playing the wrong
-   * character logs out so the next wake brings the right one.
+   * A withdraw whose picks sit on another character of its account, or a
+   * hand-over a communism account receives on its other side: make that
+   * character the one the account logs in with. An offline account just gets
+   * the preference; an idle online one playing the wrong character logs out
+   * so the next wake brings the right one.
    */
   private applyCharSwitches(routing: Routing): void {
     for (const r of routing.values()) {
@@ -1783,7 +1791,7 @@ export class Dispatcher {
         const acc = this.pool.byBotGuid(w.targetBotGuid);
         if (!acc || acc.suspended) continue;
         if ((acc.info.charId ?? null) !== w.switchChar) {
-          this.log(`withdraw #${w.requestId}: ${acc.alias} will play character ${w.switchChar}, which holds the picks`);
+          this.log(`withdraw #${w.requestId}: ${acc.alias} will play character ${w.switchChar}, ${w.items.length || w.instanceIds?.length ? "which holds the picks" : "of the side the hand-over is on"}`);
           this.pool.setPreferredChar(acc, w.switchChar);
         }
         const c = acc.client;
@@ -1824,6 +1832,24 @@ export class Dispatcher {
       best = { id: c.id, free, held: c.held };
     }
     return best;
+  }
+  /**
+   * A communism account under advanced management receiving a hand-over on
+   * the other side of the seasonal split: the character of that side it logs
+   * in as for it, the roomiest, when that one has room for `need` items; else
+   * null (the hand-over then waits like any other it cannot take).
+   */
+  private receivingCharAcross(botGuid: string, side: boolean, need: number): number | null {
+    const acc = this.pool.byBotGuid(botGuid);
+    const desk = this.storageDesk;
+    if (!acc?.communism || !this.isAdvanced(acc) || !desk) return null;
+    let best: { id: number; free: number } | null = null;
+    for (const c of desk.chars(botGuid)) {
+      if (c.seasonal !== side) continue;
+      const free = c.capacity - c.held;
+      if (!best || free > best.free) best = { id: c.id, free };
+    }
+    return best && best.free >= Math.max(1, need) ? best.id : null;
   }
   /** The living character the account was switched to (a rotation, a withdraw's picks) while the tracker still describes another, or null. */
   private switchedTo(acc: BotAccount): { id: number; held: number; capacity: number } | null {
@@ -3156,9 +3182,13 @@ export class Dispatcher {
     if (pref != null && (!living.length || living.some((ch) => ch.id === pref))) return pref;
     return this.storageDesk?.loginChar(acc.botGuid) ?? null;
   }
-  /** The characters of `side` holding nothing; a communism account has only its own side. `next`: the one it plays or logs in as. */
+  /**
+   * The characters of `side` holding nothing; `next`: the one it plays or logs
+   * in as. Either side, a communism account's too: under advanced management
+   * it takes deposits for the other side by logging in as one of these
+   * (wakeEmptyFor ranks that crossing after the accounts already on the side).
+   */
   private emptyCharsOf(acc: BotAccount, side: boolean): { id: number; capacity: number; next: boolean }[] {
-    if (acc.communism && side !== seasonalOf(acc)) return [];
     const nextId = this.nextCharId(acc);
     return this.charsOf(acc)
       .filter((c) => c.seasonal === side && c.held === 0 && c.capacity > 0)
@@ -3888,18 +3918,26 @@ export class Dispatcher {
     };
   }
 
-  /** Communism accounts under advanced management, per side: how many, their empty characters, and vault room past the reserves (the hub's surplus rule reads it). */
+  /**
+   * Communism accounts under advanced management, per side: how many, their
+   * empty characters, and vault room past the reserves (the hub's surplus rule
+   * reads it). An account counts on the side it plays and on the other one
+   * when it has a living character there, which it serves by logging in as it.
+   */
   communismRoom(): { seasonal: boolean; accounts: number; emptyChars: number; vaultFree: number }[] {
     if (!this.advancedSettings().communism) return [];
     const out = new Map<boolean, { seasonal: boolean; accounts: number; emptyChars: number; vaultFree: number }>();
     for (const acc of this.accounts()) {
       if (!acc.communism || this.deps.gate.isRetired(acc.guid)) continue;
-      const side = seasonalOf(acc);
-      const row = out.get(side) ?? { seasonal: side, accounts: 0, emptyChars: 0, vaultFree: 0 };
-      row.accounts++;
-      row.emptyChars += this.emptyCharsOf(acc, side).length;
-      row.vaultFree += this.bankRoom(acc, side) ?? 0;
-      out.set(side, row);
+      const chars = this.charsOf(acc);
+      for (const side of [seasonalOf(acc), !seasonalOf(acc)]) {
+        if (side !== seasonalOf(acc) && !chars.some((c) => c.seasonal === side)) continue;
+        const row = out.get(side) ?? { seasonal: side, accounts: 0, emptyChars: 0, vaultFree: 0 };
+        row.accounts++;
+        row.emptyChars += this.emptyCharsOf(acc, side).length;
+        row.vaultFree += this.bankRoom(acc, side) ?? 0;
+        out.set(side, row);
+      }
     }
     return [...out.values()];
   }

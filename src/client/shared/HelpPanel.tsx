@@ -4,6 +4,7 @@ import faq from "../../../docs/faq.md?raw";
 import { getDiagnostics } from "./api";
 import DesktopSettings from "./DesktopSettings";
 import Markdown from "./Markdown";
+import { DISCORD_URL } from "@/components/discord";
 
 // Help, in the app: a one-press diagnostics copy for the Discord helpers,
 // the desktop app's folders and settings, and the same guide and FAQ as
@@ -14,7 +15,6 @@ export default function HelpPanel() {
   const [diag, setDiag] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
-  const discordUrl = import.meta.env.VITE_DISCORD_URL as string | undefined;
 
   async function copyDiagnostics() {
     setBusy(true);
@@ -39,7 +39,7 @@ export default function HelpPanel() {
       <section className="ui-card" aria-label="Get help">
         <h2>Get help</h2>
         <p className="ui-note">
-          Press the button, then paste in the help channel{discordUrl ? <> on <a href={discordUrl} target="_blank" rel="noopener noreferrer">our Discord</a></> : " on our Discord"}.
+          Press the button, then paste in the help channel on <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">our Discord</a>.
           It copies what the helpers need to see what is wrong. Passwords, emails and proxy logins are removed first.
         </p>
         <div className="ui-row">
