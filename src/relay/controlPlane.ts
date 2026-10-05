@@ -64,6 +64,14 @@ export type PoolPayload = {
    * of those characters (Dispatcher.rotateAcross), so it is room there.
    */
   acrossRoom?: Record<string, { seasonal: boolean; slots: number; used: number }>;
+  /**
+   * Communism accounts with living characters on the other side of the
+   * seasonal split, while advanced management runs communism: that side's
+   * slots and what fills them. The account serves it too, logging in as one of
+   * those characters (Dispatcher.wakeEmptyFor), so it is published as room
+   * there (node/communism.ts). Apart from acrossRoom, which is pool capacity.
+   */
+  communismAcross?: Record<string, { seasonal: boolean; slots: number; used: number }>;
   botMeta: Record<string, { ign: string; server: string; online: boolean; seasonal: boolean }>;
 };
 
@@ -78,7 +86,7 @@ const payloadMemo = new WeakMap<Fleet, { key: string; payload: PoolPayload }>();
 function poolPayloadKey(fleet: Fleet): string {
   const live: string[] = [];
   for (const acc of fleet.pool.all()) if (acc.online) live.push(acc.botGuid, acc.client!.server);
-  return `${fleet.tracker.revision()}|${fleet.pool.revision}|${fleet.storage.revision()}|${live.join(",")}`;
+  return `${fleet.tracker.revision()}|${fleet.pool.revision}|${fleet.storage.revision()}|${live.join(",")}|${crossingSides(fleet)}`;
 }
 
 /**
@@ -90,6 +98,11 @@ function poolPayloadKey(fleet: Fleet): string {
  * comparison tells them whether anything changed. The per-bot records are
  * the tracker's own: read-only for everyone downstream.
  */
+/** Whether communism accounts serve both sides of the seasonal split: advanced management runs communism. */
+function crossingSides(fleet: Fleet): boolean {
+  return !!fleet.dispatcher?.advanced().communism;
+}
+
 export function poolPayload(fleet: Fleet): PoolPayload {
   // The room figure reads dispatcher state the key does not cover (the login
   // desk, lockouts, assignments, holds, wakes), so it is computed every call:
@@ -120,6 +133,8 @@ export function poolPayload(fleet: Fleet): PoolPayload {
   const botMeta: PoolPayload["botMeta"] = {};
   const accountRoom: NonNullable<PoolPayload["accountRoom"]> = {};
   const acrossRoom: NonNullable<PoolPayload["acrossRoom"]> = {};
+  const communismAcross: NonNullable<PoolPayload["communismAcross"]> = {};
+  const crossing = crossingSides(fleet);
   for (const acc of fleet.pool.all()) {
     if (!acc.communism && !acc.suspended) {
       const across = fleet.storage.charsFor(acc).filter((ch) => ch.seasonal !== acc.seasonalOrDefault);
@@ -130,14 +145,17 @@ export function poolPayload(fleet: Fleet): PoolPayload {
       if (s.length) stored[acc.botGuid] = s;
     }
     if (acc.communism && !acc.suspended) {
-      const side = fleet.storage.charsFor(acc).filter((ch) => ch.seasonal === acc.seasonalOrDefault);
+      const chars = fleet.storage.charsFor(acc);
+      const side = chars.filter((ch) => ch.seasonal === acc.seasonalOrDefault);
       if (side.length) accountRoom[acc.botGuid] = { slots: side.reduce((n, ch) => n + ch.capacity, 0), used: side.reduce((n, ch) => n + ch.held, 0) };
+      const across = crossing ? chars.filter((ch) => ch.seasonal !== acc.seasonalOrDefault) : [];
+      if (across.length) communismAcross[acc.botGuid] = { seasonal: !acc.seasonalOrDefault, slots: across.reduce((n, ch) => n + ch.capacity, 0), used: across.reduce((n, ch) => n + ch.held, 0) };
     }
     // Suspended accounts stay listed (the operator's views name them) but
     // are marked, so the site's room maths and vault-bot picks skip them.
     botMeta[acc.botGuid] = { ign: igns.get(acc.botGuid) ?? "", server: acc.online ? acc.client!.server : "", online: acc.online, seasonal: acc.seasonalOrDefault, ...(acc.suspended ? { suspended: true } : {}), ...(acc.communism ? { communism: true } : {}) };
   }
-  const payload: PoolPayload = { ok: true, bots, capacities, instances, stored, botMeta, ...(Object.keys(accountRoom).length ? { accountRoom } : {}), ...(Object.keys(acrossRoom).length ? { acrossRoom } : {}), ...(room ? { room } : {}) };
+  const payload: PoolPayload = { ok: true, bots, capacities, instances, stored, botMeta, ...(Object.keys(accountRoom).length ? { accountRoom } : {}), ...(Object.keys(acrossRoom).length ? { acrossRoom } : {}), ...(Object.keys(communismAcross).length ? { communismAcross } : {}), ...(room ? { room } : {}) };
   payloadMemo.set(fleet, { key, payload });
   return payload;
 }

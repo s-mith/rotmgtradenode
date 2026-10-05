@@ -41,6 +41,12 @@ so a node can run one pool the old way and the other the new way.
 - The whole deposit is one trade when it fits the character; a bigger one
   continues on the next empty character (unavoidable on 8-slot characters).
 - A communism deposit is never claimed by a bot with only a few free slots.
+- A communism account with characters on both sides of the seasonal split
+  serves both: its empty characters on the other side take that side's
+  deposits (an account already on the side goes first), a hand-over it
+  receives there makes it log in as a character of that side, and the node
+  publishes its room on each side to the hub. With communism off here, a
+  communism account keeps the side it plays.
 
 ### Keep an empty character
 

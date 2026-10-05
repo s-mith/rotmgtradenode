@@ -1,11 +1,11 @@
 # rotmgtradenode
 
-A self-hosted item pool for Realm of the Mad God. Your own alt accounts hold
+A self-hosted item pool for Realm of the Mad God (network hub at [rotmg.trade](https://rotmg.trade)). Your own alt accounts hold
 your items, on your own computer, through your own proxies. Nothing central to
 ban, nothing to shut down.
 
 This is the successor to the RotMG Communism pool. The design lives in
-[`design doc`](./design%20doc); this README is how to run it.
+[`design doc`](design%20doc); this README is how to run it.
 
 ## What it does today
 
@@ -72,7 +72,7 @@ This is the successor to the RotMG Communism pool. The design lives in
   `relay/proxies.txt` in plain text, readable only by your user (0600).
   There is no hub account required for any of the above.
 
-The hub (offers between nodes, communism across nodes) is a separate
+The hub ([rotmg.trade](https://rotmg.trade); source in [rotmgtradehub](https://github.com/s-mith/rotmgtradehub)) coordinates offers between nodes and communism across nodes: it is a separate
 open-source service and is not needed to use this. Once linked, hub users
 deposit into and take from this node's communism from the hub website, and
 its owner can post and accept offers, take communism items and give them

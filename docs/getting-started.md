@@ -10,7 +10,7 @@ rotmg trade node runs a trading pool for Realm of the Mad God on your own comput
 
 ## 1. Install
 
-1. Download the installer (a file like `rotmgtradenode-Setup-1.2.3.exe`) from the official download link on rotmg trade or in our Discord. Do not run copies from anywhere else.
+1. Download the installer (a file like `rotmgtradenode-Setup-1.2.3.exe`) from the official download link on [rotmg.trade](https://rotmg.trade) or in our Discord. Do not run copies from anywhere else.
    If your browser says the file "isn't commonly downloaded", keep it. In Edge, press **…** next to the download, then **Keep**, **Show more** and **Keep anyway**. In Chrome, press **Keep**.
 2. Double-click it. It installs for your Windows user only, so it does not ask for an administrator password, and it opens when it is done.
 
@@ -29,7 +29,7 @@ The setup opens by itself the first time you start the app. You can go back and 
    - **Use proxies (recommended).** Paste the list your proxy seller gave you, press **Save proxies**, then **Test my proxies**. Each line shows whether it works. If you have none yet, press **Get 10 free proxies at Webshare**, sign up, and copy the list Webshare gives you.
    - **Use my own internet.** Free, but your bots and your main account then come from the same home address. Read the warning, tick **I understand**, and only one bot logs in at a time.
 3. **Accounts.** Add your alt accounts one by one with their email and password. "Added" means Realm accepted the account. If something is wrong, the setup says what to do.
-4. **rotmg trade (optional).** Linking lets people find your pool on the rotmg trade website. Sign in on rotmg trade, open **My nodes**, press **Link my node**, and paste the code. You can skip this and do it later.
+4. **rotmg trade (optional).** Linking lets people find your pool on the [rotmg trade website](https://rotmg.trade). Sign in on [rotmg.trade](https://rotmg.trade), open **My nodes**, press **Link my node**, and paste the code. You can skip this and do it later.
 5. **Test.** Press **Log in a bot now**. After up to a minute you should see "<name> is standing in the Nexus". If not, the message says what to fix.
 6. **Done.** The control panel opens.
 

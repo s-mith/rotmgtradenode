@@ -178,8 +178,11 @@ export class CommunismCoordinator implements CommunismResolver {
       const slots = whole?.slots ?? pool.capacities?.[botGuid] ?? SLOTS_PER_BOT;
       const used = whole?.used ?? Object.values(pool.bots?.[botGuid] ?? {}).reduce((n, q) => n + q, 0);
       out.push({ botGuid, ign: meta.ign, seasonal: meta.seasonal !== false, slots, used, free: Math.max(0, slots - used), online: !!meta.online, server: meta.server ?? "", suspended: !!meta.suspended });
+      // Its characters on the other side of the split, under advanced management: room there too, reached by logging in as one.
+      const across = pool.communismAcross?.[botGuid];
+      if (across) out.push({ botGuid, ign: meta.ign, seasonal: across.seasonal, slots: across.slots, used: across.used, free: Math.max(0, across.slots - across.used), online: false, server: "", suspended: !!meta.suspended });
     }
-    return out.sort((a, b) => a.ign.localeCompare(b.ign));
+    return out.sort((a, b) => a.ign.localeCompare(b.ign) || Number(b.seasonal) - Number(a.seasonal));
   }
 
   items(): CommunismItemView[] {

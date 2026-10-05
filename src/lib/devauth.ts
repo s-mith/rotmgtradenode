@@ -155,6 +155,8 @@ export type PyrelayPool = {
   accountRoom?: Record<string, { slots: number; used: number }>;
   /** Pool accounts' characters on the other side of the seasonal split from the one they play: room on that side (relay/controlPlane.ts). */
   acrossRoom?: Record<string, { seasonal: boolean; slots: number; used: number }>;
+  /** Communism accounts' characters on the other side of the split, under advanced management: room there too (relay/controlPlane.ts). */
+  communismAcross?: Record<string, { seasonal: boolean; slots: number; used: number }>;
   instances: Record<
     string,
     Record<

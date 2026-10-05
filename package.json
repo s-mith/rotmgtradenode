@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "author": "rotmg trade",
   "private": true,
+  "homepage": "https://rotmg.trade",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/s-mith/rotmgtradenode.git"
+  },
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"tsx watch src/server/main.ts\" \"vite\"",
     "dev:api": "tsx watch src/server/main.ts",
