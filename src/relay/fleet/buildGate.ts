@@ -18,7 +18,7 @@ import type { BotPool } from "./botPool";
 import { DEFAULT_SERVER } from "../realm/constants";
 
 /** Builds the shipped codecs were verified on. Bump with every release that follows a Realm patch. */
-export const COMPILED_KNOWN_BUILDS: readonly string[] = ["7.0.0.0.0", "7.0.0.2.0"];
+export const COMPILED_KNOWN_BUILDS: readonly string[] = ["7.0.0.0.0", "7.0.0.2.0", "7.1.0.0.0"];
 export const CANARY_CONNECT_MS = Number(process.env.CANARY_CONNECT_SECONDS ?? 120) * 1000;
 export const CANARY_HOLD_MS = Number(process.env.CANARY_HOLD_SECONDS ?? 30) * 1000;
 
