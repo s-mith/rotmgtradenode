@@ -28,7 +28,7 @@ export default function HelpPanel() {
     setDiag(r.data.text);
     try {
       await navigator.clipboard.writeText(r.data.text);
-      setMsg({ tone: "ok", text: "Copied. Paste it in the help channel on our Discord (Ctrl+V)." });
+      setMsg({ tone: "ok", text: "Copied. Send it to a staff member in the Discord (Ctrl+V to paste)." });
     } catch {
       setMsg({ tone: "bad", text: "Could not copy by itself: open “Show what is copied” below, select all of it (Ctrl+A) and copy it (Ctrl+C)." });
     }
@@ -39,7 +39,7 @@ export default function HelpPanel() {
       <section className="ui-card" aria-label="Get help">
         <h2>Get help</h2>
         <p className="ui-note">
-          Press the button, then paste in the help channel on <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">our Discord</a>.
+          Press the button, then send it to a staff member in <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">the Discord</a>.
           It copies what the helpers need to see what is wrong. Passwords, emails and proxy logins are removed first.
         </p>
         <div className="ui-row">

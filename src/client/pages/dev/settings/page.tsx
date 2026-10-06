@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { DEV_PASSWORD_KEY } from "@/components/devHeaders";
-import HelpPanel from "@/client/shared/HelpPanel";
 import { getSetup } from "@/client/shared/api";
 import InventoriesTab from "./InventoriesTab";
 import DepositsTab from "./DepositsTab";
@@ -38,8 +37,7 @@ type DevTab =
   | "storage"
   | "offers"
   | "communism"
-  | "deposits"
-  | "help";
+  | "deposits";
 
 /** The tabs in the top row, in order. Every tab is a top-level tab; there are no sections. */
 const TABS: { id: DevTab; label: string }[] = [
@@ -47,7 +45,6 @@ const TABS: { id: DevTab; label: string }[] = [
   // Node & hub (the build gate, the hub link, telemetry) is part of Overview; the tab stays at #node.
   { id: "accounts", label: "Accounts" },
   { id: "proxies", label: "Proxies" },
-  { id: "help", label: "Help" },
   // Accepted items: hidden for now; the tab stays at #items and the setting still applies.
   // Offers: meetings show on the main page's Trading desk; the tab stays at #offers.
   // Communism: the "Across the hub" panel is on the main page's Communism bookmark; the tab stays at #communism.
@@ -253,7 +250,6 @@ function Panel({ password, tab, setTab, error, lock }: { password: string; tab: 
           {tab === "communism" && <CommunismTab />}
           {tab === "deposits" && <DepositsTab password={password} />}
           {tab === "servercontrols" && <ServerControlTab password={password} />}
-          {tab === "help" && <HelpPanel />}
         </div>
       </div>
     </>
