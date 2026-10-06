@@ -1,7 +1,7 @@
 import SiteHeader from "@/components/SiteHeader";
 import HelpPanel from "@/client/shared/HelpPanel";
 
-// /help: the same help as the control panel's Help tab, on a page of its own
+// /help: the help page (Help in the top bar)
 // (the desktop app's tray and the docs link here).
 export default function HelpPage() {
   return (
