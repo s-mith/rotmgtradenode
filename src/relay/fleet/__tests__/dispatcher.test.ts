@@ -228,6 +228,63 @@ describe("dispatcher end to end", () => {
     expect(logs.some((l) => l.includes("the login desk is not needed any more"))).toBe(true);
   }, 25_000);
 
+  it("staffs the login desk with a communism account when the node has nothing else", async () => {
+    const realm = new FakeRealm("Partner");
+    await realm.listen();
+    cleanup.push(() => realm.close());
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "relay-test-"));
+    cleanup.push(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(dataDir, "Accounts.json"), JSON.stringify([{ alias: "CommOne", guid: "comm1@example.com", password: "pw", server: "USSouth3", seasonal: false, communism: true }]));
+    const logs: string[] = [];
+    const fleet = new Fleet({
+      dataDir, proxies: { file: path.join(dataDir, "none.txt") }, buildVersion: "7.0.0.0.0", api: new FakeSite(null, "Partner"),
+      log: (l) => logs.push(l),
+      bringUp: async (deps: FleetDeps, acc, server) => {
+        const client = new GameClient({ guid: acc.guid, password: "pw", alias: acc.alias, server, proxy: null, buildVersion: "7.0.0.0.0", host: "127.0.0.1", port: realm.port });
+        client.adoptSession({ accessToken: "tok", charId: 1, seasonal: false });
+        deps.clients.set(acc.guid, client);
+        client.on("stopped", () => deps.clients.delete(acc.guid));
+        await client.connect();
+        return client;
+      },
+    });
+    cleanup.push(() => fleet.stop());
+    await fleet.start({ sweep: false });
+    fleet.loginCodes.register("COMMCODE1");
+    await waitFor(() => fleet.dispatcher!.electLoginBot() !== null, 10_000, logs);
+    expect(logs.some((l) => l.includes("woke CommOne") && l.includes("a communism account: no other account is free"))).toBe(true);
+  }, 25_000);
+
+  it("staffs the login desk with a communism account when the node has no other", async () => {
+    const realm = new FakeRealm("Partner");
+    await realm.listen();
+    cleanup.push(() => realm.close());
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "relay-test-"));
+    cleanup.push(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(dataDir, "Accounts.json"), JSON.stringify([{ alias: "CommOne", guid: "comm1@example.com", password: "pw", server: "USSouth3", seasonal: true, communism: true }]));
+    const logs: string[] = [];
+    const fleet = new Fleet({
+      dataDir, proxies: { file: path.join(dataDir, "none.txt") }, buildVersion: "7.0.0.0.0", api: new FakeSite(null, "Partner"),
+      log: (l) => logs.push(l),
+      bringUp: async (deps: FleetDeps, acc, server) => {
+        const client = new GameClient({ guid: acc.guid, password: "pw", alias: acc.alias, server, proxy: null, buildVersion: "7.0.0.0.0", host: "127.0.0.1", port: realm.port });
+        client.adoptSession({ accessToken: "tok", charId: 1, seasonal: true });
+        deps.clients.set(acc.guid, client);
+        client.on("stopped", () => deps.clients.delete(acc.guid));
+        await client.connect();
+        return client;
+      },
+    });
+    cleanup.push(() => fleet.stop());
+    await fleet.start({ sweep: false });
+    // The only account is set aside for communism; a code still gets a bot to /tell.
+    fleet.loginCodes.register("COMMCODE1");
+    await waitFor(() => fleet.dispatcher!.electLoginBot() !== null, 10_000, logs);
+    expect(fleet.dispatcher!.electLoginBot()!.ign).toBe("BotIgn");
+    expect(logs.some((l) => l.includes("woke CommOne") && l.includes("a communism account: no other account is free"))).toBe(true);
+    expect(fleet.loginCodes.noteTell("Someone", "COMMCODE1")).toBe(true);
+  }, 25_000);
+
   it("keeps a bot at the login desk all the time when the owner turns that on", async () => {
     const realm = new FakeRealm("Partner");
     await realm.listen();

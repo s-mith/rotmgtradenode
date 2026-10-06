@@ -350,6 +350,8 @@ export class Dispatcher {
   private consolidationSeq = 0;
   private consolidationPoolTurn = false;
   private loginPauseNote = 0;
+  /** When the login desk last said nobody can staff it (once a minute, not every tick). */
+  private loginDeskNoneNote = 0;
   private lastOnlineCap: number | null = null;
   private serverJamLogAt = new Map<string, number>();
   private lastUnfulfillableSig = new Map<string, string>();
@@ -2616,19 +2618,27 @@ export class Dispatcher {
     // trying them one by one logged a skip line per account (thousands per
     // tick after a sweep) and sorted the whole roster with a per-compare
     // inventory sum.
-    const candidates = this.offline()
+    const free = this.offline()
       // A held account is somebody else's for now (a maintenance trip about to log it in).
-      .filter((a) => !a.inUse && !this.isHeld(a.guid) && !a.communism && this.deps.gate.lockoutRemainingMs(a.guid) <= 0)
+      .filter((a) => !a.inUse && !this.isHeld(a.guid) && this.deps.gate.lockoutRemainingMs(a.guid) <= 0)
       .map((a) => [a, this.tracker.heldCount(a.botGuid)] as const)
       .sort((x, y) => x[1] - y[1]);
+    // Pool accounts first: a communism account waits on its server for communism's deposits. But a node
+    // with no pool account free (one with only communism accounts) must still sign people in.
+    const candidates = [...free.filter(([a]) => !a.communism), ...free.filter(([a]) => a.communism)];
     for (const [acc] of candidates) {
       const server = this.loginDeskServer(acc);
       if (!server) return;
       if (this.wakeSpecificAccount(acc, server)) {
         this.loginBotGuid = acc.guid;
-        this.log(`woke ${acc.alias} on ${server} ${this.loginDeskAlwaysOn() ? "to keep the login desk staffed" : "for the login desk: someone is logging in"}`);
+        const why = this.loginDeskAlwaysOn() ? "to keep the login desk staffed" : "for the login desk: someone is logging in";
+        this.log(`woke ${acc.alias} on ${server} ${why}${acc.communism ? " (a communism account: no other account is free)" : ""}`);
         return;
       }
+    }
+    if (now - this.loginDeskNoneNote >= 60_000) {
+      this.loginDeskNoneNote = now;
+      this.log(`the login desk is wanted but no account can staff it: none of the ${this.pool.all().length} on the roster is free (online elsewhere, in use, held or on a login cooldown)`);
     }
   }
 
