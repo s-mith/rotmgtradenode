@@ -108,7 +108,7 @@ export default function LoginPanel({
   }
 
   const tellCmd = challenge
-    ? `/tell ${challenge.botIgn} by pasting this im logging into rotmgcommunism ${challenge.code}`
+    ? `/tell ${challenge.botIgn} by pasting this im logging into rotmgtradenode ${challenge.code}`
     : "";
 
   // Poll for the pasted tell while a challenge is live.
