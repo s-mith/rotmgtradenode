@@ -182,3 +182,40 @@ export function acrossRoomFor(
   }
   return out;
 }
+
+/**
+ * Communism's room in one pool half, counted as the node's communism view
+ * counts it (node/communism.ts): every living character of each communism
+ * account's side (the fleet's accountRoom; the played character alone when it
+ * did not describe the account), and, under advanced management, characters
+ * across the split that serve this half. A communism deposit continues on the
+ * next character or account with room (lib/queue.ts), so all of it is room.
+ */
+export function communismRoomFor(
+  pool: {
+    bots: Record<string, Record<string, number>>;
+    capacities?: Record<string, number>;
+    accountRoom?: Record<string, { slots: number; used: number }>;
+    communismAcross?: Record<string, { seasonal: boolean; slots: number; used: number }>;
+    botMeta?: Record<string, { seasonal?: boolean; suspended?: boolean; communism?: boolean }>;
+  },
+  side: "seasonal" | "nonseasonal",
+): { accounts: number; slots: number; used: number } {
+  const out = { accounts: 0, slots: 0, used: 0 };
+  const seasonal = side === "seasonal";
+  for (const [g, meta] of Object.entries(pool.botMeta ?? {})) {
+    if (!meta.communism || meta.suspended) continue;
+    if ((meta.seasonal !== false) === seasonal) {
+      const whole = pool.accountRoom?.[g];
+      out.accounts++;
+      out.slots += whole?.slots ?? pool.capacities?.[g] ?? SLOTS_PER_BOT;
+      out.used += whole?.used ?? Object.values(pool.bots[g] ?? {}).reduce((n, q) => n + q, 0);
+    }
+    const across = pool.communismAcross?.[g];
+    if (across && across.seasonal === seasonal) {
+      out.slots += across.slots;
+      out.used += across.used;
+    }
+  }
+  return out;
+}

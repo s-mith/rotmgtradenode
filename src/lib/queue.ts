@@ -120,11 +120,15 @@ export function claimDeposit(db: Database.Database, botGuid: string, liveFreeSlo
       .get(bot.server, bot.seasonal ? 1 : 0, ...params, ...orderParams) as Row | undefined;
     if (!row) return;
     cap = communism || emptyOnly ? Math.min(row.item_count, liveFree) : row.item_count;
+    // A communism account short of the whole deposit takes what it has room
+    // for, and the rest continues on the next character or account with room
+    // (fulfillDeposit), as an advanced pool's empty characters do.
+    const continues = emptyOnly || (communism && cap < row.item_count);
     const claimed = db
       .prepare(`UPDATE deposit_requests SET status = 'claimed', claimed_by = ?, current_cap = ?, continues = ?, updated_at = ? WHERE id = ? AND status = 'pending'`)
-      .run(botGuid, cap, emptyOnly ? 1 : 0, now, row.id);
+      .run(botGuid, cap, continues ? 1 : 0, now, row.id);
     if (claimed.changes !== 1) return;
-    recordEvent(db, "deposit", row.id, "claimed", botGuid, emptyOnly ? { cap, continues: true } : { cap });
+    recordEvent(db, "deposit", row.id, "claimed", botGuid, continues ? { cap, continues: true } : { cap });
     groupId = row.group_id;
     out = { kind: "deposit", requestId: row.id, ign: row.ign, server: row.server, itemCount: cap, botIgn: bot.ign, communism: row.communism === 1 };
   }).immediate();
@@ -302,6 +306,7 @@ export function fulfillDeposit(db: Database.Database, botGuid: string, requestId
     // Advanced management: an empty character took what it could hold of a
     // bigger deposit and was filled by it. The rest continues on the next
     // empty character as a new row of the same group, the player's next trade.
+    // A communism account short of a whole deposit continues it the same way.
     // A trade the player under-filled ends the deposit as before, and so do a
     // pool with no room left for the rest and a deposit cancelled mid-trade.
     const rest = row.item_count - got;
