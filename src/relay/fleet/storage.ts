@@ -475,6 +475,18 @@ export function otherSideChar(st: AccountStorageState, loginCharId: number | nul
   return pick(preferred) ?? pick(st.chars ?? []);
 }
 
+/**
+ * The character whose login reads the seasonal side's vault, rack and gift
+ * chest, which the account snapshot does not carry: the played one itself
+ * when it is seasonal (its own chests), unless its Vault was just read
+ * (`ownFresh`); another character of that side when the played one is
+ * regular (otherSideChar); null when there is none.
+ */
+export function seasonalReader(st: AccountStorageState, loginCharId: number | null, loginSeasonal: boolean | null, preferred: CharDetail[] = [], ownFresh = false): CharDetail | null {
+  if (loginSeasonal === true) return ownFresh ? null : (st.chars ?? []).find((c) => c.id === loginCharId && !c.dead) ?? null;
+  return otherSideChar(st, loginCharId, loginSeasonal, preferred);
+}
+
 /** The trade slots of a char/list Equipment list: past the 4 equipment slots, as many as it lists. */
 const TRADE_SLOT_FIRST = 4;
 
@@ -585,6 +597,17 @@ export function applySnapshot(st: AccountStorageState, dump: AccountDump, loginC
     };
     return { vault: build("vault", dump.vault.flat()), rack: build("rack", dump.potions), gift: build("gift", dump.gifts), spoils: build("spoils", dump.temporaryGifts) };
   };
+  // The played character changed side since the containers were read (its own side's characters gone, another made
+  // the played one, a season's characters turned regular): what it read is the other side's now, and what the other
+  // side read is its own, as a Vault trip moves them (applyView). Where both already describe the old side, the other
+  // side's copy is the one this snapshot keeps fresh, and the played side waits for its Vault to be read.
+  if (hasAccount && playedSeasonal !== null && st.viewSeasonal != null && st.viewSeasonal !== playedSeasonal) {
+    const own = st.otherSide?.seasonal === playedSeasonal ? st.otherSide.containers : null;
+    if (st.containers && st.otherSide?.seasonal !== st.viewSeasonal) st.otherSide = { seasonal: st.viewSeasonal, at: st.lastVisitAt ?? now, containers: st.containers };
+    else if (st.otherSide?.seasonal === playedSeasonal) st.otherSide = null;
+    st.containers = own;
+    st.viewSeasonal = playedSeasonal;
+  }
   let regular: Containers | null = null;
   if (hasAccount && playedSeasonal === true) {
     // The played character is seasonal: what the snapshot lists is the other side's.
@@ -1545,6 +1568,8 @@ const CHARACTER_CREATE_COOLDOWN_MS = Number(process.env.CHARACTER_CREATE_COOLDOW
 const FETCH_MAX_CONCURRENT = process.env.STORAGE_FETCH_MAX_CONCURRENT ? Number(process.env.STORAGE_FETCH_MAX_CONCURRENT) : null;
 /** Other characters one read logs in as at most (0: all of them; the rest wait for the next read). */
 const VISIT_MAX_CHARS = Number(process.env.STORAGE_VISIT_MAX_CHARS ?? 0);
+/** A seasonal played character's Vault read this recently (a trip just walked in) needs no login of its own to read it again. */
+const OWN_VAULT_FRESH_MS = 5 * 60 * 1000;
 
 export interface FetchOptions {
   /** The pool half the withdraw is for: decides which side's character may carry the items. */
@@ -2122,9 +2147,10 @@ export class StorageService {
    * A refresh without entering the game: the account snapshot over HTTP
    * (httpRead) describes the played character, every other character and
    * the regular side's containers in one call. Only the seasonal side's
-   * vault, rack and gift chest are not in it; an account with a character
-   * of the side the played one is not on gets one login as that character
-   * to read them (visitLoop). Borrowed for the duration like a trip.
+   * vault, rack and gift chest are not in it; an account with a seasonal
+   * character gets one login as one to walk into its Vault and read them
+   * (visitLoop, seasonalReader): the played one when it is seasonal.
+   * Borrowed for the duration like a trip.
    */
   private async snapshotRefresh(acc: BotAccount, label: string): Promise<TripOutcome> {
     const { sd, store, holds } = this.o;
@@ -3280,13 +3306,16 @@ export class StorageService {
   private async visitLoop(acc: BotAccount, st: AccountStorageState, tag: string, what: { items: boolean; containers: boolean } = { items: true, containers: false }): Promise<VisitSummary> {
     const { sd } = this.o;
     const forItems = what.items ? charsToVisit(st, st.loginCharId ?? null, VISIT_MAX_CHARS) : [];
-    // The other side's vault, rack and gift chest: one login as a character of that side, on top of its items.
+    // The seasonal side's vault, rack and gift chest are not in the account snapshot: one login as a character of that
+    // side reads them, on top of its items; the played one itself when it is seasonal, unless a trip just read its Vault.
     const loginSeasonal = (st.chars ?? []).find((c) => c.id === st.loginCharId)?.seasonal ?? st.viewSeasonal ?? null;
-    const sideChar = what.containers ? otherSideChar(st, st.loginCharId ?? null, loginSeasonal, forItems) : null;
+    const ownFresh = st.viewSeasonal === true && !!st.containers && this.now() - (st.lastVisitAt ?? 0) < OWN_VAULT_FRESH_MS;
+    const sideChar = what.containers ? seasonalReader(st, st.loginCharId ?? null, loginSeasonal, forItems, ownFresh) : null;
+    const ownSide = sideChar !== null && sideChar.id === (st.loginCharId ?? null);
     const targets = sideChar && !forItems.some((c) => c.id === sideChar.id) ? [...forItems, sideChar] : forItems;
     const out: VisitSummary = { total: targets.length, visited: 0, failed: 0, stopped: null };
     if (!targets.length) return out;
-    this.log(`${tag}: ${acc.alias}: looking at ${targets.length} other character(s)${forItems.length ? " for their items' enchantments" : ""}${sideChar ? `; #${sideChar.id} reads the ${sideChar.seasonal ? "seasonal" : "non-seasonal"} side's containers` : ""}`);
+    this.log(`${tag}: ${acc.alias}: looking at ${targets.length} character(s)${forItems.length ? " for their items' enchantments" : ""}${sideChar ? `; ${ownSide ? "the played character " : ""}#${sideChar.id} reads the ${sideChar.seasonal ? "seasonal" : "non-seasonal"} side's containers` : ""}`);
     for (const [i, ch] of targets.entries()) {
       const label = `character #${ch.id} (${CLASS_NAMES[ch.objectType] ?? `class ${ch.objectType}`}, ${i + 1}/${targets.length})`;
       if (this.cancelled) {
@@ -3328,10 +3357,13 @@ export class StorageService {
           out.failed++;
           continue;
         }
-        const snap = snapshotInventory(client);
-        const r = recordCharVisit(st, ch.id, snap, this.now());
         out.visited++;
-        this.log(`${tag}: ${acc.alias}: ${label}: ${r.items} tradeable item(s), ${r.enchanted} enchanted, ${snap.capacity} trade slots`);
+        // The played character's items are the tracker's (the snapshot just filed them): this login is for its Vault.
+        if (!(ownSide && ch.id === sideChar!.id)) {
+          const snap = snapshotInventory(client);
+          const r = recordCharVisit(st, ch.id, snap, this.now());
+          this.log(`${tag}: ${acc.alias}: ${label}: ${r.items} tradeable item(s), ${r.enchanted} enchanted, ${snap.capacity} trade slots`);
+        }
         if (sideChar && ch.id === sideChar.id) {
           this.setActivity(acc.guid, `${tag}: ${label}: reading its side's vault`);
           try {
@@ -3340,7 +3372,9 @@ export class StorageService {
             await sleep(T.settleMs);
             const view = await enterVault(client, T, (l) => this.log(`${tag}: ${acc.alias}: ${label}: ${l}`));
             const seasonal = client.charSeasonal ?? ch.seasonal;
-            st.otherSide = { seasonal, at: this.now(), containers: containersFromView(view, st.otherSide?.seasonal === seasonal ? st.otherSide.containers : null, this.now() / 1000) };
+            // The played character's own chests are the account's containers; another character's are the other side's.
+            if (ownSide) this.applyView(st, view, seasonal);
+            else st.otherSide = { seasonal, at: this.now(), containers: containersFromView(view, st.otherSide?.seasonal === seasonal ? st.otherSide.containers : null, this.now() / 1000) };
             const used = (k: ContainerKind) => view[VIEW_KEY[k]].slots.filter((t) => t > 0).length;
             this.log(`${tag}: ${acc.alias}: ${label}: ${seasonal ? "seasonal" : "non-seasonal"} side: vault ${used("vault")}/${view.vault.slots.length} · rack ${used("rack")}/${view.potion.slots.length} · gift ${used("gift")}`);
           } catch (e) {
