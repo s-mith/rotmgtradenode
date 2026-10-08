@@ -47,7 +47,7 @@ const TABS: { id: DevTab; label: string }[] = [
   { id: "proxies", label: "Proxies" },
   // Accepted items: hidden for now; the tab stays at #items and the setting still applies.
   // Offers: meetings show on the main page's Trading desk; the tab stays at #offers.
-  // Communism: the "Across the hub" panel is on the main page's Communism bookmark; the tab stays at #communism.
+  // Communism: the "Across the hub" panel is hidden for now (the main page no longer shows it); the tab stays at #communism.
 ];
 /**
  * Tabs reachable by hash but not listed: the Servers tab (the load gate runs the servers by itself),

@@ -8,7 +8,6 @@ import { useLiveUpdates } from "@/lib/useLive"
 import { applyPoolWire, emptyPoolState, inPool, instancesFromState, type PoolInstance, type PoolState, type PoolWire, type Rarity } from "@/lib/poolWire";
 import LoginPanel from "./LoginPanel";
 import TradePanel, { type TradeSection } from "./TradePanel";
-import CommunismPanel from "./CommunismPanel";
 import OpenRequests from "./OpenRequests";
 import PlayerName from "./PlayerName";
 import { ItemSprite } from "./ItemSprite";
@@ -1202,12 +1201,8 @@ export default function Vault() {
             />
           </div>
         )}
-        {desk === "communism" && (
-          <div className="panel trade-panel-wrap">
-            <h2>Across the hub</h2>
-            <CommunismPanel seasonal={ctxSeasonal} accounts={communismInfo?.accounts ?? []} onChanged={reload} />
-          </div>
-        )}
+        {/* Across the hub (other nodes' communism, hand-overs, hub requests): hidden for now;
+            CommunismPanel stays for the control panel's #communism tab. */}
         <div className="panel">
             <h2> Recent Activity</h2>
             <RecentActivity refreshKey={feedKey} />
