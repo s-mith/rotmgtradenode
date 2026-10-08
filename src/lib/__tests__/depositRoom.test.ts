@@ -49,11 +49,27 @@ afterEach(() => {
 });
 
 describe("deposit room", () => {
-  it("communism takes the fleet's figure for the side when it reports one, else the most one account has free", async () => {
-    expect(await deposit({ slots: 12, communism: true })).toMatchObject({ ok: false, status: 409, error: expect.stringMatching(/most one trade can take is 6/) });
-    advanced({ communism: true });
-    poolNow.room!.communism = { seasonal: { largestFree: 12 }, nonseasonal: { largestFree: 0 } };
+  it("communism takes a deposit over all its accounts' room, not one trade's: the rest continues", async () => {
+    // 6 free on each of three accounts: 12 goes in over more than one trade, advanced management or not.
     expect(await deposit({ slots: 12, communism: true })).toMatchObject({ ok: true });
+    db.prepare("DELETE FROM deposit_requests").run();
+    advanced({ communism: true });
+    poolNow.room!.communism = { seasonal: { largestFree: 4 }, nonseasonal: { largestFree: 0 } };
+    expect(await deposit({ slots: 12, communism: true })).toMatchObject({ ok: true });
+  });
+
+  it("counts every character of a communism account's side, not only the one it plays", async () => {
+    // One account; the character it plays holds 7 of 8, its two others are empty (the fleet's accountRoom).
+    poolNow.bots = { c1: { patk: 7 } };
+    poolNow.capacities = { c1: 8 };
+    poolNow.botMeta = { c1: { ign: "C1", server: "", online: false, seasonal: true, communism: true } };
+    poolNow.accountRoom = { c1: { slots: 24, used: 7 } };
+    expect(await deposit({ slots: 8, communism: true })).toMatchObject({ ok: true });
+  });
+
+  it("refuses a communism deposit bigger than all of communism's room", async () => {
+    poolNow.accountRoom = { c1: { slots: 8, used: 2 }, c2: { slots: 8, used: 2 }, c3: { slots: 8, used: 2 } };
+    expect(await deposit({ slots: 20, communism: true })).toMatchObject({ ok: false, status: 409, error: "Only 18 slots of room left in communism right now — not enough for 20 items." });
   });
 
   it("says how much the side takes, not one bot, when deposits continue on the next empty bot", async () => {

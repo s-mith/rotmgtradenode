@@ -801,7 +801,10 @@ export class Dispatcher {
       // that is the whole point of the hint — and it names the row so the
       // site doesn't hand it the oldest one instead.
       const routed = !pinned && liveFree > 0 ? this.depositRoutedTo(acc, client) : null;
-      if (pinned) {
+      if (pinned && this.communismRoomierFor(acc, pinned, liveFree)) {
+        // A roomier character of its side takes a full trade of it: no claim
+        // here; the supervise pass brings it back as that one (rotateFor).
+      } else if (pinned) {
         plan.freeSlots = liveFree;
         plan.tryDeposit = true;
         plan.preferRequestId = pinned.requestId;
@@ -1687,8 +1690,13 @@ export class Dispatcher {
     }
     const free = botStates.get(acc.botGuid)?.freeSlots ?? 8;
     // A deposit is one trade of the size it asks for; a bot short of that
-    // can't claim it. A communism account takes communism deposits with any room at all.
-    return deposits.some((d) => (d.communism ? free >= 1 : free >= d.itemCount));
+    // can't claim it. A communism account takes communism deposits with any
+    // room at all (the rest continues), unless a roomier character of its side
+    // takes a full trade of one: then it comes back as that one (rotateFor).
+    // In game that is judged by what the client sees, as its claim (claimPlan)
+    // and the rotation are: the tracker can say more room than there is.
+    const communismFree = acc.communism && acc.client && this.inWorld(acc) ? this.countFreeSlots(acc.client) : free;
+    return deposits.some((d) => (d.communism ? communismFree >= 1 && !this.communismRoomierFor(acc, d, communismFree) : free >= d.itemCount));
   }
 
   /**
@@ -1862,12 +1870,44 @@ export class Dispatcher {
   }
   /** Rotate an account kept for these deposits when its character, with `free` slots, is too small for every one of them and a roomier one of its side fits one: the character it switched to, or null. */
   private rotateFor(acc: BotAccount, deposits: RoutedDeposit[], free: number): { id: number; free: number; held: number } | null {
-    const needs = deposits.map((d) => (d.communism ? 1 : d.itemCount));
+    if (acc.communism) {
+      // A roomier character of its side that takes a full trade of a deposit here; with its own full, any with room.
+      let next: { id: number; free: number; held: number } | null = null;
+      for (const d of deposits) if ((next = this.communismRoomierFor(acc, d, free))) break;
+      if (!next && free < 1 && deposits.length) next = this.roomierChar(acc, 1);
+      if (next) this.switchChar(acc, next, `a communism deposit waiting for it needs more than its character's ${free} free slot(s); character ${next.id} has ${next.free}`);
+      return next;
+    }
+    const needs = deposits.map((d) => d.itemCount);
     if (!needs.length || needs.some((n) => free >= n)) return null;
     const need = Math.min(...needs);
     const next = this.roomierChar(acc, need);
     if (next) this.switchChar(acc, next, `the ${need}-slot trade waiting for it needs more than its character's ${free} free slot(s)`);
     return next;
+  }
+  /**
+   * A communism account whose character has `free` slots, short of a full
+   * trade of this deposit (as much of it as one character of its side
+   * holds): the roomier character of its side that takes a full one, which it
+   * comes back as rather than split the trade. Null when the played one takes
+   * a full one, or no other does: it takes what it can there and the rest
+   * continues (lib/queue.ts), sparing a log-in.
+   */
+  private communismRoomierFor(acc: BotAccount, d: { itemCount: number }, free: number): { id: number; free: number; held: number } | null {
+    const full = Math.min(d.itemCount, this.sideCapacity(acc));
+    return free >= full ? null : this.roomierChar(acc, full);
+  }
+  /** The most one character of the account's side holds in a trade: its biggest capacity (8, 16 with a backpack, 24). */
+  private sideCapacity(acc: BotAccount): number {
+    let best = this.tracker.capacityFor(acc.botGuid);
+    for (const c of this.storageDesk?.chars(acc.botGuid) ?? []) if (c.seasonal === seasonalOf(acc)) best = Math.max(best, c.capacity);
+    return best;
+  }
+  /** A communism account's room over every living character of its side (the played one as the tracker counts it): its deposits continue from one to the next. */
+  private communismSideRoom(acc: BotAccount): number {
+    const side = (this.storageDesk?.chars(acc.botGuid) ?? []).filter((c) => c.seasonal === seasonalOf(acc));
+    if (!side.length) return Math.max(0, this.tracker.capacityFor(acc.botGuid) - this.tracker.heldCount(acc.botGuid));
+    return side.reduce((n, c) => n + Math.max(0, c.capacity - c.held), 0);
   }
   /**
    * The deposits here are all for the other side of the seasonal split: an
@@ -2158,20 +2198,21 @@ export class Dispatcher {
     if (emptyIntake.length && this.wakeEmptyFor(server, emptyIntake, offline)) return true;
     const oldWay = emptyIntake.length ? r.deposits.filter((d) => !emptyIntake.includes(d)) : r.deposits;
     // Communism: a communism account of the deposit's half with room, roomiest
-    // first; one whose character is full logs in as a roomier one of its side.
+    // first; one whose character is full, or short of a full trade of the
+    // deposit that a roomier one of its side takes, logs in as that one.
     for (const d of oldWay) {
       if (!d.communism) continue;
       const cands = offline
         .filter((a) => a.communism && seasonalOf(a) === d.seasonal && !this.isHeld(a.guid) && !waking.has(a.guid))
         .map((a) => {
           const free = this.trackedFree(a);
-          const other = free < 1 ? this.roomierChar(a, 1) : null;
+          const other = this.communismRoomierFor(a, d, free) ?? (free < 1 ? this.roomierChar(a, 1) : null);
           return { acc: a, free: other ? other.free : free, other };
         })
         .filter((c) => c.free >= 1)
         .sort((a, b) => b.free - a.free || (a.acc.guid < b.acc.guid ? -1 : 1));
       for (const { acc, free, other } of cands) {
-        if (this.wakeSpecificAccount(acc, server, depositRows([d]), other && { to: other, why: `communism deposit #${d.requestId} on ${server} needs a free slot and its character has none` })) {
+        if (this.wakeSpecificAccount(acc, server, depositRows([d]), other && { to: other, why: `communism deposit #${d.requestId} on ${server} needs more room than its character's ${this.trackedFree(acc)} free slot(s)` })) {
           this.log(`chose ${acc.alias} for communism deposit #${d.requestId} on ${server} — a communism account with ${free} free slot(s)`);
           return true;
         }
@@ -2700,7 +2741,8 @@ export class Dispatcher {
     // deposit an advanced side takes now is largestFreeByPool's to say.)
     const free: PoolRoom = { seasonal: 0, nonseasonal: 0, communism: { seasonal: 0, nonseasonal: 0 } };
     for (const acc of this.accounts()) {
-      const room = Math.max(0, this.tracker.capacityFor(acc.botGuid) - this.tracker.heldCount(acc.botGuid));
+      // A communism account's deposits continue from one character of its side to the next: all of them are room.
+      const room = acc.communism ? this.communismSideRoom(acc) : Math.max(0, this.tracker.capacityFor(acc.botGuid) - this.tracker.heldCount(acc.botGuid));
       (acc.communism ? free.communism! : free)[seasonalOf(acc) ? "seasonal" : "nonseasonal"] += room;
     }
     return free;

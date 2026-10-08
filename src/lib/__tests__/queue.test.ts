@@ -452,12 +452,45 @@ describe("advanced management (docs/relay/ADVANCED.md)", () => {
     expect(db.prepare("SELECT COUNT(*) AS n FROM deposit_requests WHERE status = 'pending'").get()).toEqual({ n: 0 });
   });
 
-  it("a claim without emptyOnly never continues, whatever it was claimed for", () => {
+  it("a pool claim without emptyOnly never continues: it only takes a deposit it fits whole", () => {
+    const id = insertDeposit("Comrade", "USSouth3", 1, 6);
+    botOnline(BOT, { freeSlots: 8 });
+    presence.setPoolRoom({ seasonal: 40, nonseasonal: 0 });
+    expect(q.claimDeposit(db, BOT, 8)).toMatchObject({ requestId: id, itemCount: 6 });
+    expect(depositRow(id).continues).toBe(0);
+    expect(q.fulfillDeposit(db, BOT, id, [{ itemId: "patk", qty: 6 }])).toMatchObject({ remaining: 0, terminal: true });
+  });
+
+  it("communism: an account short of the whole deposit takes what it has room for, and the rest continues", () => {
     const id = insertCommunismDeposit("Comrade", 12);
     botOnline(COMMUNISM_BOT, { freeSlots: 6, communism: true });
-    expect(q.claimDeposit(db, COMMUNISM_BOT, 6)).toMatchObject({ requestId: id, itemCount: 6 });
-    expect(depositRow(id).continues).toBe(0);
-    expect(q.fulfillDeposit(db, COMMUNISM_BOT, id, [{ itemId: "patk", qty: 6 }])).toMatchObject({ remaining: 0, terminal: true });
+    presence.setPoolRoom({ seasonal: 0, nonseasonal: 0, communism: { seasonal: 30, nonseasonal: 0 } });
+    expect(q.claimDeposit(db, COMMUNISM_BOT, 6)).toMatchObject({ requestId: id, itemCount: 6, communism: true });
+    expect(depositRow(id)).toMatchObject({ current_cap: 6, continues: 1 });
+    const r = q.fulfillDeposit(db, COMMUNISM_BOT, id, [{ itemId: "patk", qty: 6 }]);
+    expect(r).toMatchObject({ remaining: 6, terminal: false });
+    // The rest is the player's next trade, in the same group, for whichever character or account has room.
+    expect(depositRow(r.continuedAs!)).toMatchObject({ status: "pending", item_count: 6, communism: 1, group_id: depositRow(id).group_id });
+  });
+
+  it("communism: a deposit that fits whole, an under-filled trade, or no room left ends with the trade", () => {
+    const whole = insertCommunismDeposit("Whole", 4);
+    botOnline(COMMUNISM_BOT, { freeSlots: 8, communism: true });
+    presence.setPoolRoom({ seasonal: 0, nonseasonal: 0, communism: { seasonal: 30, nonseasonal: 0 } });
+    expect(q.claimDeposit(db, COMMUNISM_BOT, 8)).toMatchObject({ requestId: whole, itemCount: 4 });
+    expect(depositRow(whole).continues).toBe(0);
+    expect(q.fulfillDeposit(db, COMMUNISM_BOT, whole, [{ itemId: "patk", qty: 4 }])).toMatchObject({ terminal: true });
+    // Short of room, but the player put in fewer than it had: they brought no more.
+    const under = insertCommunismDeposit("Under", 12);
+    botOnline(COMMUNISM_BOT, { freeSlots: 6, communism: true });
+    expect(q.claimDeposit(db, COMMUNISM_BOT, 6)).toMatchObject({ requestId: under, itemCount: 6 });
+    expect(q.fulfillDeposit(db, COMMUNISM_BOT, under, [{ itemId: "patk", qty: 5 }])).toMatchObject({ terminal: true });
+    // Short of room, filled, but communism has no room left for the rest.
+    const full = insertCommunismDeposit("Full", 12);
+    botOnline(COMMUNISM_BOT, { freeSlots: 6, communism: true });
+    expect(q.claimDeposit(db, COMMUNISM_BOT, 6)).toMatchObject({ requestId: full, itemCount: 6 });
+    presence.setPoolRoom({ seasonal: 0, nonseasonal: 0, communism: { seasonal: 6, nonseasonal: 0 } });
+    expect(q.fulfillDeposit(db, COMMUNISM_BOT, full, [{ itemId: "patk", qty: 6 }])).toMatchObject({ terminal: true, vaultFull: true });
   });
 
   it("communism: a bot with only a few free slots takes no deposit; an empty one takes it up to its room and the rest continues", () => {

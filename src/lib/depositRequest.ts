@@ -8,7 +8,7 @@
 // the two would mean one path could book a slot the other believes is taken.
 import crypto from "node:crypto";
 import type Database from "better-sqlite3";
-import { acrossRoomFor, committedDepositSlots, filterBotsByPool, largestFreeSlots, totalPoolSlots } from "./capacity";
+import { acrossRoomFor, committedDepositSlots, communismRoomFor, filterBotsByPool, largestFreeSlots, totalPoolSlots } from "./capacity";
 import { MAX_TRADE_SLOTS } from "./depositSizes";
 import { pyrelay } from "./devauth";
 import { openRequestsFor } from "./cancelCode";
@@ -47,7 +47,8 @@ export async function createDepositRequest(
     ign: string;
     ignLower: string;
     server: string;
-    /** The one trade's size, 1-16: only a bot with this many free slots takes it (the site offers 8 or 16). */
+    /** How many items, 1-24. Into the pool it is one trade's size (only a bot with that much room takes it, unless
+     *  advanced management continues it); into communism it continues over as many trades as it needs. */
     slots: number;
     /** 1 = seasonal pool, 0 = non-seasonal. Only a matching-pool bot can claim. */
     seasonal: 0 | 1;
@@ -113,10 +114,16 @@ export async function createDepositRequest(
   // Pool accounts playing the other side that have characters on this one
   // serve it too, logging in as one of them: their slots there are room.
   const across = communism ? { bots: 0, slots: 0, used: 0 } : acrossRoomFor(poolResp.ok ? poolResp.data.acrossRoom : undefined, seasonal ? "seasonal" : "nonseasonal", (g) => !!botMeta?.[g]?.suspended);
-  const totalSlots = totalPoolSlots(trackerGuids, capacities, trackerGuids.length) + across.slots;
-  let usedSlots = across.used;
-  for (const guid of trackerGuids) {
-    for (const qty of Object.values(tracker[guid] ?? {})) usedSlots += qty;
+  // Communism takes a deposit over as many trades as it needs, on whichever
+  // character of its accounts has room (lib/queue.ts continues it), so its
+  // room is every character of its side, not the one each account plays.
+  const communismSide = communism && poolResp.ok ? communismRoomFor(poolResp.data, seasonal ? "seasonal" : "nonseasonal") : null;
+  const totalSlots = communismSide ? communismSide.slots : totalPoolSlots(trackerGuids, capacities, trackerGuids.length) + across.slots;
+  let usedSlots = communismSide ? communismSide.used : across.used;
+  if (!communismSide) {
+    for (const guid of trackerGuids) {
+      for (const qty of Object.values(tracker[guid] ?? {})) usedSlots += qty;
+    }
   }
   const freeSlotsGlobal = Math.max(0, totalSlots - usedSlots);
   // The biggest single trade a bot could take right now. The embedded fleet
@@ -124,15 +131,10 @@ export async function createDepositRequest(
   // parked or locked out); a plain snapshot falls back to capacity minus load.
   // Under advanced management (docs/relay/ADVANCED.md) it is the biggest
   // deposit the side takes now: one empty character after another, so it
-  // may be more than one bot holds. Communism has its own figure then.
+  // may be more than one bot holds. Communism needs no one trade's room: it continues.
   const room = poolResp.ok && !communism ? poolResp.data.room : undefined;
-  const communismRoom = poolResp.ok && communism ? poolResp.data.room?.communism : undefined;
   const advanced = advancedForPool(communism);
-  const largestFree = room
-    ? room[seasonal ? "seasonal" : "nonseasonal"].largestFree
-    : communismRoom
-      ? communismRoom[seasonal ? "seasonal" : "nonseasonal"].largestFree
-      : largestFreeSlots(trackerGuids, tracker, capacities);
+  const largestFree = room ? room[seasonal ? "seasonal" : "nonseasonal"].largestFree : largestFreeSlots(trackerGuids, tracker, capacities);
   // `canMake` was the automatic backpack fitting (removed 2026-09-22); the pool payload still carries it, always false.
   const canMake = !!room && slots > 8 && room[seasonal ? "seasonal" : "nonseasonal"].canMake;
   if (totalSlots === 0) {
@@ -199,19 +201,19 @@ export async function createDepositRequest(
       return {
         kind: "err" as const,
         status: 409,
-        error: availableSlots < 1 ? `${communism ? "Communism is" : "Vault is"} full — wait for a withdrawal to free up space.` : `Only ${availableSlots} slot${availableSlots === 1 ? "" : "s"} of room left in ${where} right now — not enough for a ${slots}-slot trade.`,
+        error: availableSlots < 1 ? `${communism ? "Communism is" : "Vault is"} full — wait for a withdrawal to free up space.` : `Only ${availableSlots} slot${availableSlots === 1 ? "" : "s"} of room left in ${where} right now — not enough for ${communism ? `${slots} items` : `a ${slots}-slot trade`}.`,
       };
     }
-    if (largestFree < slots && !canMake) {
+    if (!communism && largestFree < slots && !canMake) {
       return {
         kind: "err" as const,
         status: 409,
         error:
           largestFree < 1
-            ? `No ${communism ? "communism account" : "bot"} has room right now. Try again later.`
+            ? "No bot has room right now. Try again later."
             : advanced
-              ? `${communism ? "Communism" : "This pool"} can take ${largestFree} item${largestFree === 1 ? "" : "s"} right now, not ${slots}. Bring fewer, or try again later.`
-              : `No ${communism ? "communism account" : "bot"} has ${slots} free slots right now; the most one trade can take is ${largestFree}. Bring fewer, or try again later.`,
+              ? `This pool can take ${largestFree} item${largestFree === 1 ? "" : "s"} right now, not ${slots}. Bring fewer, or try again later.`
+              : `No bot has ${slots} free slots right now; the most one trade can take is ${largestFree}. Bring fewer, or try again later.`,
       };
     }
     const result = db

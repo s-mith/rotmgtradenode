@@ -364,9 +364,7 @@ export default function TxForm({
           kind: "ok",
           text:
             mode === "communism"
-              ? depositContinues
-                ? `Communism deposit queued for ${ign} on ${server}. An empty communism account will meet you for up to ${Math.min(depositSlots, communismRoom)} items; if you bring more than it holds, the next one comes for the rest. Anyone on the hub may take them afterwards.`
-                : `Communism deposit queued for ${ign} on ${server}. A communism account will meet you for one trade of up to ${Math.min(depositSlots, communismRoom)} items — anyone on the hub may take them afterwards.`
+              ? `Communism deposit queued for ${ign} on ${server}. A communism account will meet you for up to ${Math.min(depositSlots, communismRoom)} items; if you bring more than its character holds, the rest goes to its next character or another account with room. Anyone on the hub may take them afterwards.`
               : depositContinues
                 ? `Deposit queued for ${ign} on ${server}. An empty bot will meet you — whatever you hand over is deposited, and if you bring more than it holds, the next one comes for the rest.`
                 : `Deposit queued for ${ign} on ${server}. A bot with ${depositSlots} free slot${depositSlots === 1 ? "" : "s"} will meet you for one trade — whatever you hand over is deposited.`,
@@ -573,9 +571,11 @@ export default function TxForm({
             />
             <span className="pool-option-hint">
               {depositMax >= 1
-                ? depositContinues
-                  ? `up to ${depositMax}: what the empty ${mode === "communism" ? "communism accounts" : "bots"} can take right now, one bot after another`
-                  : `up to ${depositMax} in one trade: ${mode === "communism" ? "what communism has left" : "the most free space on one bot right now"}`
+                ? mode === "communism"
+                  ? `up to ${depositMax}: what communism has left, one character after another`
+                  : depositContinues
+                    ? `up to ${depositMax}: what the empty bots can take right now, one bot after another`
+                    : `up to ${depositMax} in one trade: the most free space on one bot right now`
                 : mode === "communism" ? "communism is full" : "no bot has room right now"}
             </span>
           </div>
@@ -596,9 +596,7 @@ export default function TxForm({
             ? `No ${seasonal ? "seasonal" : "non-seasonal"} account is set aside for communism on this node. Tick "communism" on one under Control panel → Accounts.`
             : communismFree === 0
               ? `The ${seasonal ? "seasonal" : "non-seasonal"} communism is full. It has room again when someone takes something.`
-              : depositContinues
-                ? `Submit and an empty ${seasonal ? "seasonal" : "non-seasonal"} communism account meets ${ign || "you"} on the chosen server; if you bring more than it holds, the next one comes for the rest. Whatever you hand over is free for anyone on the hub to take.`
-                : `Submit and a ${seasonal ? "seasonal" : "non-seasonal"} communism account meets ${ign || "you"} on the chosen server for one trade. Whatever you hand over is free for anyone on the hub to take.`}
+              : `Submit and a ${seasonal ? "seasonal" : "non-seasonal"} communism account meets ${ign || "you"} on the chosen server; if you bring more than its character holds, the rest goes to its next character or another account with room. Whatever you hand over is free for anyone on the hub to take.`}
         </p>
       )}
       {tab === "withdraw" && mode === "communism" && (
