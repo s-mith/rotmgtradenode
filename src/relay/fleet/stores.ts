@@ -62,7 +62,8 @@ export class LoginCodes {
       const exp = this.expected.get(code);
       if (exp === undefined || exp <= now) continue;
       this.expected.delete(code);
-      this.verified.set(code, { ign: name, expiresAt: now + VERIFIED_TTL_MS });
+      // Realm writes some names as "Name,a19d,fe3" on the wire; the character is "Name".
+      this.verified.set(code, { ign: name.split(",", 1)[0].trim(), expiresAt: now + VERIFIED_TTL_MS });
       for (const fn of this.listeners) {
         try {
           fn(code, name);

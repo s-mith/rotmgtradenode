@@ -2636,10 +2636,22 @@ export class Dispatcher {
         return;
       }
     }
-    if (now - this.loginDeskNoneNote >= 60_000) {
-      this.loginDeskNoneNote = now;
-      this.log(`the login desk is wanted but no account can staff it: none of the ${this.pool.all().length} on the roster is free (online elsewhere, in use, held or on a login cooldown)`);
-    }
+    // Tried and could not wake one: the wake path says why.
+    if (candidates.length) return;
+    // Nobody to try. An account only sitting out a short login cooldown (the seconds after a sweep closes its
+    // session) staffs the desk in a moment: nothing to say. Anything longer gets a line a minute.
+    const cooldowns = this.offline()
+      .filter((a) => !a.inUse && !this.isHeld(a.guid))
+      .map((a) => this.deps.gate.lockoutRemainingMs(a.guid))
+      // A suspension or a refused password reads as a year: that account is not coming.
+      .filter((ms) => ms > 0 && ms < 24 * 3600 * 1000);
+    const soonest = cooldowns.length ? Math.min(...cooldowns) : null;
+    if (soonest !== null && soonest <= 60_000) return;
+    if (now - this.loginDeskNoneNote < 60_000) return;
+    this.loginDeskNoneNote = now;
+    this.log(soonest !== null
+      ? `the login desk is wanted, but every account that could staff it is on a login cooldown: the first is free in ${Math.ceil(s(soonest))}s`
+      : `the login desk is wanted but no account can staff it: none of the ${this.pool.all().length} on the roster is free (online elsewhere, in use, held, suspended or its password refused)`);
   }
 
   /** The bot the site should name in "/tell <bot> <code>", or null. */

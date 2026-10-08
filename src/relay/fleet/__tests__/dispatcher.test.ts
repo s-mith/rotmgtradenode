@@ -277,13 +277,37 @@ describe("dispatcher end to end", () => {
     });
     cleanup.push(() => fleet.stop());
     await fleet.start({ sweep: false });
-    // The only account is set aside for communism; a code still gets a bot to /tell.
+    // The only account is set aside for communism, and sits out the few seconds after a session closes;
+    // a code still gets a bot to /tell, and the short wait is not reported as "nobody can staff it".
+    fleet.gate.noteCooldown("comm1@example.com", 3, "session just closed");
     fleet.loginCodes.register("COMMCODE1");
-    await waitFor(() => fleet.dispatcher!.electLoginBot() !== null, 10_000, logs);
+    await waitFor(() => fleet.dispatcher!.electLoginBot() !== null, 12_000, logs);
     expect(fleet.dispatcher!.electLoginBot()!.ign).toBe("BotIgn");
     expect(logs.some((l) => l.includes("woke CommOne") && l.includes("a communism account: no other account is free"))).toBe(true);
+    expect(logs.some((l) => l.includes("the login desk is wanted"))).toBe(false);
     expect(fleet.loginCodes.noteTell("Someone", "COMMCODE1")).toBe(true);
   }, 25_000);
+
+  it("says when the login desk waits on a long login cooldown", async () => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "relay-test-"));
+    cleanup.push(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(dataDir, "Accounts.json"), JSON.stringify([{ alias: "DeskOne", guid: "desk1@example.com", password: "pw", server: "USSouth3", seasonal: true }]));
+    const logs: string[] = [];
+    const fleet = new Fleet({
+      dataDir, proxies: { file: path.join(dataDir, "none.txt") }, buildVersion: "7.0.0.0.0", api: new FakeSite(null, "Partner"),
+      log: (l) => logs.push(l),
+      bringUp: async () => {
+        throw new Error("nobody should be logging in");
+      },
+    });
+    cleanup.push(() => fleet.stop());
+    await fleet.start({ sweep: false });
+    fleet.gate.noteCooldown("desk1@example.com", 300, "login attempt limit");
+    fleet.loginCodes.register("LONGWAIT1");
+    await waitFor(() => logs.some((l) => l.includes("the login desk is wanted")), 10_000, logs);
+    expect(logs.find((l) => l.includes("the login desk is wanted"))).toMatch(/every account that could staff it is on a login cooldown: the first is free in \d+s/);
+    expect(fleet.dispatcher!.electLoginBot()).toBeNull();
+  }, 15_000);
 
   it("keeps a bot at the login desk all the time when the owner turns that on", async () => {
     const realm = new FakeRealm("Partner");
