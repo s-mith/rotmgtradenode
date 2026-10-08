@@ -33,6 +33,14 @@ describe("POST /api/login/status", () => {
     expect(await r.json()).toMatchObject({ ok: true, state: "verified", ign: "Comrade" });
     expect(r.headers.get("set-cookie")).toMatch(/rc_ign=/);
   });
+  it("says so when the verified name is unusable: the code is spent, so the page must not poll on into \"expired\"", async () => {
+    pollLogin.mockResolvedValue({ ok: true, state: "verified", ign: "Not A Name!" });
+    const { POST } = await import("@/server/api/login/status/route");
+    const r = await POST(post({ code: "ABCD2345EF" }));
+    expect(r.status).toBe(502);
+    expect(await r.json()).toMatchObject({ state: "verified", error: expect.any(String) });
+    expect(r.headers.get("set-cookie")).toBeNull();
+  });
 });
 
 describe("clientIp", () => {

@@ -40,7 +40,8 @@ export async function POST(req: Request) {
     return json({ ok: true, state: res.state });
   }
   const verified = checkIgn(res.ign);
-  if (!verified.ok) return json({ error: "The bot reported an unusable name." }, { status: 502 });
+  // The code is spent either way: say so with the state, or the page polls on and calls it expired.
+  if (!verified.ok) return json({ error: "The bot reported an unusable name. Start again.", state: "verified" }, { status: 502 });
 
   if (me) {
     const r = linkIgn(db, me.userId, verified.ign, verified.ignLower);
