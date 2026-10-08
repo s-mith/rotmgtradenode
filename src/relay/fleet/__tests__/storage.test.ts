@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { emptyVaultView, mergeVaultInfo } from "../vaultTrip";
-import { applySnapshot, carryListIdentities, containersFromView, charRows, charsToVisit, otherSideChar, planFetch, planMove, planTuck, reconcileCharItems, reconcileTucked, recordCharVisit, roomMoves, storedInstances, storeFirst, StorageService, StorageStore, nameOfType, QUICK_SLOT_FIRST, type AccountStorageState, type Move, type PlanInput } from "../storage";
+import { applySnapshot, carryListIdentities, containersFromView, charRows, charsToVisit, otherSideChar, seasonalReader, planFetch, planMove, planTuck, reconcileCharItems, reconcileTucked, recordCharVisit, roomMoves, storedInstances, storeFirst, StorageService, StorageStore, nameOfType, QUICK_SLOT_FIRST, type AccountStorageState, type Move, type PlanInput } from "../storage";
 import { whereLabel } from "../../../lib/poolWire";
 import type { AccountDump, DumpSlot } from "../../realm/api";
 import { LoginGate } from "../loginGate";
@@ -205,6 +205,18 @@ describe("storedInstances", () => {
     expect(whereLabel(by["v-ring"].where)).toBe("non-seasonal vault chest");
     // A stale other-side read of the played side's own side is ignored.
     expect(storedInstances(state({ otherSide: { ...st.otherSide!, seasonal: false } }), 1, false).find((s) => s.instanceId === "sv-pdef")).toBeUndefined();
+  });
+  it("names the character whose login reads the seasonal side's chests: the played one when it is seasonal", () => {
+    const st = state({ chars: [char(1, false), char(2, true), char(3, true)] });
+    // A regular login: a seasonal character walks into its Vault.
+    expect(seasonalReader(st, 1, false)?.id).toBe(2);
+    // A seasonal login: the snapshot has none of its side's chests, so the played character reads its own.
+    expect(seasonalReader(st, 2, true)?.id).toBe(2);
+    expect(seasonalReader(state({ chars: [char(2, true)], loginCharId: 2 }), 2, true)?.id).toBe(2);
+    // ...unless a trip just read them; and nothing without a seasonal character, or with the side unknown.
+    expect(seasonalReader(st, 2, true, [], true)).toBeNull();
+    expect(seasonalReader(state({ chars: [char(1, false)] }), 1, false)).toBeNull();
+    expect(seasonalReader(st, 1, null)).toBeNull();
   });
   it("names a character of the other side for a read to look at that side's containers", () => {
     expect(otherSideChar(state(), 1, false)?.id).toBe(2);
@@ -531,6 +543,38 @@ describe("applySnapshot", () => {
     expect(st2.otherSide).toMatchObject({ seasonal: false });
     expect(st2.otherSide!.containers.vault.slots[0]).toBe(RING);
     expect(storedInstances(st2, 2, true).find((s) => s.where.kind === "vault")).toMatchObject({ where: { seasonal: false }, pools: { seasonal: false, nonseasonal: true } });
+  });
+  it("follows an account whose regular character is gone and a seasonal one is played: the regular view moves to the other side", () => {
+    const slot = (type: number): DumpSlot => ({ type, copyId: null, enchantments: null });
+    const pad = (xs: DumpSlot[]) => [...xs, ...Array.from({ length: 8 - xs.length }, () => slot(-1))];
+    // Its one character is seasonal now; the containers were read while it played its regular one.
+    const dump: AccountDump = { nextCharId: 3, maxNumChars: 5, name: "Bob", chars: [{ ...char(2, true), slots: [] }], vault: [pad([slot(RING), slot(PDEF), slot(PATK)])], materialStorage: [], gifts: [], temporaryGifts: [], potions: [], records: 0, sections: ["Account/Vault"] };
+    const st = state();
+    const regularView = st.containers;
+    applySnapshot(st, dump, 2, 5_000);
+    expect(st.viewSeasonal).toBe(true);
+    // The seasonal side's chests wait for its Vault to be read (the played character walks in); the regular view is the other side's.
+    expect(st.containers).toBeNull();
+    expect(st.otherSide).toMatchObject({ seasonal: false });
+    expect(st.otherSide!.containers).toBe(regularView);
+    // No living regular character: the regular chests serve no pool.
+    expect(storedInstances(st, 2, true).filter((s) => s.where.kind === "vault").every((s) => !s.pools.seasonal && !s.pools.nonseasonal)).toBe(true);
+  });
+  it("follows a seasonal account that turned regular: its seasonal view becomes the other side's and the regular one its own", () => {
+    const slot = (type: number): DumpSlot => ({ type, copyId: null, enchantments: null });
+    const pad = (xs: DumpSlot[]) => [...xs, ...Array.from({ length: 8 - xs.length }, () => slot(-1))];
+    const dump: AccountDump = { nextCharId: 3, maxNumChars: 5, name: "Bob", chars: [{ ...char(2, false), slots: [] }], vault: [pad([slot(PDEF)])], materialStorage: [], gifts: [], temporaryGifts: [], potions: [], records: 0, sections: ["Account/Vault"] };
+    const empty = { objectId: -1, slots: [] as number[], instances: {} };
+    const regularSide = { vault: { objectId: -1, slots: [PDEF, -1, -1, -1, -1, -1, -1, -1], instances: { 0: inst("o-pdef", "pdef") } }, rack: { ...empty }, gift: { ...empty }, spoils: { ...empty } };
+    // It played a seasonal character: its view was the seasonal side's, the snapshot's regular chests the other side's.
+    const st: AccountStorageState = { ...state(), viewSeasonal: true, chars: [char(2, true)], loginCharId: 2, otherSide: { seasonal: false, at: 2, containers: regularSide } };
+    const seasonalView = st.containers;
+    applySnapshot(st, dump, 2, 5_000);
+    expect(st.viewSeasonal).toBe(false);
+    expect(st.containers).toBe(regularSide);
+    expect(st.containers!.vault.instances[0].instanceId).toBe("o-pdef");
+    expect(st.otherSide).toMatchObject({ seasonal: true });
+    expect(st.otherSide!.containers).toBe(seasonalView);
   });
 });
 

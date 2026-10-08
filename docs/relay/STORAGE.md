@@ -58,9 +58,11 @@ second) as long as it waits for the login gate, 90 s, then fails saying
 switched off, at once).
 
 Only the seasonal side's vault, rack and gift chest are not in the
-snapshot. An account with a character of the side the played one is not on
-gets one game login as that character after the snapshot (`visitLoop` with
-containers only) to read them. A run of queued moves is still a trip into
+snapshot. An account with a seasonal character gets one game login after
+the snapshot to walk into the Vault and read them (`visitLoop` with
+containers only, `seasonalReader`): as the played character when it is
+seasonal (its own chests; skipped when a trip read them in the last five
+minutes), else as a seasonal character. A run of queued moves is still a trip into
 the Vault as the played character, since moves are INVSWAP packets sent
 from inside it; the trip refreshes the regular side's view too, and reads
 the snapshot again beside it. The Accounts tab says when an account's
@@ -132,11 +134,23 @@ tag whose name contains "Season" in `sections`, in case that changes.
 
 So the seasonal vault, potion rack and gift chest are read in the game: a
 seasonal character sees them in the Vault the way a non-seasonal one sees
-the regular ones. A read of an account with characters on both sides logs
-in as one character of the side the played character is not on
-(`otherSideChar`) and walks into the Vault as it (`visitLoop`), filing what
-it sees under `otherSide` for the roster and the counts, whether or not the
-snapshot made the item visits unnecessary. Verified live the same day.
+the regular ones. A read logs in as a seasonal character and walks into the
+Vault as it (`visitLoop`, `seasonalReader`), whether or not the snapshot
+made the item visits unnecessary. When the played character is regular that
+is another character, and what it sees is filed under `otherSide` (verified
+live 2026-09-22). When the played character is seasonal, the snapshot's
+regular chests are the other side's and the played character reads its own
+chests: they are the account's `containers`, as a trip's Vault view is
+(`applyView`).
+
+The played character can change side: the account's regular characters
+are gone and a seasonal one is played, or a season ends and its characters
+turn regular. A trip's Vault view follows that (`applyView`), and so does
+the snapshot (`applySnapshot`): what the containers held is the other
+side's from then on, and what the other side held is the played side's.
+Before 2026-10-08 the snapshot did not, and a read never walked into a
+seasonal played character's Vault, so such an account's seasonal chests
+stayed unread until some trip took it into the Vault.
 
 A vault of hundreds of chests (566 on that account) arrives as VAULTINFO
 chunks of 2048 slots; the server sent two and never one flagged last, so
